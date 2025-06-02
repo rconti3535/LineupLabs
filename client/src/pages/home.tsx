@@ -1,5 +1,4 @@
 import { QuickActions } from "@/components/home/quick-actions";
-import { RecentActivity } from "@/components/home/recent-activity";
 import { FeaturedLeagues } from "@/components/home/featured-leagues";
 
 export default function Home() {
@@ -11,7 +10,6 @@ export default function Home() {
       </div>
 
       <QuickActions />
-      <RecentActivity />
       <FeaturedLeagues />
     </div>
   );
