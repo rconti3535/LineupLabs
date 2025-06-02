@@ -89,24 +89,6 @@ export default function Signup() {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-white">Full Name</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Enter your full name"
-                      className="sleeper-card-bg sleeper-border border text-white placeholder-gray-400"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
               name="username"
               render={({ field }) => (
                 <FormItem>
