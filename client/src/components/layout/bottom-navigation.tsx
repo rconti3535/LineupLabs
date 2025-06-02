@@ -1,0 +1,47 @@
+import { useLocation } from "wouter";
+import { Home, Users, User } from "lucide-react";
+import { Link } from "wouter";
+
+export function BottomNavigation() {
+  const [location] = useLocation();
+
+  const navItems = [
+    { path: "/", icon: Home, label: "Home" },
+    { path: "/teams", icon: Users, label: "Teams" },
+    { path: "/profile", icon: User, label: "Profile" },
+  ];
+
+  return (
+    <nav className="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-md sleeper-bg border-t sleeper-border px-4 py-2">
+      <div className="flex justify-around">
+        {navItems.map(({ path, icon: Icon, label }) => {
+          const isActive = location === path;
+          return (
+            <Link key={path} href={path}>
+              <button
+                className={`flex flex-col items-center py-2 px-4 rounded-lg transition-all duration-200 ${
+                  isActive
+                    ? "nav-item-active"
+                    : "hover:bg-slate-800 hover:bg-opacity-50"
+                }`}
+              >
+                <Icon
+                  className={`mb-1 h-5 w-5 ${
+                    isActive ? "text-white" : "text-gray-400"
+                  }`}
+                />
+                <span
+                  className={`text-xs font-medium ${
+                    isActive ? "text-white" : "text-gray-400"
+                  }`}
+                >
+                  {label}
+                </span>
+              </button>
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}

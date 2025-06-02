@@ -1,0 +1,111 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 240 10% 3.9%;
+  --foreground: 0 0% 98%;
+  --muted: 240 3.7% 15.9%;
+  --muted-foreground: 240 5% 64.9%;
+  --popover: 240 10% 3.9%;
+  --popover-foreground: 0 0% 98%;
+  --card: 240 10% 3.9%;
+  --card-foreground: 0 0% 98%;
+  --border: 240 3.7% 15.9%;
+  --input: 240 3.7% 15.9%;
+  --primary: 207 90% 54%;
+  --primary-foreground: 211 100% 99%;
+  --secondary: 240 3.7% 15.9%;
+  --secondary-foreground: 0 0% 98%;
+  --accent: 240 3.7% 15.9%;
+  --accent-foreground: 0 0% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 98%;
+  --ring: 240 4.9% 83.9%;
+  --radius: 0.75rem;
+  
+  /* Custom Sleeper-inspired colors */
+  --sleeper-dark: 240 10% 3.9%;
+  --sleeper-card: 240 6% 10%;
+  --sleeper-border: 240 3.7% 15.9%;
+  --sleeper-purple: 248 85% 63%;
+  --sleeper-blue: 217 91% 60%;
+  --sleeper-green: 142 76% 36%;
+}
+
+.dark {
+  --background: 240 10% 3.9%;
+  --foreground: 0 0% 98%;
+  --muted: 240 3.7% 15.9%;
+  --muted-foreground: 240 5% 64.9%;
+  --popover: 240 10% 3.9%;
+  --popover-foreground: 0 0% 98%;
+  --card: 240 10% 3.9%;
+  --card-foreground: 0 0% 98%;
+  --border: 240 3.7% 15.9%;
+  --input: 240 3.7% 15.9%;
+  --primary: 207 90% 54%;
+  --primary-foreground: 211 100% 99%;
+  --secondary: 240 3.7% 15.9%;
+  --secondary-foreground: 0 0% 98%;
+  --accent: 240 3.7% 15.9%;
+  --accent-foreground: 0 0% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 98%;
+  --ring: 240 4.9% 83.9%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    background: linear-gradient(135deg, hsl(var(--sleeper-dark)) 0%, hsl(240 6% 10%) 100%);
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  .gradient-card {
+    background: linear-gradient(135deg, hsl(var(--sleeper-card)) 0%, hsl(240 3.7% 15.9%) 100%);
+    border: 1px solid hsl(var(--sleeper-border));
+  }
+  
+  .primary-gradient {
+    background: linear-gradient(135deg, hsl(var(--sleeper-purple)) 0%, hsl(var(--sleeper-blue)) 100%);
+  }
+  
+  .nav-item-active {
+    background: linear-gradient(135deg, hsl(var(--sleeper-purple)) 0%, hsl(var(--sleeper-blue)) 100%);
+  }
+  
+  .hover-lift {
+    transition: all 0.3s ease;
+  }
+  
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+  }
+  
+  .league-card {
+    background: linear-gradient(135deg, hsl(240 6% 10%) 0%, hsl(var(--sleeper-card)) 100%);
+    border: 1px solid hsl(var(--sleeper-border));
+  }
+}
+
+@layer utilities {
+  .sleeper-bg {
+    background: hsl(var(--sleeper-dark));
+  }
+  
+  .sleeper-card-bg {
+    background: hsl(var(--sleeper-card));
+  }
+  
+  .sleeper-border {
+    border-color: hsl(var(--sleeper-border));
+  }
+}
