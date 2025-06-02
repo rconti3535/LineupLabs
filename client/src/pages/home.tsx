@@ -5,10 +5,9 @@ import { FeaturedLeagues } from "@/components/home/featured-leagues";
 export default function Home() {
   return (
     <div className="px-4 py-6">
-      {/* Welcome Section */}
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-white mb-2">Welcome Back!</h2>
-        <p className="text-gray-400">Ready to dominate this baseball season?</p>
+      {/* Hero Section */}
+      <div className="mb-8 text-center">
+        <h2 className="text-2xl font-bold text-white mb-2">Fantasy baseball, the way it should be.</h2>
       </div>
 
       <QuickActions />
