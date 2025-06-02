@@ -4,35 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export default function Messages() {
-  const conversations = [
-    {
-      id: 1,
-      name: "Championship Series",
-      lastMessage: "Good luck in this week's matchup!",
-      time: "2m ago",
-      unread: 2,
-      avatar: "https://images.unsplash.com/photo-1566577739112-5180d4bf9390?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=60&h=60",
-      isGroup: true,
-    },
-    {
-      id: 2,
-      name: "Mike Johnson",
-      lastMessage: "Want to trade Ohtani for Trout?",
-      time: "1h ago",
-      unread: 0,
-      avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=60&h=60",
-      isGroup: false,
-    },
-    {
-      id: 3,
-      name: "Rookie League",
-      lastMessage: "Alex: Anyone dropping players this week?",
-      time: "3h ago",
-      unread: 1,
-      avatar: "https://images.unsplash.com/photo-1578662996442-48f60103fc96?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=60&h=60",
-      isGroup: true,
-    },
-  ];
+  const conversations: any[] = [];
 
   const handleConversationClick = (conversationId: number) => {
     console.log("Open conversation:", conversationId);
