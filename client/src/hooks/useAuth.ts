@@ -8,7 +8,7 @@ export function useAuth() {
   });
 
   const { data: user, isLoading } = useQuery({
-    queryKey: ["/api/users", currentUserId],
+    queryKey: [`/api/users/${currentUserId}`],
     enabled: currentUserId !== null,
     retry: false,
   });
