@@ -11,7 +11,7 @@ export default function Profile() {
 
   const handleLogout = () => {
     logout();
-    setLocation("/");
+    setLocation("/login");
   };
 
   if (isLoading) {
