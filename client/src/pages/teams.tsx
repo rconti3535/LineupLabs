@@ -11,13 +11,8 @@ export default function Teams() {
 
   return (
     <div className="px-4 py-6">
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-white mb-2">My Teams</h2>
-        <p className="text-gray-400">Manage your fantasy baseball teams</p>
-      </div>
-
       {/* Teams List */}
-      <div className="space-y-4 mb-8">
+      <div className="space-y-4">
         {isLoading ? (
           Array.from({ length: 2 }).map((_, i) => (
             <div key={i} className="gradient-card rounded-xl p-6">
@@ -51,8 +46,6 @@ export default function Teams() {
           </div>
         )}
       </div>
-
-      <QuickTeamActions />
     </div>
   );
 }
