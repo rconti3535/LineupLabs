@@ -1,9 +1,11 @@
 import { Button } from "@/components/ui/button";
+import { useLocation } from "wouter";
 
 export function QuickActions() {
+  const [, setLocation] = useLocation();
+
   const handleCreateLeague = () => {
-    // TODO: Implement create league modal/flow
-    console.log("Create league clicked");
+    setLocation("/create-league");
   };
 
   const handleJoinPublicLeague = () => {

@@ -18,6 +18,9 @@ export const leagues = pgTable("leagues", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
+  type: text("type").default("Redraft"), // Redraft, Dynasty
+  numberOfTeams: integer("number_of_teams").default(12),
+  scoringFormat: text("scoring_format").default("5x5 Roto"), // 5x5 Roto, Points
   isPublic: boolean("is_public").default(false),
   maxTeams: integer("max_teams").default(12),
   currentTeams: integer("current_teams").default(0),

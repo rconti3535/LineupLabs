@@ -9,6 +9,7 @@ import Home from "@/pages/home";
 import Teams from "@/pages/teams";
 import Profile from "@/pages/profile";
 import Messages from "@/pages/messages";
+import CreateLeague from "@/pages/create-league";
 import Signup from "@/pages/signup";
 import Login from "@/pages/login";
 import Landing from "@/pages/landing";
@@ -35,6 +36,7 @@ function Router() {
           <Route path="/teams" component={Teams} />
           <Route path="/messages" component={Messages} />
           <Route path="/profile" component={Profile} />
+          <Route path="/create-league" component={CreateLeague} />
         </>
       ) : (
         <Route path="/" component={Landing} />
