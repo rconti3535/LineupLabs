@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { insertUserSchema } from "@shared/schema";
 
@@ -25,6 +26,7 @@ export default function Signup() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { login } = useAuth();
 
   const form = useForm<SignupForm>({
     resolver: zodResolver(signupSchema),
@@ -48,10 +50,11 @@ export default function Signup() {
         },
       });
     },
-    onSuccess: () => {
+    onSuccess: (user) => {
+      login(user.id);
       toast({
         title: "Account created successfully!",
-        description: "Welcome to FantasyBall",
+        description: "Welcome to Fantasy Baseball",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       setLocation("/");

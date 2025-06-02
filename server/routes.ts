@@ -65,6 +65,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Login user
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      const user = await storage.getUserByUsername(username);
+      if (!user || user.password !== password) {
+        return res.status(401).json({ message: "Invalid username or password" });
+      }
+      res.json(user);
+    } catch (error) {
+      res.status(500).json({ message: "Login failed" });
+    }
+  });
+
   // Create league
   app.post("/api/leagues", async (req, res) => {
     try {

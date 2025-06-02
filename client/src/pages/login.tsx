@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 
 const loginSchema = z.object({
@@ -21,6 +22,7 @@ export default function Login() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { login } = useAuth();
 
   const form = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -40,7 +42,8 @@ export default function Login() {
         },
       });
     },
-    onSuccess: () => {
+    onSuccess: (user) => {
+      login(user.id);
       toast({
         title: "Welcome back!",
         description: "Successfully signed in",
