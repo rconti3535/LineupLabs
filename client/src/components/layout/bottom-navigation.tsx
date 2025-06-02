@@ -1,9 +1,16 @@
 import { useLocation } from "wouter";
 import { Home, Users, User, MessageCircle } from "lucide-react";
 import { Link } from "wouter";
+import { useAuth } from "@/hooks/useAuth";
 
 export function BottomNavigation() {
   const [location] = useLocation();
+  const { isAuthenticated } = useAuth();
+
+  // Don't show navigation on auth pages or when not authenticated
+  if (!isAuthenticated || location === "/login" || location === "/signup") {
+    return null;
+  }
 
   const navItems = [
     { path: "/", icon: Home, label: "Home" },
