@@ -56,7 +56,7 @@ export default function CreateLeague() {
         title: "League Created!",
         description: "Your fantasy baseball league has been created successfully.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/leagues"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues/public"] });
       queryClient.invalidateQueries({ queryKey: ["/api/teams/user"] });
       setLocation("/teams");
     },
