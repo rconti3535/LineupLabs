@@ -31,8 +31,8 @@ export default function Teams() {
     enabled: leagueIds.length > 0,
   });
 
-  const leagueMap = new Map<number, string>();
-  leagues?.forEach((l) => leagueMap.set(l.id, l.name));
+  const leagueMap = new Map<number, { name: string; isPublic: boolean }>();
+  leagues?.forEach((l) => leagueMap.set(l.id, { name: l.name, isPublic: l.isPublic ?? false }));
 
   return (
     <div className="px-4 py-6">
@@ -54,7 +54,8 @@ export default function Teams() {
             <TeamCard
               key={team.id}
               team={team}
-              leagueName={leagueMap.get(team.leagueId!)}
+              leagueName={leagueMap.get(team.leagueId!)?.name}
+              isPublic={leagueMap.get(team.leagueId!)?.isPublic}
             />
           ))
         ) : (
