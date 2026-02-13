@@ -1,11 +1,8 @@
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Clock, Users, Zap } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import type { League, Team } from "@shared/schema";
 
@@ -37,8 +34,24 @@ export default function DraftRoom() {
 
   const rosterPositions = league?.rosterPositions || [];
   const totalRounds = rosterPositions.length;
-  const draftDate = league?.draftDate ? new Date(league.draftDate) : null;
-  const isCommissioner = user?.id === league?.createdBy;
+  const numTeams = teams?.length || league?.maxTeams || 12;
+
+  const buildDraftBoard = () => {
+    const board: { round: number; pick: number; overall: number; teamIndex: number }[][] = [];
+    for (let round = 0; round < totalRounds; round++) {
+      const row: { round: number; pick: number; overall: number; teamIndex: number }[] = [];
+      for (let col = 0; col < numTeams; col++) {
+        const isEvenRound = round % 2 === 0;
+        const teamIndex = isEvenRound ? col : numTeams - 1 - col;
+        const overall = round * numTeams + col + 1;
+        row.push({ round: round + 1, pick: col + 1, overall, teamIndex });
+      }
+      board.push(row);
+    }
+    return board;
+  };
+
+  const board = buildDraftBoard();
 
   if (leagueLoading) {
     return (
@@ -60,95 +73,61 @@ export default function DraftRoom() {
     );
   }
 
-  return (
-    <div className="px-4 py-6">
-      <Button
-        onClick={() => setLocation(`/league/${leagueId}`)}
-        variant="ghost"
-        className="text-gray-400 hover:text-white mb-3 -ml-2"
-      >
-        <ArrowLeft className="w-4 h-4 mr-2" />
-        Back to League
-      </Button>
+  const CELL_SIZE = 72;
+  const GAP = 4;
+  const ROUND_LABEL_W = 36;
+  const gridWidth = ROUND_LABEL_W + numTeams * (CELL_SIZE + GAP);
 
-      <div className="mb-5">
-        <h1 className="text-lg font-bold text-white">Draft Room</h1>
-        <p className="text-gray-400 text-sm">{league.name}</p>
+  return (
+    <div className="flex flex-col h-screen overflow-hidden">
+      <div className="px-3 py-3 flex items-center gap-2 shrink-0 border-b border-gray-800">
+        <Button
+          onClick={() => setLocation(`/league/${leagueId}`)}
+          variant="ghost"
+          size="sm"
+          className="text-gray-400 hover:text-white -ml-1 h-8 px-2"
+        >
+          <ArrowLeft className="w-4 h-4" />
+        </Button>
+        <span className="text-white text-sm font-semibold truncate">{league.name}</span>
       </div>
 
-      <Card className="gradient-card rounded-xl p-5 border-0 mb-4">
-        <div className="flex items-center gap-2 mb-4">
-          <Zap className="w-5 h-5 text-yellow-400" />
-          <h3 className="text-white font-semibold">Draft Info</h3>
-          <Badge className="bg-yellow-600/20 text-yellow-400 text-[10px] ml-auto">
-            {league.draftType || "Snake"}
-          </Badge>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="sleeper-card-bg rounded-lg p-3">
-            <div className="flex items-center gap-2 mb-1">
-              <Clock className="w-3.5 h-3.5 text-gray-400" />
-              <p className="text-gray-400 text-xs">Draft Date</p>
-            </div>
-            <p className="text-white text-sm font-medium">
-              {draftDate
-                ? draftDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-                : "TBD"}
-            </p>
-            {draftDate && (
-              <p className="text-gray-500 text-[11px]">
-                {draftDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-              </p>
-            )}
-          </div>
-          <div className="sleeper-card-bg rounded-lg p-3">
-            <div className="flex items-center gap-2 mb-1">
-              <Users className="w-3.5 h-3.5 text-gray-400" />
-              <p className="text-gray-400 text-xs">Teams</p>
-            </div>
-            <p className="text-white text-sm font-medium">{teams?.length || 0} / {league.maxTeams || 12}</p>
-          </div>
-          <div className="sleeper-card-bg rounded-lg p-3">
-            <p className="text-gray-400 text-xs mb-1">Seconds Per Pick</p>
-            <p className="text-white text-sm font-medium">{league.secondsPerPick || 60}s</p>
-          </div>
-          <div className="sleeper-card-bg rounded-lg p-3">
-            <p className="text-gray-400 text-xs mb-1">Total Rounds</p>
-            <p className="text-white text-sm font-medium">{totalRounds}</p>
-          </div>
-        </div>
-      </Card>
-
-      <Card className="gradient-card rounded-xl p-5 border-0 mb-4">
-        <h3 className="text-white font-semibold mb-3">Draft Order</h3>
-        {teams && teams.length > 0 ? (
-          <div className="space-y-2">
-            {teams.map((team, index) => (
+      <div className="flex-1 overflow-auto">
+        <div style={{ minWidth: gridWidth }} className="p-3">
+          <div className="flex gap-1 mb-1" style={{ paddingLeft: ROUND_LABEL_W + GAP }}>
+            {Array.from({ length: numTeams }).map((_, i) => (
               <div
-                key={team.id}
-                className="flex items-center gap-3 p-2.5 rounded-lg sleeper-card-bg"
+                key={i}
+                style={{ width: CELL_SIZE }}
+                className="text-center text-[10px] text-gray-500 font-medium truncate px-0.5"
               >
-                <span className="text-gray-400 text-xs font-bold w-6 text-center">{index + 1}</span>
-                <div className="flex-1">
-                  <p className="text-white text-sm font-medium">{team.name}</p>
-                </div>
-                {team.userId === user?.id && (
-                  <Badge className="bg-blue-600/20 text-blue-400 text-[10px]">You</Badge>
-                )}
+                {teams?.[i]?.name || `Team ${i + 1}`}
               </div>
             ))}
           </div>
-        ) : (
-          <p className="text-gray-500 text-sm text-center py-4">No teams joined yet</p>
-        )}
-      </Card>
 
-      <Card className="gradient-card rounded-xl p-5 border-0">
-        <h3 className="text-white font-semibold mb-3">Draft Board</h3>
-        <p className="text-gray-500 text-sm text-center py-8">
-          The draft has not started yet. When the draft begins, picks will appear here in real time.
-        </p>
-      </Card>
+          {board.map((row, roundIndex) => (
+            <div key={roundIndex} className="flex items-center gap-1 mb-1">
+              <div
+                style={{ width: ROUND_LABEL_W }}
+                className="text-[10px] text-gray-500 font-bold text-right pr-1 shrink-0"
+              >
+                R{roundIndex + 1}
+              </div>
+              {row.map((cell) => (
+                <div
+                  key={cell.overall}
+                  style={{ width: CELL_SIZE, height: CELL_SIZE }}
+                  className="rounded-lg border border-gray-700 bg-gray-800/60 flex flex-col items-center justify-center shrink-0 hover:border-gray-500 transition-colors"
+                >
+                  <span className="text-gray-600 text-[10px] font-medium">{cell.overall}</span>
+                  <span className="text-gray-700 text-[9px] mt-0.5">{rosterPositions[roundIndex] || ""}</span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
