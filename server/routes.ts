@@ -108,6 +108,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validatedData = insertLeagueSchema.parse(req.body);
       const league = await storage.createLeague(validatedData);
+
+      if (validatedData.createdBy) {
+        const user = await storage.getUser(validatedData.createdBy);
+        const teamName = user ? `${user.username}'s Team` : "My Team";
+        await storage.createTeam({
+          name: teamName,
+          leagueId: league.id,
+          userId: validatedData.createdBy,
+          logo: "",
+          nextOpponent: "",
+        });
+      }
+
       res.status(201).json(league);
     } catch (error) {
       res.status(400).json({ message: "Invalid league data" });

@@ -2,11 +2,19 @@ import { useQuery } from "@tanstack/react-query";
 import { TeamCard } from "@/components/teams/team-card";
 import { QuickTeamActions } from "@/components/teams/quick-team-actions";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/hooks/useAuth";
 import type { Team } from "@shared/schema";
 
 export default function Teams() {
+  const { user } = useAuth();
   const { data: teams, isLoading } = useQuery<Team[]>({
-    queryKey: ["/api/teams/user/1"], // Using user ID 1 for demo
+    queryKey: ["/api/teams/user", user?.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/teams/user/${user?.id}`);
+      if (!res.ok) throw new Error("Failed to fetch teams");
+      return res.json();
+    },
+    enabled: !!user?.id,
   });
 
   return (
