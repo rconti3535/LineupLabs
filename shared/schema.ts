@@ -27,6 +27,11 @@ export const leagues = pgTable("leagues", {
   buyin: text("buyin").default("Free"),
   prize: text("prize").default("Trophy"),
   status: text("status").default("Open"), // Open, Full, Active, Completed
+  rosterPositions: text("roster_positions").array().default(["C", "1B", "2B", "3B", "SS", "OF", "OF", "OF", "UTIL", "SP", "SP", "RP", "RP", "BN", "BN", "IL"]),
+  draftType: text("draft_type").default("Snake"),
+  draftDate: text("draft_date"),
+  secondsPerPick: integer("seconds_per_pick").default(60),
+  draftOrder: text("draft_order").default("Random"),
   createdBy: integer("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
