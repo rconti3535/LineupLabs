@@ -1,6 +1,5 @@
 import { useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import type { Team } from "@shared/schema";
 
 interface TeamCardProps {
@@ -24,13 +23,8 @@ export function TeamCard({ team, leagueName, isPublic }: TeamCardProps) {
           className="w-10 h-10 rounded-lg object-cover"
         />
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-semibold text-white truncate">{leagueName || `League #${team.leagueId}`}</h3>
-            <Badge className={`text-[10px] px-1.5 py-0 shrink-0 ${isPublic ? "bg-green-600 text-white" : "bg-gray-600 text-white"}`}>
-              {isPublic ? "Public" : "Private"}
-            </Badge>
-          </div>
-          <p className="text-gray-400 text-xs truncate">{team.name}</p>
+          <h3 className="text-sm font-semibold text-white truncate">{leagueName || `League #${team.leagueId}`}</h3>
+          <p className="text-gray-400 text-xs truncate">{team.name} · {isPublic ? "Public" : "Private"}</p>
         </div>
       </div>
     </Card>
