@@ -31,8 +31,8 @@ export default function Teams() {
     enabled: leagueIds.length > 0,
   });
 
-  const leagueMap = new Map<number, { name: string; isPublic: boolean }>();
-  leagues?.forEach((l) => leagueMap.set(l.id, { name: l.name, isPublic: l.isPublic ?? false }));
+  const leagueMap = new Map<number, { name: string; isPublic: boolean; createdBy: number | null }>();
+  leagues?.forEach((l) => leagueMap.set(l.id, { name: l.name, isPublic: l.isPublic ?? false, createdBy: l.createdBy }));
 
   return (
     <div className="px-4 py-6">
@@ -56,6 +56,7 @@ export default function Teams() {
               team={team}
               leagueName={leagueMap.get(team.leagueId!)?.name}
               isPublic={leagueMap.get(team.leagueId!)?.isPublic}
+              isCommissioner={leagueMap.get(team.leagueId!)?.createdBy === user?.id}
             />
           ))
         ) : (

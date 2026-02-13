@@ -39,6 +39,7 @@ export default function LeaguePage() {
   });
 
   const myTeam = teams?.find((t) => t.userId === user?.id);
+  const isCommissioner = league?.createdBy === user?.id;
 
   if (leagueLoading) {
     return (
@@ -161,36 +162,42 @@ export default function LeaguePage() {
       {activeTab === "settings" && (
         <Card className="gradient-card rounded-xl p-5 border-0">
           <h3 className="text-white font-semibold mb-4">League Settings</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex items-center gap-2">
-              <Users className="w-4 h-4 text-blue-400" />
-              <div>
-                <p className="text-gray-400 text-xs">Teams</p>
-                <p className="text-white font-medium text-sm">{teams?.length || 0} / {league.maxTeams}</p>
+          {isCommissioner ? (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-blue-400" />
+                <div>
+                  <p className="text-gray-400 text-xs">Teams</p>
+                  <p className="text-white font-medium text-sm">{teams?.length || 0} / {league.maxTeams}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-blue-400" />
+                <div>
+                  <p className="text-gray-400 text-xs">Scoring</p>
+                  <p className="text-white font-medium text-sm">{league.scoringFormat}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-blue-400" />
+                <div>
+                  <p className="text-gray-400 text-xs">Type</p>
+                  <p className="text-white font-medium text-sm">{league.type}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Trophy className="w-4 h-4 text-blue-400" />
+                <div>
+                  <p className="text-gray-400 text-xs">Status</p>
+                  <p className="text-white font-medium text-sm">{league.status}</p>
+                </div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-blue-400" />
-              <div>
-                <p className="text-gray-400 text-xs">Scoring</p>
-                <p className="text-white font-medium text-sm">{league.scoringFormat}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-blue-400" />
-              <div>
-                <p className="text-gray-400 text-xs">Type</p>
-                <p className="text-white font-medium text-sm">{league.type}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Trophy className="w-4 h-4 text-blue-400" />
-              <div>
-                <p className="text-gray-400 text-xs">Status</p>
-                <p className="text-white font-medium text-sm">{league.status}</p>
-              </div>
-            </div>
-          </div>
+          ) : (
+            <p className="text-gray-400 text-sm text-center py-6">
+              Only the commissioner can adjust league settings.
+            </p>
+          )}
         </Card>
       )}
     </div>
