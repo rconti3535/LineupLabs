@@ -211,11 +211,18 @@ export default function LeaguePage() {
                   <Calendar className="w-5 h-5 text-blue-400" />
                 </div>
                 {league.draftDate ? (
-                  <div>
+                  <div className="flex-1">
                     <p className="text-white font-semibold text-sm">Draft Scheduled</p>
                     <p className="text-gray-400 text-xs">
                       {league.draftType || "Snake"} Draft — {new Date(league.draftDate).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })} at {new Date(league.draftDate).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
                     </p>
+                    <Button
+                      onClick={() => setLocation(`/league/${leagueId}/draft`)}
+                      className="mt-2 bg-blue-600 hover:bg-blue-700 text-white text-xs h-8 px-4"
+                      size="sm"
+                    >
+                      Join Draft Room
+                    </Button>
                   </div>
                 ) : (
                   <div>

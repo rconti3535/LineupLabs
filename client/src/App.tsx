@@ -14,6 +14,7 @@ import Signup from "@/pages/signup";
 import Login from "@/pages/login";
 import ResetPassword from "@/pages/reset-password";
 import LeaguePage from "@/pages/league";
+import DraftRoom from "@/pages/draft-room";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
 
@@ -40,6 +41,7 @@ function Router() {
           <Route path="/messages" component={Messages} />
           <Route path="/profile" component={Profile} />
           <Route path="/create-league" component={CreateLeague} />
+          <Route path="/league/:id/draft" component={DraftRoom} />
           <Route path="/league/:id" component={LeaguePage} />
         </>
       ) : (
