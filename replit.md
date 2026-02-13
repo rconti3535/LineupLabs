@@ -1,0 +1,95 @@
+# replit.md
+
+## Overview
+
+This is a **Fantasy Baseball** web application — a mobile-first platform inspired by the Sleeper app where users can create and manage fantasy baseball leagues, draft players, manage teams, track stats, and communicate with league members. The app features a dark theme UI with a bottom navigation bar designed for a mobile experience.
+
+## User Preferences
+
+Preferred communication style: Simple, everyday language.
+
+## System Architecture
+
+### Frontend
+- **Framework**: React 18 with TypeScript
+- **Routing**: Wouter (lightweight client-side router)
+- **State Management**: TanStack React Query for server state; local React state for UI
+- **Styling**: Tailwind CSS with CSS variables for theming (dark mode by default, Sleeper-inspired design)
+- **UI Components**: shadcn/ui (new-york style) built on Radix UI primitives
+- **Forms**: React Hook Form with Zod resolvers for validation
+- **Build Tool**: Vite
+- **Path Aliases**: `@/` maps to `client/src/`, `@shared/` maps to `shared/`
+
+The frontend is a single-page app rendered inside a mobile-optimized layout (max-width container with bottom navigation). Pages include: Landing, Login, Signup, Reset Password, Home, Teams, Messages, Profile, and Create League.
+
+**Authentication** is simple client-side localStorage-based: the user ID is stored in localStorage and used to fetch the user profile via API. There is no session-based or token-based server auth — the `useAuth` hook manages login/logout by storing/clearing the user ID.
+
+### Backend
+- **Framework**: Express.js (Node.js) with TypeScript
+- **Runtime**: tsx for development, esbuild for production bundling
+- **API Pattern**: RESTful JSON API under `/api/` prefix
+- **Dev Server**: Vite dev server is integrated as middleware in development; static files are served in production from `dist/public`
+
+Key API routes:
+- `GET /api/leagues/public` — fetch public leagues
+- `GET /api/teams/user/:userId` — fetch teams for a user
+- `GET /api/activities/user/:userId` — fetch user activities
+- `GET /api/users/:id` — fetch user profile
+- `POST /api/users` — create user (signup)
+- `POST /api/auth/login` — login
+- `POST /api/auth/reset-password` — reset password
+- `POST /api/leagues` — create league
+
+### Data Storage
+- **Database**: PostgreSQL (via Neon serverless driver `@neondatabase/serverless`)
+- **ORM**: Drizzle ORM with `drizzle-zod` for schema-to-validation integration
+- **Schema Location**: `shared/schema.ts` — shared between client and server
+- **Migrations**: Drizzle Kit with `drizzle-kit push` for schema sync (migrations output to `./migrations`)
+- **Connection**: Requires `DATABASE_URL` environment variable
+
+### Database Schema (defined in `shared/schema.ts`)
+- **users** — id, username, email, password, name, avatar, leagues count, wins, championships
+- **leagues** — id, name, description, type, numberOfTeams, scoringFormat, isPublic, maxTeams, currentTeams, buyin, prize, status, createdBy (FK to users), createdAt
+- **teams** — id, name, leagueId (FK to leagues), userId (FK to users), wins, losses, points, rank, logo, nextOpponent
+- **players** — id, name, position (and likely more fields)
+- **activities** — user activity tracking
+
+### Storage Layer
+- `server/storage.ts` defines an `IStorage` interface and `DatabaseStorage` class implementing all CRUD operations using Drizzle ORM
+- The storage pattern allows for easy swapping of implementations
+
+### Key Design Decisions
+1. **Shared schema between client and server** — The `shared/` directory contains the Drizzle schema and Zod insert schemas, used both for DB operations and client-side form validation
+2. **Mobile-first design** — The entire UI is built for mobile viewport with a fixed bottom navigation bar
+3. **Dark theme only** — CSS variables are set for a dark color scheme inspired by the Sleeper fantasy sports app
+4. **No server-side auth sessions** — Authentication is purely client-side via localStorage (passwords are stored in the DB but there's no bcrypt hashing visible in the current code — this should be added)
+5. **Mock data available** — `client/src/lib/mock-data.ts` contains sample data for development/testing
+
+## External Dependencies
+
+### Database
+- **PostgreSQL** via Neon Serverless (`@neondatabase/serverless`) — requires `DATABASE_URL` environment variable
+- **connect-pg-simple** — listed as dependency (likely for session store, though not currently wired up)
+
+### Key NPM Packages
+- **drizzle-orm** + **drizzle-kit** — ORM and migration tooling
+- **drizzle-zod** — Generate Zod schemas from Drizzle table definitions
+- **express** — HTTP server framework
+- **@tanstack/react-query** — Server state management
+- **react-hook-form** + **@hookform/resolvers** — Form handling with Zod validation
+- **wouter** — Client-side routing
+- **shadcn/ui components** — Full suite of Radix-based UI primitives (dialog, dropdown, tabs, toast, etc.)
+- **tailwindcss** — Utility-first CSS framework
+- **lucide-react** — Icon library
+- **date-fns** — Date utility library
+- **nanoid** — Unique ID generation
+- **vaul** — Drawer component
+- **recharts** — Charting library
+- **embla-carousel-react** — Carousel component
+
+### Fonts
+- **Jura** — Google Fonts, loaded via CDN in `client/index.html`
+
+### Replit-specific
+- **@replit/vite-plugin-runtime-error-modal** — Runtime error overlay in development
+- **@replit/vite-plugin-cartographer** — Replit development tooling (conditionally loaded)
