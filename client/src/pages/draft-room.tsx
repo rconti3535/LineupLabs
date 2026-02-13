@@ -34,7 +34,7 @@ export default function DraftRoom() {
 
   const rosterPositions = league?.rosterPositions || [];
   const totalRounds = rosterPositions.length;
-  const numTeams = teams?.length || league?.maxTeams || 12;
+  const numTeams = league?.maxTeams || 12;
 
   const buildDraftBoard = () => {
     const board: { round: number; pick: number; overall: number; teamIndex: number }[][] = [];
@@ -75,8 +75,7 @@ export default function DraftRoom() {
 
   const CELL_SIZE = 72;
   const GAP = 4;
-  const ROUND_LABEL_W = 36;
-  const gridWidth = ROUND_LABEL_W + numTeams * (CELL_SIZE + GAP);
+  const gridWidth = numTeams * (CELL_SIZE + GAP);
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
@@ -94,7 +93,7 @@ export default function DraftRoom() {
 
       <div className="flex-1 overflow-auto">
         <div style={{ minWidth: gridWidth }} className="p-3">
-          <div className="flex gap-1 mb-1" style={{ paddingLeft: ROUND_LABEL_W + GAP }}>
+          <div className="flex gap-1 mb-1">
             {Array.from({ length: numTeams }).map((_, i) => (
               <div
                 key={i}
@@ -107,13 +106,7 @@ export default function DraftRoom() {
           </div>
 
           {board.map((row, roundIndex) => (
-            <div key={roundIndex} className="flex items-center gap-1 mb-1">
-              <div
-                style={{ width: ROUND_LABEL_W }}
-                className="text-[10px] text-gray-500 font-bold text-right pr-1 shrink-0"
-              >
-                R{roundIndex + 1}
-              </div>
+            <div key={roundIndex} className="flex gap-1 mb-1">
               {row.map((cell) => (
                 <div
                   key={cell.overall}
