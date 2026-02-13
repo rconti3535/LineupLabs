@@ -26,6 +26,13 @@ export default function LeaguePage() {
   const [editScoringFormat, setEditScoringFormat] = useState("");
   const [editType, setEditType] = useState("");
   const [editStatus, setEditStatus] = useState("");
+  const [isEditingRoster, setIsEditingRoster] = useState(false);
+  const [editRosterPositions, setEditRosterPositions] = useState<string[]>([]);
+  const [isEditingDraft, setIsEditingDraft] = useState(false);
+  const [editDraftType, setEditDraftType] = useState("");
+  const [editDraftDate, setEditDraftDate] = useState("");
+  const [editSecondsPerPick, setEditSecondsPerPick] = useState("");
+  const [editDraftOrder, setEditDraftOrder] = useState("");
   const { toast } = useToast();
 
   const { data: league, isLoading: leagueLoading } = useQuery<League>({
@@ -86,6 +93,46 @@ export default function LeaguePage() {
       status: editStatus,
     });
   };
+
+  const startEditingRoster = () => {
+    if (!league) return;
+    setEditRosterPositions(league.rosterPositions || ["C", "1B", "2B", "3B", "SS", "OF", "OF", "OF", "UTIL", "SP", "SP", "RP", "RP", "BN", "BN", "IL"]);
+    setIsEditingRoster(true);
+  };
+
+  const saveRosterSettings = () => {
+    updateMutation.mutate({ rosterPositions: editRosterPositions });
+    setIsEditingRoster(false);
+  };
+
+  const addPosition = (pos: string) => {
+    setEditRosterPositions([...editRosterPositions, pos]);
+  };
+
+  const removePosition = (index: number) => {
+    setEditRosterPositions(editRosterPositions.filter((_, i) => i !== index));
+  };
+
+  const startEditingDraft = () => {
+    if (!league) return;
+    setEditDraftType(league.draftType || "Snake");
+    setEditDraftDate(league.draftDate || "");
+    setEditSecondsPerPick(String(league.secondsPerPick || 60));
+    setEditDraftOrder(league.draftOrder || "Random");
+    setIsEditingDraft(true);
+  };
+
+  const saveDraftSettings = () => {
+    updateMutation.mutate({
+      draftType: editDraftType,
+      draftDate: editDraftDate || null,
+      secondsPerPick: parseInt(editSecondsPerPick),
+      draftOrder: editDraftOrder,
+    });
+    setIsEditingDraft(false);
+  };
+
+  const ALL_POSITIONS = ["C", "1B", "2B", "3B", "SS", "OF", "UTIL", "SP", "RP", "BN", "IL", "DH"];
 
   if (leagueLoading) {
     return (
@@ -208,6 +255,7 @@ export default function LeaguePage() {
       )}
 
       {activeTab === "settings" && (
+        <>
         <Card className="gradient-card rounded-xl p-5 border-0">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-white font-semibold">League Settings</h3>
@@ -334,6 +382,214 @@ export default function LeaguePage() {
             </p>
           )}
         </Card>
+
+        <Card className="gradient-card rounded-xl p-5 border-0 mt-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-white font-semibold">Roster Settings</h3>
+            {isCommissioner && !isEditingRoster && (
+              <Button
+                onClick={startEditingRoster}
+                variant="ghost"
+                size="sm"
+                className="text-blue-400 hover:text-blue-300 h-8 px-2"
+              >
+                <Pencil className="w-3.5 h-3.5 mr-1" />
+                Edit
+              </Button>
+            )}
+            {isCommissioner && isEditingRoster && (
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => setIsEditingRoster(false)}
+                  variant="ghost"
+                  size="sm"
+                  className="text-gray-400 hover:text-white h-8 px-3"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={saveRosterSettings}
+                  size="sm"
+                  className="bg-blue-600 hover:bg-blue-700 text-white h-8 px-3"
+                  disabled={updateMutation.isPending}
+                >
+                  {updateMutation.isPending ? "Saving..." : "Save"}
+                </Button>
+              </div>
+            )}
+          </div>
+          {isCommissioner ? (
+            isEditingRoster ? (
+              <div>
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {editRosterPositions.map((pos, index) => (
+                    <Badge
+                      key={index}
+                      className="bg-blue-600 text-white text-xs px-2 py-0.5 cursor-pointer hover:bg-red-600"
+                      onClick={() => removePosition(index)}
+                    >
+                      {pos} ×
+                    </Badge>
+                  ))}
+                </div>
+                <p className="text-gray-500 text-[10px] mb-2">Tap a position above to remove it. Tap below to add.</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {ALL_POSITIONS.map((pos) => (
+                    <Badge
+                      key={pos}
+                      className="bg-gray-700 text-gray-300 text-xs px-2 py-0.5 cursor-pointer hover:bg-gray-600"
+                      onClick={() => addPosition(pos)}
+                    >
+                      + {pos}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {(league.rosterPositions || []).map((pos, index) => (
+                  <Badge key={index} className="bg-gray-700 text-white text-xs px-2 py-0.5">
+                    {pos}
+                  </Badge>
+                ))}
+              </div>
+            )
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {(league.rosterPositions || []).map((pos, index) => (
+                <Badge key={index} className="bg-gray-700 text-white text-xs px-2 py-0.5">
+                  {pos}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        <Card className="gradient-card rounded-xl p-5 border-0 mt-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-white font-semibold">Draft Settings</h3>
+            {isCommissioner && !isEditingDraft && (
+              <Button
+                onClick={startEditingDraft}
+                variant="ghost"
+                size="sm"
+                className="text-blue-400 hover:text-blue-300 h-8 px-2"
+              >
+                <Pencil className="w-3.5 h-3.5 mr-1" />
+                Edit
+              </Button>
+            )}
+            {isCommissioner && isEditingDraft && (
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => setIsEditingDraft(false)}
+                  variant="ghost"
+                  size="sm"
+                  className="text-gray-400 hover:text-white h-8 px-3"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={saveDraftSettings}
+                  size="sm"
+                  className="bg-blue-600 hover:bg-blue-700 text-white h-8 px-3"
+                  disabled={updateMutation.isPending}
+                >
+                  {updateMutation.isPending ? "Saving..." : "Save"}
+                </Button>
+              </div>
+            )}
+          </div>
+          {isCommissioner ? (
+            isEditingDraft ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="text-gray-400 text-xs block mb-1">Draft Type</label>
+                  <Select value={editDraftType} onValueChange={setEditDraftType}>
+                    <SelectTrigger className="bg-gray-800 border-gray-700 text-white text-sm h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Snake">Snake</SelectItem>
+                      <SelectItem value="Auction">Auction</SelectItem>
+                      <SelectItem value="Linear">Linear</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-gray-400 text-xs block mb-1">Draft Date</label>
+                  <Input
+                    type="datetime-local"
+                    value={editDraftDate}
+                    onChange={(e) => setEditDraftDate(e.target.value)}
+                    className="bg-gray-800 border-gray-700 text-white text-sm h-9"
+                  />
+                </div>
+                <div>
+                  <label className="text-gray-400 text-xs block mb-1">Seconds Per Pick</label>
+                  <Input
+                    type="number"
+                    value={editSecondsPerPick}
+                    onChange={(e) => setEditSecondsPerPick(e.target.value)}
+                    className="bg-gray-800 border-gray-700 text-white text-sm h-9"
+                  />
+                </div>
+                <div>
+                  <label className="text-gray-400 text-xs block mb-1">Draft Order</label>
+                  <Select value={editDraftOrder} onValueChange={setEditDraftOrder}>
+                    <SelectTrigger className="bg-gray-800 border-gray-700 text-white text-sm h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Random">Random</SelectItem>
+                      <SelectItem value="Manual">Manual</SelectItem>
+                      <SelectItem value="Standings">Standings</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-gray-400 text-xs">Draft Type</p>
+                  <p className="text-white font-medium text-sm">{league.draftType || "Snake"}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400 text-xs">Draft Date</p>
+                  <p className="text-white font-medium text-sm">{league.draftDate ? new Date(league.draftDate).toLocaleDateString() : "TBD"}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400 text-xs">Seconds Per Pick</p>
+                  <p className="text-white font-medium text-sm">{league.secondsPerPick || 60}s</p>
+                </div>
+                <div>
+                  <p className="text-gray-400 text-xs">Draft Order</p>
+                  <p className="text-white font-medium text-sm">{league.draftOrder || "Random"}</p>
+                </div>
+              </div>
+            )
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-gray-400 text-xs">Draft Type</p>
+                <p className="text-white font-medium text-sm">{league.draftType || "Snake"}</p>
+              </div>
+              <div>
+                <p className="text-gray-400 text-xs">Draft Date</p>
+                <p className="text-white font-medium text-sm">{league.draftDate ? new Date(league.draftDate).toLocaleDateString() : "TBD"}</p>
+              </div>
+              <div>
+                <p className="text-gray-400 text-xs">Seconds Per Pick</p>
+                <p className="text-white font-medium text-sm">{league.secondsPerPick || 60}s</p>
+              </div>
+              <div>
+                <p className="text-gray-400 text-xs">Draft Order</p>
+                <p className="text-white font-medium text-sm">{league.draftOrder || "Random"}</p>
+              </div>
+            </div>
+          )}
+        </Card>
+        </>
       )}
     </div>
   );
