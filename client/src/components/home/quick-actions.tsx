@@ -9,8 +9,10 @@ export function QuickActions() {
   };
 
   const handleJoinPublicLeague = () => {
-    // TODO: Implement join public league flow
-    console.log("Join public league clicked");
+    const el = document.getElementById("public-leagues");
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth" });
+    }
   };
 
   const handleMockDraft = () => {

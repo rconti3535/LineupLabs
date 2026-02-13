@@ -138,6 +138,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Join a public league
+  app.post("/api/leagues/:id/join", async (req, res) => {
+    try {
+      const leagueId = parseInt(req.params.id);
+      const { userId } = req.body;
+      if (!userId) {
+        return res.status(400).json({ message: "User ID is required" });
+      }
+      const league = await storage.getLeague(leagueId);
+      if (!league) {
+        return res.status(404).json({ message: "League not found" });
+      }
+      if (!league.isPublic) {
+        return res.status(403).json({ message: "This league is private" });
+      }
+      const existingTeams = await storage.getTeamsByLeagueId(leagueId);
+      if (existingTeams.some(t => t.userId === userId)) {
+        return res.status(400).json({ message: "You are already in this league" });
+      }
+      if (existingTeams.length >= (league.maxTeams || 12)) {
+        return res.status(400).json({ message: "This league is full" });
+      }
+      const user = await storage.getUser(userId);
+      const teamName = user ? `${user.username}'s Team` : "My Team";
+      const team = await storage.createTeam({
+        name: teamName,
+        leagueId,
+        userId,
+        logo: "",
+        nextOpponent: "",
+      });
+      res.status(201).json(team);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to join league" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

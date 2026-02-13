@@ -19,6 +19,7 @@ const createLeagueSchema = z.object({
   type: z.enum(["Redraft", "Dynasty"]),
   numberOfTeams: z.number().min(6, "Minimum 6 teams").max(30, "Maximum 30 teams"),
   scoringFormat: z.enum(["Roto", "Points"]),
+  isPublic: z.boolean(),
 });
 
 type CreateLeagueForm = z.infer<typeof createLeagueSchema>;
@@ -36,6 +37,7 @@ export default function CreateLeague() {
       type: "Redraft",
       numberOfTeams: 12,
       scoringFormat: "Roto",
+      isPublic: false,
     },
   });
 
@@ -44,7 +46,6 @@ export default function CreateLeague() {
       const leagueData = {
         ...data,
         createdBy: user?.id,
-        isPublic: false,
         maxTeams: data.numberOfTeams,
       };
       const response = await apiRequest("POST", "/api/leagues", leagueData);
@@ -209,6 +210,48 @@ export default function CreateLeague() {
                             <div className="font-medium">Points</div>
                             <div className="text-sm text-gray-400">
                               Points-based scoring system
+                            </div>
+                          </div>
+                        </Label>
+                      </div>
+                    </RadioGroup>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Visibility */}
+            <FormField
+              control={form.control}
+              name="isPublic"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-white">League Visibility</FormLabel>
+                  <FormControl>
+                    <RadioGroup
+                      onValueChange={(val) => field.onChange(val === "public")}
+                      defaultValue={field.value ? "public" : "private"}
+                      className="space-y-3"
+                    >
+                      <div className="flex items-center space-x-3 p-4 rounded-lg sleeper-card-bg border sleeper-border">
+                        <RadioGroupItem value="public" id="public" className="text-blue-400" />
+                        <Label htmlFor="public" className="text-white cursor-pointer flex-1">
+                          <div>
+                            <div className="font-medium">Public</div>
+                            <div className="text-sm text-gray-400">
+                              Anyone can find and join your league
+                            </div>
+                          </div>
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-3 p-4 rounded-lg sleeper-card-bg border sleeper-border">
+                        <RadioGroupItem value="private" id="private" className="text-blue-400" />
+                        <Label htmlFor="private" className="text-white cursor-pointer flex-1">
+                          <div>
+                            <div className="font-medium">Private</div>
+                            <div className="text-sm text-gray-400">
+                              Only people you invite can join
                             </div>
                           </div>
                         </Label>
