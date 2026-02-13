@@ -7,8 +7,7 @@ export function BottomNavigation() {
   const [location] = useLocation();
   const { isAuthenticated } = useAuth();
 
-  // Don't show navigation on auth pages or when not authenticated
-  if (!isAuthenticated || location === "/login" || location === "/signup") {
+  if (!isAuthenticated || location === "/login" || location === "/signup" || location.match(/^\/league\/\d+\/draft$/)) {
     return null;
   }
 
