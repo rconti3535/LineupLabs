@@ -12,6 +12,7 @@ import Messages from "@/pages/messages";
 import CreateLeague from "@/pages/create-league";
 import Signup from "@/pages/signup";
 import Login from "@/pages/login";
+import ResetPassword from "@/pages/reset-password";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
 
@@ -30,6 +31,7 @@ function Router() {
     <Switch>
       <Route path="/signup" component={Signup} />
       <Route path="/login" component={Login} />
+      <Route path="/reset-password" component={ResetPassword} />
       {isAuthenticated ? (
         <>
           <Route path="/" component={Home} />

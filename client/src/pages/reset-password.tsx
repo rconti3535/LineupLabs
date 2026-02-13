@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -8,55 +9,58 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 
-const loginSchema = z.object({
-  username: z.string().min(1, "Username is required"),
-  password: z.string().min(1, "Password is required"),
+const resetSchema = z.object({
+  email: z.string().email("Please enter a valid email"),
+  newPassword: z.string().min(6, "Password must be at least 6 characters"),
+  confirmPassword: z.string().min(6, "Password must be at least 6 characters"),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
 });
 
-type LoginForm = z.infer<typeof loginSchema>;
+type ResetForm = z.infer<typeof resetSchema>;
 
-export default function Login() {
+export default function ResetPassword() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const { login } = useAuth();
 
-  const form = useForm<LoginForm>({
-    resolver: zodResolver(loginSchema),
+  const form = useForm<ResetForm>({
+    resolver: zodResolver(resetSchema),
     defaultValues: {
-      username: "",
-      password: "",
+      email: "",
+      newPassword: "",
+      confirmPassword: "",
     },
   });
 
-  const loginMutation = useMutation({
-    mutationFn: async (data: LoginForm) => {
-      const response = await apiRequest("POST", "/api/auth/login", data);
+  const resetMutation = useMutation({
+    mutationFn: async (data: ResetForm) => {
+      const response = await apiRequest("POST", "/api/auth/reset-password", {
+        email: data.email,
+        newPassword: data.newPassword,
+      });
       return await response.json();
     },
-    onSuccess: (user) => {
-      login(user.id);
+    onSuccess: () => {
       toast({
-        title: "Welcome back!",
-        description: "Successfully signed in",
+        title: "Password updated!",
+        description: "You can now sign in with your new password.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-      setLocation("/");
+      setLocation("/login");
     },
     onError: (error) => {
       toast({
-        title: "Login failed",
+        title: "Reset failed",
         description: error.message,
         variant: "destructive",
       });
     },
   });
 
-  const onSubmit = (data: LoginForm) => {
-    loginMutation.mutate(data);
+  const onSubmit = (data: ResetForm) => {
+    resetMutation.mutate(data);
   };
 
   return (
@@ -72,21 +76,22 @@ export default function Login() {
               <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 4L13.5 3.5C13.1 3.4 12.6 3.4 12.2 3.5L7 5.3L3 7V9L7 7.1L12 9L17 7.1L21 9ZM7.5 17.5L9 16L7.5 14.5L6 16L7.5 17.5ZM12 13.5C11.2 13.5 10.5 14.2 10.5 15S11.2 16.5 12 16.5 13.5 15.8 13.5 15 12.8 13.5 12 13.5ZM16.5 17.5L18 16L16.5 14.5L15 16L16.5 17.5Z" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-white mb-2">Welcome Back</h1>
-          <p className="text-gray-400">Sign in to your account</p>
+          <h1 className="text-2xl font-bold text-white mb-2">Reset Password</h1>
+          <p className="text-gray-400">Enter your email and choose a new password</p>
         </div>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
-              name="username"
+              name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-white">Username</FormLabel>
+                  <FormLabel className="text-white">Email</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="Enter your username"
+                      type="email"
+                      placeholder="Enter your email"
                       className="sleeper-card-bg sleeper-border border text-white placeholder-gray-400"
                       {...field}
                     />
@@ -98,14 +103,33 @@ export default function Login() {
 
             <FormField
               control={form.control}
-              name="password"
+              name="newPassword"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-white">Password</FormLabel>
+                  <FormLabel className="text-white">New Password</FormLabel>
                   <FormControl>
                     <Input
                       type="password"
-                      placeholder="Enter your password"
+                      placeholder="Enter new password"
+                      className="sleeper-card-bg sleeper-border border text-white placeholder-gray-400"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="confirmPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-white">Confirm Password</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="password"
+                      placeholder="Confirm new password"
                       className="sleeper-card-bg sleeper-border border text-white placeholder-gray-400"
                       {...field}
                     />
@@ -117,30 +141,20 @@ export default function Login() {
 
             <Button
               type="submit"
-              disabled={loginMutation.isPending}
+              disabled={resetMutation.isPending}
               className="w-full primary-gradient rounded-xl py-3 text-white font-medium hover:opacity-90 transition-opacity"
             >
-              {loginMutation.isPending ? "Signing In..." : "Sign In"}
+              {resetMutation.isPending ? "Resetting..." : "Reset Password"}
             </Button>
           </form>
         </Form>
 
-        <div className="mt-4 text-center">
+        <div className="mt-6 text-center">
           <p className="text-gray-400 text-sm">
-            <Link href="/reset-password">
+            Remember your password?{" "}
+            <Link href="/login">
               <span className="text-blue-400 hover:text-blue-300 cursor-pointer">
-                Forgot your password?
-              </span>
-            </Link>
-          </p>
-        </div>
-
-        <div className="mt-3 text-center">
-          <p className="text-gray-400 text-sm">
-            Don't have an account?{" "}
-            <Link href="/signup">
-              <span className="text-blue-400 hover:text-blue-300 cursor-pointer">
-                Create one here
+                Sign in
               </span>
             </Link>
           </p>
