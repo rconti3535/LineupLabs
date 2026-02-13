@@ -204,12 +204,47 @@ export default function LeaguePage() {
 
       {activeTab === "roster" && (
         <div>
+          {league.status === "Open" || league.status === "Full" ? (
+            <Card className="gradient-card rounded-xl p-4 border-0 mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-600/20 flex items-center justify-center shrink-0">
+                  <Calendar className="w-5 h-5 text-blue-400" />
+                </div>
+                {league.draftDate ? (
+                  <div>
+                    <p className="text-white font-semibold text-sm">Draft Scheduled</p>
+                    <p className="text-gray-400 text-xs">
+                      {league.draftType || "Snake"} Draft — {new Date(league.draftDate).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })} at {new Date(league.draftDate).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-white font-semibold text-sm">Draft Not Scheduled</p>
+                    <p className="text-gray-400 text-xs">The commissioner has not scheduled a draft yet. Check back later or review settings.</p>
+                  </div>
+                )}
+              </div>
+            </Card>
+          ) : null}
+
           {myTeam ? (
             <Card className="gradient-card rounded-xl p-5 border-0">
               <h3 className="text-white font-semibold mb-3">{myTeam.name}</h3>
-              <p className="text-gray-400 text-sm text-center py-6">
-                No players on your roster yet. Draft or add players to get started.
-              </p>
+              <div className="space-y-1.5">
+                {(league.rosterPositions || []).map((pos, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center gap-3 p-2.5 rounded-lg sleeper-card-bg"
+                  >
+                    <span className="text-[11px] font-bold w-10 text-center py-1 rounded bg-gray-700 text-gray-300 shrink-0">
+                      {pos}
+                    </span>
+                    <div className="flex-1 border-l border-gray-700 pl-3">
+                      <p className="text-gray-500 text-sm italic">Empty</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </Card>
           ) : (
             <Card className="gradient-card rounded-xl p-5 border-0">
