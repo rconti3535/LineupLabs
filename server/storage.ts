@@ -22,6 +22,7 @@ export interface IStorage {
   getPublicLeagues(): Promise<League[]>;
   getLeague(id: number): Promise<League | undefined>;
   createLeague(league: InsertLeague): Promise<League>;
+  updateLeague(id: number, data: Partial<InsertLeague>): Promise<League | undefined>;
   
   // Teams
   getTeamsByUserId(userId: number): Promise<Team[]>;
@@ -91,6 +92,15 @@ export class DatabaseStorage implements IStorage {
       .values(insertLeague)
       .returning();
     return league;
+  }
+
+  async updateLeague(id: number, data: Partial<InsertLeague>): Promise<League | undefined> {
+    const [league] = await db
+      .update(leagues)
+      .set(data)
+      .where(eq(leagues.id, id))
+      .returning();
+    return league || undefined;
   }
 
   async getTeamsByUserId(userId: number): Promise<Team[]> {
