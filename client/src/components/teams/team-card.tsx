@@ -28,7 +28,7 @@ export function TeamCard({ team, leagueName, isPublic, isCommissioner }: TeamCar
           <h3 className="text-sm font-semibold text-white truncate">{leagueName || `League #${team.leagueId}`}</h3>
           <div className="flex items-center gap-1.5">
             <p className="text-gray-400 text-xs truncate">{team.name}</p>
-            {isCommissioner ? (
+            {leagueName && (isCommissioner ? (
               <Badge className="text-[10px] px-1.5 py-0 shrink-0 bg-yellow-600 text-white">
                 Commish
               </Badge>
@@ -36,7 +36,7 @@ export function TeamCard({ team, leagueName, isPublic, isCommissioner }: TeamCar
               <Badge className={`text-[10px] px-1.5 py-0 shrink-0 ${isPublic ? "bg-green-600 text-white" : "bg-gray-600 text-white"}`}>
                 {isPublic ? "Public" : "Private"}
               </Badge>
-            )}
+            ))}
           </div>
         </div>
       </div>
