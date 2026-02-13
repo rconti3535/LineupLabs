@@ -101,7 +101,7 @@ export default function DraftRoom() {
   ];
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden">
+    <div className="flex flex-col h-screen overflow-hidden relative">
       <div className="px-3 py-3 flex items-center gap-2 shrink-0 border-b border-gray-800">
         <Button
           onClick={() => setLocation(`/league/${leagueId}`)}
@@ -114,40 +114,44 @@ export default function DraftRoom() {
         <span className="text-white text-sm font-semibold truncate">{league.name}</span>
       </div>
 
-      <div className="flex-1 overflow-auto">
-        {activeTab === "board" && (
-          <div style={{ minWidth: gridWidth }} className="p-3">
-            <div className="flex gap-1 mb-1">
-              {Array.from({ length: numTeams }).map((_, i) => (
-                <div
-                  key={i}
-                  style={{ width: CELL_W }}
-                  className="text-center text-[10px] text-gray-500 font-medium truncate px-0.5"
-                >
-                  {teams?.[i]?.name || `Team ${i + 1}`}
-                </div>
-              ))}
-            </div>
-
-            {board.map((row, roundIndex) => (
-              <div key={roundIndex} className="flex gap-1 mb-1">
-                {row.map((cell) => (
-                  <div
-                    key={cell.overall}
-                    style={{ width: CELL_W, height: CELL_H }}
-                    className="rounded-lg border border-gray-700 bg-gray-800/60 flex flex-col items-center justify-center shrink-0 hover:border-gray-500 transition-colors"
-                  >
-                    <span className="text-gray-600 text-[10px] font-medium">{cell.overall}</span>
-                    <span className="text-gray-700 text-[9px] mt-0.5">{rosterPositions[roundIndex] || ""}</span>
-                  </div>
-                ))}
+      <div className="flex-1 overflow-auto hide-scrollbar relative">
+        <div style={{ minWidth: gridWidth }} className="p-3">
+          <div className="flex gap-1 mb-1">
+            {Array.from({ length: numTeams }).map((_, i) => (
+              <div
+                key={i}
+                style={{ width: CELL_W }}
+                className="text-center text-[10px] text-gray-500 font-medium truncate px-0.5"
+              >
+                {teams?.[i]?.name || `Team ${i + 1}`}
               </div>
             ))}
           </div>
-        )}
 
-        {activeTab === "players" && (
-          <div className="p-3 space-y-1.5">
+          {board.map((row, roundIndex) => (
+            <div key={roundIndex} className="flex gap-1 mb-1">
+              {row.map((cell) => (
+                <div
+                  key={cell.overall}
+                  style={{ width: CELL_W, height: CELL_H }}
+                  className="rounded-lg border border-gray-700 bg-gray-800/60 flex flex-col items-center justify-center shrink-0 hover:border-gray-500 transition-colors"
+                >
+                  <span className="text-gray-600 text-[10px] font-medium">{cell.overall}</span>
+                  <span className="text-gray-700 text-[9px] mt-0.5">{rosterPositions[roundIndex] || ""}</span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {activeTab === "players" && (
+        <div className="absolute bottom-10 left-0 right-0 h-[66vh] bg-gray-900 border-t border-gray-700 rounded-t-2xl flex flex-col z-10">
+          <div className="flex items-center justify-center pt-2 pb-1">
+            <div className="w-10 h-1 rounded-full bg-gray-600" />
+          </div>
+          <h3 className="text-white font-semibold text-sm px-4 pb-2">Available Players</h3>
+          <div className="flex-1 overflow-auto hide-scrollbar px-3 pb-3 space-y-1.5">
             {players && players.length > 0 ? (
               players.map((player) => (
                 <div
@@ -165,48 +169,51 @@ export default function DraftRoom() {
                 </div>
               ))
             ) : (
-              <Card className="gradient-card rounded-xl p-5 border-0">
-                <p className="text-gray-500 text-sm text-center py-6">
+              <div className="text-center py-8">
+                <p className="text-gray-500 text-sm">
                   No players available yet. Players will appear here once the draft begins.
                 </p>
-              </Card>
+              </div>
             )}
           </div>
-        )}
+        </div>
+      )}
 
-        {activeTab === "team" && (
-          <div className="p-3">
+      {activeTab === "team" && (
+        <div className="absolute bottom-10 left-0 right-0 h-[66vh] bg-gray-900 border-t border-gray-700 rounded-t-2xl flex flex-col z-10">
+          <div className="flex items-center justify-center pt-2 pb-1">
+            <div className="w-10 h-1 rounded-full bg-gray-600" />
+          </div>
+          <h3 className="text-white font-semibold text-sm px-4 pb-2">My Team</h3>
+          <div className="flex-1 overflow-auto hide-scrollbar px-3 pb-3">
             {myTeam ? (
-              <Card className="gradient-card rounded-xl p-5 border-0">
-                <h3 className="text-white font-semibold mb-3">{myTeam.name}</h3>
-                <div className="space-y-1.5">
-                  {rosterPositions.map((pos, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center gap-3 p-2.5 rounded-lg sleeper-card-bg"
-                    >
-                      <span className="text-[11px] font-bold w-10 text-center py-1 rounded bg-gray-700 text-gray-300 shrink-0">
-                        {pos}
-                      </span>
-                      <div className="flex-1 border-l border-gray-700 pl-3">
-                        <p className="text-gray-500 text-sm italic">Empty</p>
-                      </div>
+              <div className="space-y-1.5">
+                {rosterPositions.map((pos, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center gap-3 p-2.5 rounded-lg sleeper-card-bg"
+                  >
+                    <span className="text-[11px] font-bold w-10 text-center py-1 rounded bg-gray-700 text-gray-300 shrink-0">
+                      {pos}
+                    </span>
+                    <div className="flex-1 border-l border-gray-700 pl-3">
+                      <p className="text-gray-500 text-sm italic">Empty</p>
                     </div>
-                  ))}
-                </div>
-              </Card>
+                  </div>
+                ))}
+              </div>
             ) : (
-              <Card className="gradient-card rounded-xl p-5 border-0">
-                <p className="text-gray-500 text-sm text-center py-6">
+              <div className="text-center py-8">
+                <p className="text-gray-500 text-sm">
                   You don't have a team in this league.
                 </p>
-              </Card>
+              </div>
             )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      <nav className="shrink-0 border-t border-gray-800 sleeper-bg">
+      <nav className="shrink-0 border-t border-gray-800 sleeper-bg relative z-20">
         <div className="flex">
           {draftNavItems.map((item) => (
             <button
