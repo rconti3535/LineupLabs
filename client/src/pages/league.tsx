@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Users, Trophy, Calendar, TrendingUp } from "lucide-react";
@@ -80,12 +79,7 @@ export default function LeaguePage() {
       </Button>
 
       <div className="mb-4">
-        <div className="flex items-center gap-3 mb-1">
-          <h1 className="text-xl font-bold text-white">{league.name}</h1>
-          <Badge className={league.isPublic ? "bg-green-600 text-white" : "bg-gray-600 text-white"}>
-            {league.isPublic ? "Public" : "Private"}
-          </Badge>
-        </div>
+        <h1 className="text-xl font-bold text-white mb-1">{league.name}</h1>
         {league.description && (
           <p className="text-gray-400 text-sm">{league.description}</p>
         )}
