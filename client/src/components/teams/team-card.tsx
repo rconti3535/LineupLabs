@@ -1,3 +1,4 @@
+import { useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
 import type { Team } from "@shared/schema";
 
@@ -6,15 +7,12 @@ interface TeamCardProps {
 }
 
 export function TeamCard({ team }: TeamCardProps) {
-  const handleTeamClick = () => {
-    // TODO: Navigate to team details
-    console.log("Team clicked:", team.id);
-  };
+  const [, setLocation] = useLocation();
 
   return (
     <Card 
       className="gradient-card rounded-xl p-6 hover-lift cursor-pointer border-0"
-      onClick={handleTeamClick}
+      onClick={() => setLocation(`/league/${team.leagueId}`)}
     >
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center space-x-3">
@@ -45,7 +43,7 @@ export function TeamCard({ team }: TeamCardProps) {
         </div>
         <div>
           <p className="text-gray-400">Next Game</p>
-          <p className="text-white font-medium">vs {team.nextOpponent}</p>
+          <p className="text-white font-medium">vs {team.nextOpponent || "TBD"}</p>
         </div>
       </div>
     </Card>

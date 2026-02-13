@@ -25,6 +25,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get teams by league
+  app.get("/api/teams/league/:leagueId", async (req, res) => {
+    try {
+      const leagueId = parseInt(req.params.leagueId);
+      const teams = await storage.getTeamsByLeagueId(leagueId);
+      res.json(teams);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch league teams" });
+    }
+  });
+
   // Get user activities
   app.get("/api/activities/user/:userId", async (req, res) => {
     try {
@@ -33,6 +44,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(activities);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch user activities" });
+    }
+  });
+
+  // Get league by ID
+  app.get("/api/leagues/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const league = await storage.getLeague(id);
+      if (!league) {
+        return res.status(404).json({ message: "League not found" });
+      }
+      res.json(league);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch league" });
     }
   });
 
