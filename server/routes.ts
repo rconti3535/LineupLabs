@@ -79,6 +79,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Reset password
+  app.post("/api/auth/reset-password", async (req, res) => {
+    try {
+      const { email, newPassword } = req.body;
+      if (!email || !newPassword) {
+        return res.status(400).json({ message: "Email and new password are required" });
+      }
+      if (newPassword.length < 6) {
+        return res.status(400).json({ message: "Password must be at least 6 characters" });
+      }
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(404).json({ message: "No account found with that email" });
+      }
+      const updated = await storage.updateUserPassword(user.id, newPassword);
+      if (!updated) {
+        return res.status(500).json({ message: "Failed to update password" });
+      }
+      res.json({ message: "Password updated successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to reset password" });
+    }
+  });
+
   // Create league
   app.post("/api/leagues", async (req, res) => {
     try {
