@@ -430,7 +430,7 @@ export default function DraftRoom() {
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
                   </span>
                   <p className="text-green-400 text-[10px] font-medium uppercase tracking-wide">
-                    {isMyTurn ? "Your Pick!" : `${currentPickingTeam?.name || "..."} is picking`}
+                    {isMyTurn ? "Your Pick!" : `${currentPickingTeam?.isCpu ? "🤖 " : ""}${currentPickingTeam?.name || "..."} is picking`}
                   </p>
                 </div>
                 <p className={`text-2xl font-bold tabular-nums ${
@@ -559,7 +559,7 @@ export default function DraftRoom() {
                   isDraftActive && currentTeamIndex === i ? "text-green-400" : "text-gray-500"
                 }`}
               >
-                {teams?.[i]?.name || `Team ${i + 1}`}
+                {teams?.[i]?.isCpu ? "🤖 " : ""}{teams?.[i]?.name || `Team ${i + 1}`}
               </div>
             ))}
           </div>
