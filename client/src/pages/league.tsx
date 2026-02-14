@@ -28,6 +28,7 @@ export default function LeaguePage() {
   const [editStatus, setEditStatus] = useState("");
   const [isEditingRoster, setIsEditingRoster] = useState(false);
   const [editRosterPositions, setEditRosterPositions] = useState<string[]>([]);
+  const [editRosterCounts, setEditRosterCounts] = useState<Record<string, number>>({});
   const [isEditingDraft, setIsEditingDraft] = useState(false);
   const [editDraftType, setEditDraftType] = useState("");
   const [editDraftDate, setEditDraftDate] = useState("");
@@ -95,23 +96,42 @@ export default function LeaguePage() {
     });
   };
 
+  const positionsToCountsMap = (positions: string[]): Record<string, number> => {
+    const counts: Record<string, number> = {};
+    ALL_POSITIONS.forEach(pos => counts[pos] = 0);
+    positions.forEach(pos => { counts[pos] = (counts[pos] || 0) + 1; });
+    return counts;
+  };
+
+  const countsToPositionsArray = (counts: Record<string, number>): string[] => {
+    const result: string[] = [];
+    ALL_POSITIONS.forEach(pos => {
+      for (let i = 0; i < (counts[pos] || 0); i++) {
+        result.push(pos);
+      }
+    });
+    return result;
+  };
+
   const startEditingRoster = () => {
     if (!league) return;
-    setEditRosterPositions(league.rosterPositions || ["C", "1B", "2B", "3B", "SS", "OF", "OF", "OF", "UTIL", "SP", "SP", "RP", "RP", "BN", "BN", "IL"]);
+    const positions = league.rosterPositions || ["C", "1B", "2B", "3B", "SS", "OF", "OF", "OF", "UTIL", "SP", "SP", "RP", "RP", "BN", "BN", "IL"];
+    setEditRosterPositions(positions);
+    setEditRosterCounts(positionsToCountsMap(positions));
     setIsEditingRoster(true);
   };
 
   const saveRosterSettings = () => {
-    updateMutation.mutate({ rosterPositions: editRosterPositions });
+    const positions = countsToPositionsArray(editRosterCounts);
+    updateMutation.mutate({ rosterPositions: positions });
     setIsEditingRoster(false);
   };
 
-  const addPosition = (pos: string) => {
-    setEditRosterPositions([...editRosterPositions, pos]);
-  };
-
-  const removePosition = (index: number) => {
-    setEditRosterPositions(editRosterPositions.filter((_, i) => i !== index));
+  const updatePositionCount = (pos: string, delta: number) => {
+    setEditRosterCounts(prev => {
+      const newCount = Math.max(0, (prev[pos] || 0) + delta);
+      return { ...prev, [pos]: newCount };
+    });
   };
 
   const startEditingDraft = () => {
@@ -457,30 +477,32 @@ export default function LeaguePage() {
           </div>
           {isCommissioner ? (
             isEditingRoster ? (
-              <div>
-                <div className="flex flex-wrap gap-1.5 mb-3">
-                  {editRosterPositions.map((pos, index) => (
-                    <Badge
-                      key={index}
-                      className="bg-blue-600 text-white text-xs px-2 py-0.5 cursor-pointer hover:bg-red-600"
-                      onClick={() => removePosition(index)}
-                    >
-                      {pos} ×
-                    </Badge>
-                  ))}
-                </div>
-                <p className="text-gray-500 text-[10px] mb-2">Tap a position above to remove it. Tap below to add.</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {ALL_POSITIONS.map((pos) => (
-                    <Badge
-                      key={pos}
-                      className="bg-gray-700 text-gray-300 text-xs px-2 py-0.5 cursor-pointer hover:bg-gray-600"
-                      onClick={() => addPosition(pos)}
-                    >
-                      + {pos}
-                    </Badge>
-                  ))}
-                </div>
+              <div className="space-y-2">
+                {ALL_POSITIONS.map((pos) => (
+                  <div key={pos} className="flex items-center justify-between py-1.5 px-2 rounded-lg bg-gray-800/50">
+                    <span className="text-white text-sm font-medium w-12">{pos}</span>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => updatePositionCount(pos, -1)}
+                        className="w-7 h-7 rounded-full bg-gray-700 hover:bg-gray-600 text-white flex items-center justify-center text-sm font-bold"
+                        disabled={(editRosterCounts[pos] || 0) === 0}
+                      >
+                        −
+                      </button>
+                      <span className="text-white text-sm font-semibold w-5 text-center">
+                        {editRosterCounts[pos] || 0}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => updatePositionCount(pos, 1)}
+                        className="w-7 h-7 rounded-full bg-gray-700 hover:bg-gray-600 text-white flex items-center justify-center text-sm font-bold"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : (
               <div className="flex flex-wrap gap-1.5">
