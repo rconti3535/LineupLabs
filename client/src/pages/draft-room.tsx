@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, ListFilter, Users2, Search, X, Clock, Timer, Play, Pause } from "lucide-react";
+import { ArrowLeft, ListFilter, Users2, Search, X, Clock, Timer, Play, Pause, UserPlus } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { League, Team, Player, DraftPick, PlayerAdp } from "@shared/schema";
@@ -95,6 +95,8 @@ export default function DraftRoom() {
   const { user } = useAuth();
   const leagueId = params?.id ? parseInt(params.id) : null;
   const [activeTab, setActiveTab] = useState<DraftTab>("board");
+  const [commissionerAssignMode, setCommissionerAssignMode] = useState(false);
+  const [selectedCellOverall, setSelectedCellOverall] = useState<number | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [positionFilter, setPositionFilter] = useState("ALL");
@@ -198,6 +200,22 @@ export default function DraftRoom() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "draft-picks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "drafted-player-ids"] });
+    },
+  });
+
+  const commissionerAssignMutation = useMutation({
+    mutationFn: async (playerId: number) => {
+      const res = await apiRequest("POST", `/api/leagues/${leagueId}/commissioner-pick`, {
+        commissionerId: user?.id,
+        playerId,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "draft-picks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "drafted-player-ids"] });
+      setCommissionerAssignMode(false);
+      setSelectedCellOverall(null);
     },
   });
 
@@ -525,18 +543,35 @@ export default function DraftRoom() {
                 const pickedPlayer = pick ? playerMap.get(pick.playerId) : null;
                 const isCurrentPick = isDraftActive && cell.overall === nextOverall;
                 const isMyTeamCell = myTeam && teams?.[cell.teamIndex]?.id === myTeam.id;
+                const isEmpty = !pick;
+                const isSelected = selectedCellOverall === cell.overall;
+                const canCommissionerAssign = isCommissioner && isDraftActive && isEmpty;
 
                 return (
                   <div
                     key={cell.overall}
                     style={{ width: CELL_W, height: CELL_H }}
-                    className={`rounded-lg border flex flex-col items-center justify-center shrink-0 transition-all ${
-                      isCurrentPick
-                        ? "border-green-400 bg-green-900/40 ring-1 ring-green-400/50 shadow-lg shadow-green-400/20"
-                        : pick
-                          ? "border-gray-600 bg-gray-700/60"
-                          : "border-gray-700 bg-gray-800/60 hover:border-gray-500"
+                    className={`rounded-lg border flex flex-col items-center justify-center shrink-0 transition-all relative ${
+                      isSelected
+                        ? "border-yellow-400 bg-yellow-900/40 ring-1 ring-yellow-400/50 shadow-lg shadow-yellow-400/20"
+                        : isCurrentPick
+                          ? "border-green-400 bg-green-900/40 ring-1 ring-green-400/50 shadow-lg shadow-green-400/20"
+                          : pick
+                            ? "border-gray-600 bg-gray-700/60"
+                            : canCommissionerAssign
+                              ? "border-gray-700 bg-gray-800/60 hover:border-yellow-500/50 cursor-pointer"
+                              : "border-gray-700 bg-gray-800/60 hover:border-gray-500"
                     }`}
+                    onClick={() => {
+                      if (canCommissionerAssign) {
+                        if (isSelected) {
+                          setSelectedCellOverall(null);
+                        } else {
+                          setSelectedCellOverall(cell.overall);
+                          setCommissionerAssignMode(true);
+                        }
+                      }
+                    }}
                   >
                     {pickedPlayer ? (
                       <>
@@ -547,6 +582,11 @@ export default function DraftRoom() {
                           {pickedPlayer.lastName || pickedPlayer.name.split(" ").pop()}
                         </span>
                         <span className="text-gray-500 text-[8px]">{pickedPlayer.teamAbbreviation}</span>
+                      </>
+                    ) : isSelected ? (
+                      <>
+                        <UserPlus className="w-3 h-3 text-yellow-400 mb-0.5" />
+                        <span className="text-yellow-400 text-[8px] font-bold">ASSIGN</span>
                       </>
                     ) : isCurrentPick ? (
                       <>
@@ -564,15 +604,34 @@ export default function DraftRoom() {
         </div>
       </div>
 
-      {activeTab === "players" && (
+      {(activeTab === "players" || commissionerAssignMode) && (
         <div className="absolute bottom-10 left-0 right-0 h-[66vh] bg-gray-900 border-t border-gray-700 rounded-t-2xl flex flex-col z-10">
           <div className="flex items-center justify-center pt-2 pb-1">
             <div className="w-10 h-1 rounded-full bg-gray-600" />
           </div>
-          <h3 className="text-white font-semibold text-sm px-4 pb-2">
-            Available Players
-            {playersInfinite && <span className="text-gray-500 font-normal ml-1.5">({availableTotal.toLocaleString()})</span>}
-          </h3>
+          <div className="flex items-center justify-between px-4 pb-2">
+            <h3 className="text-white font-semibold text-sm">
+              {commissionerAssignMode ? (
+                <>
+                  <span className="text-yellow-400">Assign Player</span>
+                  <span className="text-gray-500 font-normal ml-1.5">Pick {Math.ceil(nextOverall / numTeams)}.{String(((nextOverall - 1) % numTeams) + 1).padStart(2, "0")}</span>
+                </>
+              ) : (
+                <>
+                  Available Players
+                  {playersInfinite && <span className="text-gray-500 font-normal ml-1.5">({availableTotal.toLocaleString()})</span>}
+                </>
+              )}
+            </h3>
+            {commissionerAssignMode && (
+              <button
+                onClick={() => { setCommissionerAssignMode(false); setSelectedCellOverall(null); }}
+                className="text-gray-400 hover:text-white p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
 
           <div className="px-3 pb-2 space-y-2">
             <div className="relative">
@@ -675,7 +734,16 @@ export default function DraftRoom() {
                       {adpMap.has(player.id) ? adpMap.get(player.id)!.toFixed(1) : "9999.0"}
                     </p>
                   </div>
-                  {isMyTurn && (
+                  {commissionerAssignMode ? (
+                    <Button
+                      onClick={() => commissionerAssignMutation.mutate(player.id)}
+                      disabled={commissionerAssignMutation.isPending}
+                      size="sm"
+                      className="bg-yellow-600 hover:bg-yellow-700 text-white h-8 px-3 text-xs shrink-0"
+                    >
+                      Assign
+                    </Button>
+                  ) : isMyTurn ? (
                     <Button
                       onClick={() => draftPlayerMutation.mutate(player.id)}
                       disabled={draftPlayerMutation.isPending}
@@ -684,7 +752,7 @@ export default function DraftRoom() {
                     >
                       Draft
                     </Button>
-                  )}
+                  ) : null}
                 </div>
               ))
             ) : (
