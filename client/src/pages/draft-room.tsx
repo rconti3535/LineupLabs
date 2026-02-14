@@ -247,7 +247,7 @@ export default function DraftRoom() {
       const loaded = allPages.reduce((sum, p) => sum + p.players.length, 0);
       return loaded < lastPage.total ? loaded : undefined;
     },
-    enabled: activeTab === "players" && !!league,
+    enabled: (activeTab === "players" || commissionerAssignMode) && !!league,
   });
 
   const allFetchedPlayers = playersInfinite?.pages.flatMap(p => p.players) || [];
@@ -264,7 +264,7 @@ export default function DraftRoom() {
       if (!res.ok) throw new Error("Failed to fetch ADP");
       return res.json();
     },
-    enabled: activeTab === "players" && !!league,
+    enabled: (activeTab === "players" || commissionerAssignMode) && !!league,
     staleTime: 0,
   });
 
@@ -833,7 +833,7 @@ export default function DraftRoom() {
           {draftNavItems.map((item) => (
             <button
               key={item.key}
-              onClick={() => setActiveTab(item.key)}
+              onClick={() => { setActiveTab(item.key); setCommissionerAssignMode(false); setSelectedCellOverall(null); }}
               className={`flex-1 py-3 text-center text-xs font-medium transition-colors ${
                 activeTab === item.key
                   ? "text-blue-400 border-t-2 border-blue-400"
