@@ -81,7 +81,7 @@ export default function LeaguePage() {
     setEditMaxTeams(String(league.maxTeams));
     setEditScoringFormat(league.scoringFormat || "5x5 Roto");
     setEditType(league.type || "Redraft");
-    setEditStatus(league.status || "Open");
+    setEditStatus(league.isPublic ? "Public" : "Private");
     setIsEditing(true);
   };
 
@@ -91,6 +91,7 @@ export default function LeaguePage() {
       scoringFormat: editScoringFormat,
       type: editType,
       status: editStatus,
+      isPublic: editStatus === "Public",
     });
   };
 
@@ -204,7 +205,7 @@ export default function LeaguePage() {
 
       {activeTab === "roster" && (
         <div>
-          {league.status === "Open" || league.status === "Full" ? (
+          {league.status === "Private" || league.status === "Public" || !league.status ? (
             <Card className="gradient-card rounded-xl p-4 border-0 mb-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-blue-600/20 flex items-center justify-center shrink-0">
@@ -407,7 +408,7 @@ export default function LeaguePage() {
                   <Trophy className="w-4 h-4 text-blue-400" />
                   <div>
                     <p className="text-gray-400 text-xs">Status</p>
-                    <p className="text-white font-medium text-sm">{league.status}</p>
+                    <p className="text-white font-medium text-sm">{league.isPublic ? "Public" : "Private"}</p>
                   </div>
                 </div>
               </div>

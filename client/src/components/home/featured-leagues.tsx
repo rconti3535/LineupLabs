@@ -77,7 +77,7 @@ export function FeaturedLeagues() {
                       : "bg-green-600 text-white"
                   }`}
                 >
-                  {league.status}
+                  Public
                 </Badge>
               </div>
               <div className="grid grid-cols-3 gap-4 text-sm mb-3">
