@@ -364,8 +364,6 @@ export default function LeaguePage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Redraft">Redraft</SelectItem>
-                      <SelectItem value="Dynasty">Dynasty</SelectItem>
-                      <SelectItem value="Keeper">Keeper</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

@@ -16,7 +16,7 @@ import { ArrowLeft } from "lucide-react";
 
 const createLeagueSchema = z.object({
   name: z.string().min(1, "League name is required"),
-  type: z.enum(["Redraft", "Dynasty"]),
+  type: z.enum(["Redraft"]),
   numberOfTeams: z.number().min(6, "Minimum 6 teams").max(30, "Maximum 30 teams"),
   scoringFormat: z.enum(["5x5 Roto"]),
   isPublic: z.boolean(),
@@ -131,17 +131,6 @@ export default function CreateLeague() {
                             <div className="font-medium">Redraft</div>
                             <div className="text-sm text-gray-400">
                               Draft new teams each season
-                            </div>
-                          </div>
-                        </Label>
-                      </div>
-                      <div className="flex items-center space-x-3 p-4 rounded-lg sleeper-card-bg border sleeper-border">
-                        <RadioGroupItem value="Dynasty" id="dynasty" className="text-blue-400" />
-                        <Label htmlFor="dynasty" className="text-white cursor-pointer flex-1">
-                          <div>
-                            <div className="font-medium">Dynasty</div>
-                            <div className="text-sm text-gray-400">
-                              Keep players across multiple seasons
                             </div>
                           </div>
                         </Label>
