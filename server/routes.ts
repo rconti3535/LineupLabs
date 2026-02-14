@@ -3,6 +3,13 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertLeagueSchema, insertTeamSchema, insertUserSchema, insertDraftPickSchema } from "@shared/schema";
 
+async function recalculateAdpForLeague(league: { type: string | null; scoringFormat: string | null; createdAt: Date | null }) {
+  const leagueType = league.type || "Redraft";
+  const scoringFormat = league.scoringFormat || "5x5 Roto";
+  const season = league.createdAt ? new Date(league.createdAt).getFullYear() : 2026;
+  await storage.recalculateAdp(leagueType, scoringFormat, season);
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Get public leagues
   app.get("/api/leagues/public", async (req, res) => {
@@ -353,6 +360,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const totalPicks = totalRounds * numTeams;
       if (nextOverall >= totalPicks) {
         await storage.updateLeague(leagueId, { draftStatus: "completed", draftPickStartedAt: null });
+        recalculateAdpForLeague(league).catch(e => console.error("ADP recalc error:", e));
       } else {
         await storage.updateLeague(leagueId, { draftPickStartedAt: new Date().toISOString() });
       }
@@ -471,6 +479,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const totalPicks = totalRounds * numTeams;
       if (nextOverall >= totalPicks) {
         await storage.updateLeague(leagueId, { draftStatus: "completed", draftPickStartedAt: null });
+        recalculateAdpForLeague(league).catch(e => console.error("ADP recalc error:", e));
       } else {
         await storage.updateLeague(leagueId, { draftPickStartedAt: new Date().toISOString() });
       }
@@ -489,6 +498,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(playerIds);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch drafted player IDs" });
+    }
+  });
+
+  app.get("/api/adp", async (req, res) => {
+    try {
+      const leagueType = (req.query.type as string) || "Redraft";
+      const scoringFormat = (req.query.scoring as string) || "5x5 Roto";
+      const season = parseInt(req.query.season as string) || 2026;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
+      const result = await storage.getAdp(leagueType, scoringFormat, season, limit, offset);
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch ADP data" });
+    }
+  });
+
+  app.get("/api/adp/player/:playerId", async (req, res) => {
+    try {
+      const playerId = parseInt(req.params.playerId);
+      const leagueType = (req.query.type as string) || "Redraft";
+      const scoringFormat = (req.query.scoring as string) || "5x5 Roto";
+      const season = parseInt(req.query.season as string) || 2026;
+      const record = await storage.getPlayerAdp(playerId, leagueType, scoringFormat, season);
+      if (!record) {
+        return res.status(404).json({ message: "No ADP data for this player" });
+      }
+      res.json(record);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch player ADP" });
+    }
+  });
+
+  app.post("/api/adp/recalculate", async (req, res) => {
+    try {
+      const leagueType = (req.body.type as string) || "Redraft";
+      const scoringFormat = (req.body.scoring as string) || "5x5 Roto";
+      const season = parseInt(req.body.season) || 2026;
+      await storage.recalculateAdp(leagueType, scoringFormat, season);
+      res.json({ message: "ADP recalculated successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to recalculate ADP" });
     }
   });
 
@@ -514,6 +565,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const nextOverall = existingPicks.length + 1;
         if (nextOverall > totalRounds * numTeams) {
           await storage.updateLeague(league.id, { draftStatus: "completed", draftPickStartedAt: null });
+          recalculateAdpForLeague(league).catch(e => console.error("ADP recalc error:", e));
           continue;
         }
 
@@ -581,6 +633,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         if (!selectedPlayer) {
           await storage.updateLeague(league.id, { draftStatus: "completed", draftPickStartedAt: null });
+          recalculateAdpForLeague(league).catch(e => console.error("ADP recalc error:", e));
           continue;
         }
 
@@ -596,6 +649,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const totalPicks = totalRounds * numTeams;
         if (nextOverall >= totalPicks) {
           await storage.updateLeague(league.id, { draftStatus: "completed", draftPickStartedAt: null });
+          recalculateAdpForLeague(league).catch(e => console.error("ADP recalc error:", e));
         } else {
           await storage.updateLeague(league.id, { draftPickStartedAt: new Date().toISOString() });
         }

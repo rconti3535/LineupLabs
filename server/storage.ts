@@ -265,12 +265,12 @@ export class DatabaseStorage implements IStorage {
         playerPositionSums.set(pick.playerId, current + pick.overallPick);
       }
 
-      for (const pid of allPlayerIds) {
-        if (!draftedInThisLeague.has(pid)) {
-          const current = playerPositionSums.get(pid) || 0;
-          playerPositionSums.set(pid, current + 9999);
+      allPlayerRows.forEach(p => {
+        if (!draftedInThisLeague.has(p.id)) {
+          const current = playerPositionSums.get(p.id) || 0;
+          playerPositionSums.set(p.id, current + 9999);
         }
-      }
+      });
     }
 
     await db.delete(playerAdp).where(
@@ -282,7 +282,7 @@ export class DatabaseStorage implements IStorage {
     );
 
     const records: InsertPlayerAdp[] = [];
-    for (const [playerId, totalSum] of playerPositionSums) {
+    playerPositionSums.forEach((totalSum, playerId) => {
       const adpValue = Math.round(totalSum / draftCount);
       records.push({
         playerId,
@@ -293,7 +293,7 @@ export class DatabaseStorage implements IStorage {
         draftCount,
         totalPositionSum: totalSum,
       });
-    }
+    });
 
     const BATCH_SIZE = 500;
     for (let i = 0; i < records.length; i += BATCH_SIZE) {
