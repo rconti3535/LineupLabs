@@ -1,15 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, ListFilter, Users2 } from "lucide-react";
+import { ArrowLeft, ListFilter, Users2, Search, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import type { League, Team, Player } from "@shared/schema";
 
 type DraftTab = "board" | "players" | "team";
+
+const POSITION_FILTERS = ["ALL", "C", "1B", "2B", "3B", "SS", "OF", "SP", "RP", "DH", "UTIL"];
+const LEVEL_FILTERS = ["ALL", "MLB", "AAA", "AA", "A+", "A", "Rookie"];
 
 export default function DraftRoom() {
   const [, params] = useRoute("/league/:id/draft");
@@ -17,6 +20,16 @@ export default function DraftRoom() {
   const { user } = useAuth();
   const leagueId = params?.id ? parseInt(params.id) : null;
   const [activeTab, setActiveTab] = useState<DraftTab>("board");
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [positionFilter, setPositionFilter] = useState("ALL");
+  const [levelFilter, setLevelFilter] = useState("ALL");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(searchQuery), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const { data: league, isLoading: leagueLoading } = useQuery<League>({
     queryKey: ["/api/leagues", leagueId],
@@ -38,13 +51,19 @@ export default function DraftRoom() {
     enabled: !!leagueId,
   });
 
-  const { data: players } = useQuery<Player[]>({
-    queryKey: ["/api/players"],
+  const { data: playersData, isLoading: playersLoading } = useQuery<{ players: Player[]; total: number }>({
+    queryKey: ["/api/players", debouncedQuery, positionFilter, levelFilter],
     queryFn: async () => {
-      const res = await fetch("/api/players");
+      const params = new URLSearchParams();
+      if (debouncedQuery) params.set("q", debouncedQuery);
+      if (positionFilter !== "ALL") params.set("position", positionFilter);
+      if (levelFilter !== "ALL") params.set("level", levelFilter);
+      params.set("limit", "100");
+      const res = await fetch(`/api/players?${params}`);
       if (!res.ok) throw new Error("Failed to fetch players");
       return res.json();
     },
+    enabled: activeTab === "players",
   });
 
   const rosterPositions = league?.rosterPositions || [];
@@ -101,6 +120,23 @@ export default function DraftRoom() {
     { key: "team", label: "My Team", icon: Users2 },
   ];
 
+  const positionColor = (pos: string) => {
+    const colors: Record<string, string> = {
+      C: "bg-yellow-600", "1B": "bg-red-600", "2B": "bg-orange-600",
+      "3B": "bg-pink-600", SS: "bg-purple-600", OF: "bg-green-600",
+      SP: "bg-blue-600", RP: "bg-cyan-600", DH: "bg-gray-600", UTIL: "bg-gray-600",
+    };
+    return colors[pos] || "bg-gray-600";
+  };
+
+  const levelColor = (level: string) => {
+    const colors: Record<string, string> = {
+      MLB: "text-yellow-400", AAA: "text-blue-400", AA: "text-green-400",
+      "A+": "text-purple-400", A: "text-orange-400", Rookie: "text-gray-400",
+    };
+    return colors[level] || "text-gray-400";
+  };
+
   return (
     <div className="flex flex-col h-screen overflow-hidden relative">
       <div className="px-3 py-3 flex items-center gap-2 shrink-0 border-b border-gray-800">
@@ -150,28 +186,110 @@ export default function DraftRoom() {
           <div className="flex items-center justify-center pt-2 pb-1">
             <div className="w-10 h-1 rounded-full bg-gray-600" />
           </div>
-          <h3 className="text-white font-semibold text-sm px-4 pb-2">Available Players</h3>
-          <div className="flex-1 overflow-auto hide-scrollbar px-3 pb-3 space-y-1.5">
-            {players && players.length > 0 ? (
-              players.map((player) => (
+          <h3 className="text-white font-semibold text-sm px-4 pb-2">
+            Available Players
+            {playersData && <span className="text-gray-500 font-normal ml-1.5">({playersData.total.toLocaleString()})</span>}
+          </h3>
+
+          <div className="px-3 pb-2 space-y-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+              <Input
+                placeholder="Search players..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="bg-gray-800 border-gray-700 text-white text-sm h-9 pl-9 pr-8"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            <div className="flex gap-1.5 overflow-x-auto hide-scrollbar">
+              {POSITION_FILTERS.map((pos) => (
+                <button
+                  key={pos}
+                  onClick={() => setPositionFilter(pos)}
+                  className={`text-[11px] font-medium px-2.5 py-1 rounded-full whitespace-nowrap transition-colors ${
+                    positionFilter === pos
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                  }`}
+                >
+                  {pos}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex gap-1.5 overflow-x-auto hide-scrollbar">
+              {LEVEL_FILTERS.map((level) => (
+                <button
+                  key={level}
+                  onClick={() => setLevelFilter(level)}
+                  className={`text-[11px] font-medium px-2.5 py-1 rounded-full whitespace-nowrap transition-colors ${
+                    levelFilter === level
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                  }`}
+                >
+                  {level}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-auto hide-scrollbar px-3 pb-3 space-y-1">
+            {playersLoading ? (
+              Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg sleeper-card-bg">
+                  <Skeleton className="w-9 h-9 rounded-full shrink-0" />
+                  <div className="flex-1">
+                    <Skeleton className="h-4 w-32 mb-1" />
+                    <Skeleton className="h-3 w-24" />
+                  </div>
+                </div>
+              ))
+            ) : playersData && playersData.players.length > 0 ? (
+              playersData.players.map((player) => (
                 <div
                   key={player.id}
-                  className="flex items-center gap-3 p-3 rounded-lg sleeper-card-bg"
+                  className="flex items-center gap-3 p-2.5 rounded-lg sleeper-card-bg"
                 >
-                  <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-gray-400 text-xs font-bold shrink-0">
-                    {player.position?.charAt(0) || "?"}
+                  <div className={`w-9 h-9 rounded-full ${positionColor(player.position)} flex items-center justify-center text-white text-[10px] font-bold shrink-0`}>
+                    {player.position}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-white text-sm font-medium truncate">{player.name}</p>
-                    <p className="text-gray-500 text-xs">{player.position} — {player.team}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-white text-sm font-medium truncate">{player.name}</p>
+                      {player.jerseyNumber && (
+                        <span className="text-gray-600 text-[10px]">#{player.jerseyNumber}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs">
+                      <span className="text-gray-400 truncate">{player.teamAbbreviation || player.team}</span>
+                      <span className="text-gray-600">·</span>
+                      <span className={levelColor(player.mlbLevel || "MLB")}>{player.mlbLevel}</span>
+                      {player.bats && player.throws && (
+                        <>
+                          <span className="text-gray-600">·</span>
+                          <span className="text-gray-500">B:{player.bats} T:{player.throws}</span>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  <Badge className="bg-gray-700 text-gray-400 text-[10px] shrink-0">Available</Badge>
                 </div>
               ))
             ) : (
               <div className="text-center py-8">
                 <p className="text-gray-500 text-sm">
-                  No players available yet. Players will appear here once the draft begins.
+                  {searchQuery || positionFilter !== "ALL" || levelFilter !== "ALL"
+                    ? "No players match your filters."
+                    : "No players available."}
                 </p>
               </div>
             )}
