@@ -83,6 +83,17 @@ export const draftPicks = pgTable("draft_picks", {
   pickedAt: timestamp("picked_at").defaultNow(),
 });
 
+export const playerAdp = pgTable("player_adp", {
+  id: serial("id").primaryKey(),
+  playerId: integer("player_id").references(() => players.id).notNull(),
+  leagueType: text("league_type").notNull(),
+  scoringFormat: text("scoring_format").notNull(),
+  season: integer("season").notNull(),
+  adp: integer("adp").notNull(),
+  draftCount: integer("draft_count").notNull(),
+  totalPositionSum: integer("total_position_sum").notNull(),
+});
+
 export const activities = pgTable("activities", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id),
@@ -123,6 +134,10 @@ export const insertDraftPickSchema = createInsertSchema(draftPicks).omit({
   pickedAt: true,
 });
 
+export const insertPlayerAdpSchema = createInsertSchema(playerAdp).omit({
+  id: true,
+});
+
 export const insertActivitySchema = createInsertSchema(activities).omit({
   id: true,
 });
@@ -137,5 +152,7 @@ export type Player = typeof players.$inferSelect;
 export type InsertPlayer = z.infer<typeof insertPlayerSchema>;
 export type DraftPick = typeof draftPicks.$inferSelect;
 export type InsertDraftPick = z.infer<typeof insertDraftPickSchema>;
+export type PlayerAdp = typeof playerAdp.$inferSelect;
+export type InsertPlayerAdp = z.infer<typeof insertPlayerAdpSchema>;
 export type Activity = typeof activities.$inferSelect;
 export type InsertActivity = z.infer<typeof insertActivitySchema>;
