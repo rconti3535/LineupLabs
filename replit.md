@@ -39,6 +39,8 @@ Key API routes:
 - `POST /api/auth/login` — login
 - `POST /api/auth/reset-password` — reset password
 - `POST /api/leagues` — create league
+- `GET /api/players?q=&position=&level=&limit=&offset=` — search/filter players
+- `GET /api/players/:id` — fetch player by ID
 
 ### Data Storage
 - **Database**: PostgreSQL (via Neon serverless driver `@neondatabase/serverless`)
@@ -51,7 +53,7 @@ Key API routes:
 - **users** — id, username, email, password, name, avatar, leagues count, wins, championships
 - **leagues** — id, name, description, type, numberOfTeams, scoringFormat, isPublic, maxTeams, currentTeams, buyin, prize, status, createdBy (FK to users), createdAt
 - **teams** — id, name, leagueId (FK to leagues), userId (FK to users), wins, losses, points, rank, logo, nextOpponent
-- **players** — id, name, position (and likely more fields)
+- **players** — id, mlbId (unique), name, firstName, lastName, position, team, teamAbbreviation, jerseyNumber, bats, throws, age, height, weight, mlbLevel (MLB/AAA/AA/A+/A/Rookie), avatar, points, status. ~8,200 real players imported from MLB Stats API.
 - **activities** — user activity tracking
 
 ### Storage Layer
