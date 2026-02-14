@@ -1,16 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, ListFilter, Users2, Search, X, Clock, Timer } from "lucide-react";
+import { ArrowLeft, ListFilter, Users2, Search, X, Clock, Timer, Play, Pause } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { League, Team, Player } from "@shared/schema";
 
 type DraftTab = "board" | "players" | "team";
-type DraftStatus = "scheduled" | "live" | "not_scheduled";
 
 const POSITION_FILTERS = ["ALL", "C", "1B", "2B", "3B", "SS", "OF", "SP", "RP", "DH", "UTIL"];
 const LEVEL_FILTERS = ["ALL", "MLB", "AAA", "AA", "A+", "A", "Rookie"];
@@ -47,24 +47,24 @@ function useCountdown(targetDate: Date | null) {
   return { timeLeft, hasReached };
 }
 
-function usePickTimer(isLive: boolean, secondsPerPick: number) {
+function usePickTimer(isActive: boolean, secondsPerPick: number) {
   const [pickTimeLeft, setPickTimeLeft] = useState(secondsPerPick);
   const [currentPick, setCurrentPick] = useState(1);
 
   useEffect(() => {
-    if (!isLive) return;
+    if (!isActive) return;
     setPickTimeLeft(secondsPerPick);
-  }, [isLive, secondsPerPick, currentPick]);
+  }, [isActive, secondsPerPick, currentPick]);
 
   useEffect(() => {
-    if (!isLive) return;
+    if (!isActive) return;
     if (pickTimeLeft <= 0) return;
 
     const interval = setInterval(() => {
       setPickTimeLeft(prev => Math.max(0, prev - 1));
     }, 1000);
     return () => clearInterval(interval);
-  }, [isLive, pickTimeLeft]);
+  }, [isActive, pickTimeLeft]);
 
   return { pickTimeLeft, currentPick, setCurrentPick };
 }
@@ -126,8 +126,24 @@ export default function DraftRoom() {
   const draftDate = league?.draftDate ? new Date(league.draftDate) : null;
   const secondsPerPick = league?.secondsPerPick || 60;
   const { timeLeft, hasReached } = useCountdown(draftDate);
-  const draftStatus: DraftStatus = !draftDate ? "not_scheduled" : hasReached ? "live" : "scheduled";
-  const { pickTimeLeft } = usePickTimer(draftStatus === "live", secondsPerPick);
+  const serverDraftStatus = league?.draftStatus || "pending";
+  const isCommissioner = !!(user && league && league.createdBy === user.id);
+  const isDraftActive = serverDraftStatus === "active";
+  const isDraftPaused = serverDraftStatus === "paused";
+  const { pickTimeLeft } = usePickTimer(isDraftActive, secondsPerPick);
+
+  const draftControlMutation = useMutation({
+    mutationFn: async (action: "start" | "pause" | "resume") => {
+      const res = await apiRequest("POST", `/api/leagues/${leagueId}/draft-control`, {
+        userId: user?.id,
+        action,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId] });
+    },
+  });
 
   const { data: playersData, isLoading: playersLoading } = useQuery<{ players: Player[]; total: number }>({
     queryKey: ["/api/players", debouncedQuery, positionFilter, levelFilter],
@@ -231,28 +247,7 @@ export default function DraftRoom() {
         </div>
 
         <div className="mt-1.5">
-          {draftStatus === "not_scheduled" ? (
-            <div className="flex items-center gap-2 bg-gray-800/80 rounded-lg px-3 py-2">
-              <Clock className="w-4 h-4 text-gray-500 shrink-0" />
-              <span className="text-gray-400 text-xs">Draft not yet scheduled</span>
-            </div>
-          ) : draftStatus === "scheduled" && timeLeft ? (
-            <div className="flex items-center gap-2 bg-blue-900/30 border border-blue-800/50 rounded-lg px-3 py-2">
-              <Clock className="w-4 h-4 text-blue-400 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-blue-400 text-[10px] font-medium uppercase tracking-wide">Draft starts in</p>
-                <p className="text-white text-sm font-bold tabular-nums">{formatCountdown(timeLeft)}</p>
-              </div>
-              <div className="text-right shrink-0">
-                <p className="text-gray-500 text-[10px]">
-                  {draftDate?.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                </p>
-                <p className="text-gray-400 text-[10px]">
-                  {draftDate?.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-                </p>
-              </div>
-            </div>
-          ) : draftStatus === "live" ? (
+          {isDraftActive ? (
             <div className={`flex items-center gap-2 rounded-lg px-3 py-2 border ${
               pickTimeLeft <= 10
                 ? "bg-red-900/30 border-red-800/50"
@@ -277,10 +272,102 @@ export default function DraftRoom() {
                   {formatPickTime(pickTimeLeft)}
                 </p>
               </div>
-              <div className="text-right shrink-0">
-                <p className="text-gray-400 text-[10px]">Time per pick</p>
-                <p className="text-gray-300 text-xs font-medium">{secondsPerPick}s</p>
+              {isCommissioner && (
+                <Button
+                  onClick={() => draftControlMutation.mutate("pause")}
+                  disabled={draftControlMutation.isPending}
+                  size="sm"
+                  className="bg-yellow-600 hover:bg-yellow-700 text-white h-9 px-3 gap-1.5 shrink-0"
+                >
+                  <Pause className="w-3.5 h-3.5" />
+                  Pause
+                </Button>
+              )}
+              {!isCommissioner && (
+                <div className="text-right shrink-0">
+                  <p className="text-gray-400 text-[10px]">Time per pick</p>
+                  <p className="text-gray-300 text-xs font-medium">{secondsPerPick}s</p>
+                </div>
+              )}
+            </div>
+          ) : isDraftPaused ? (
+            <div className="flex items-center gap-2 bg-yellow-900/20 border border-yellow-800/50 rounded-lg px-3 py-2">
+              <Pause className="w-4 h-4 text-yellow-400 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-yellow-400 text-[10px] font-medium uppercase tracking-wide">Draft Paused</p>
+                <p className="text-yellow-300 text-sm font-semibold">Waiting for commissioner...</p>
               </div>
+              {isCommissioner && (
+                <Button
+                  onClick={() => draftControlMutation.mutate("resume")}
+                  disabled={draftControlMutation.isPending}
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700 text-white h-9 px-3 gap-1.5 shrink-0"
+                >
+                  <Play className="w-3.5 h-3.5" />
+                  Resume
+                </Button>
+              )}
+            </div>
+          ) : !draftDate && serverDraftStatus === "pending" ? (
+            <div className="flex items-center gap-2 bg-gray-800/80 rounded-lg px-3 py-2">
+              <Clock className="w-4 h-4 text-gray-500 shrink-0" />
+              <span className="text-gray-400 text-xs flex-1">Draft not yet scheduled</span>
+              {isCommissioner && (
+                <Button
+                  onClick={() => draftControlMutation.mutate("start")}
+                  disabled={draftControlMutation.isPending}
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700 text-white h-9 px-3 gap-1.5 shrink-0"
+                >
+                  <Play className="w-3.5 h-3.5" />
+                  Start Draft
+                </Button>
+              )}
+            </div>
+          ) : timeLeft && !hasReached && serverDraftStatus === "pending" ? (
+            <div className="flex items-center gap-2 bg-blue-900/30 border border-blue-800/50 rounded-lg px-3 py-2">
+              <Clock className="w-4 h-4 text-blue-400 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-blue-400 text-[10px] font-medium uppercase tracking-wide">Draft starts in</p>
+                <p className="text-white text-sm font-bold tabular-nums">{formatCountdown(timeLeft)}</p>
+              </div>
+              {isCommissioner ? (
+                <Button
+                  onClick={() => draftControlMutation.mutate("start")}
+                  disabled={draftControlMutation.isPending}
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700 text-white h-9 px-3 gap-1.5 shrink-0"
+                >
+                  <Play className="w-3.5 h-3.5" />
+                  Start Now
+                </Button>
+              ) : (
+                <div className="text-right shrink-0">
+                  <p className="text-gray-500 text-[10px]">
+                    {draftDate?.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                  </p>
+                  <p className="text-gray-400 text-[10px]">
+                    {draftDate?.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                  </p>
+                </div>
+              )}
+            </div>
+          ) : serverDraftStatus === "pending" ? (
+            <div className="flex items-center gap-2 bg-gray-800/80 rounded-lg px-3 py-2">
+              <Clock className="w-4 h-4 text-gray-500 shrink-0" />
+              <span className="text-gray-400 text-xs flex-1">Draft ready to begin</span>
+              {isCommissioner && (
+                <Button
+                  onClick={() => draftControlMutation.mutate("start")}
+                  disabled={draftControlMutation.isPending}
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700 text-white h-9 px-3 gap-1.5 shrink-0"
+                >
+                  <Play className="w-3.5 h-3.5" />
+                  Start Draft
+                </Button>
+              )}
             </div>
           ) : null}
         </div>
