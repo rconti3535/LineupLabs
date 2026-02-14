@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, ListFilter, Users2, Search, X, Clock, Timer, Play, Pause } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { League, Team, Player } from "@shared/schema";
+import type { League, Team, Player, DraftPick } from "@shared/schema";
 
 type DraftTab = "board" | "players" | "team";
 
@@ -47,14 +47,12 @@ function useCountdown(targetDate: Date | null) {
   return { timeLeft, hasReached };
 }
 
-function usePickTimer(isActive: boolean, secondsPerPick: number) {
+function usePickTimer(isActive: boolean, secondsPerPick: number, pickCount: number) {
   const [pickTimeLeft, setPickTimeLeft] = useState(secondsPerPick);
-  const [currentPick, setCurrentPick] = useState(1);
 
   useEffect(() => {
-    if (!isActive) return;
-    setPickTimeLeft(secondsPerPick);
-  }, [isActive, secondsPerPick, currentPick]);
+    if (isActive) setPickTimeLeft(secondsPerPick);
+  }, [isActive, secondsPerPick, pickCount]);
 
   useEffect(() => {
     if (!isActive) return;
@@ -66,7 +64,7 @@ function usePickTimer(isActive: boolean, secondsPerPick: number) {
     return () => clearInterval(interval);
   }, [isActive, pickTimeLeft]);
 
-  return { pickTimeLeft, currentPick, setCurrentPick };
+  return { pickTimeLeft };
 }
 
 function formatCountdown(t: { days: number; hours: number; minutes: number; seconds: number }) {
@@ -123,6 +121,28 @@ export default function DraftRoom() {
     enabled: !!leagueId,
   });
 
+  const { data: draftPicks = [] } = useQuery<DraftPick[]>({
+    queryKey: ["/api/leagues", leagueId, "draft-picks"],
+    queryFn: async () => {
+      const res = await fetch(`/api/leagues/${leagueId}/draft-picks`);
+      if (!res.ok) throw new Error("Failed to fetch draft picks");
+      return res.json();
+    },
+    enabled: !!leagueId,
+    refetchInterval: league?.draftStatus === "active" ? 3000 : false,
+  });
+
+  const { data: draftedPlayerIds = [] } = useQuery<number[]>({
+    queryKey: ["/api/leagues", leagueId, "drafted-player-ids"],
+    queryFn: async () => {
+      const res = await fetch(`/api/leagues/${leagueId}/drafted-player-ids`);
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!leagueId,
+    refetchInterval: league?.draftStatus === "active" ? 3000 : false,
+  });
+
   const draftDate = league?.draftDate ? new Date(league.draftDate) : null;
   const secondsPerPick = league?.secondsPerPick || 60;
   const { timeLeft, hasReached } = useCountdown(draftDate);
@@ -130,7 +150,23 @@ export default function DraftRoom() {
   const isCommissioner = !!(user && league && league.createdBy === user.id);
   const isDraftActive = serverDraftStatus === "active";
   const isDraftPaused = serverDraftStatus === "paused";
-  const { pickTimeLeft } = usePickTimer(isDraftActive, secondsPerPick);
+  const { pickTimeLeft } = usePickTimer(isDraftActive, secondsPerPick, draftPicks.length);
+
+  const rosterPositions = league?.rosterPositions || [];
+  const totalRounds = rosterPositions.length;
+  const numTeams = teams?.length || league?.maxTeams || 12;
+  const myTeam = teams?.find((t) => t.userId === user?.id);
+
+  const nextOverall = draftPicks.length + 1;
+  const currentRound = Math.ceil(nextOverall / numTeams);
+  const currentPickInRound = ((nextOverall - 1) % numTeams) + 1;
+  const isEvenRound = currentRound % 2 === 1;
+  const currentTeamIndex = isEvenRound ? currentPickInRound - 1 : numTeams - currentPickInRound;
+  const currentPickingTeam = teams?.[currentTeamIndex];
+  const isMyTurn = isDraftActive && currentPickingTeam && myTeam && currentPickingTeam.id === myTeam.id;
+
+  const picksByOverall = new Map<number, DraftPick>();
+  draftPicks.forEach(p => picksByOverall.set(p.overallPick, p));
 
   const draftControlMutation = useMutation({
     mutationFn: async (action: "start" | "pause" | "resume") => {
@@ -142,6 +178,20 @@ export default function DraftRoom() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId] });
+    },
+  });
+
+  const draftPlayerMutation = useMutation({
+    mutationFn: async (playerId: number) => {
+      const res = await apiRequest("POST", `/api/leagues/${leagueId}/draft-picks`, {
+        userId: user?.id,
+        playerId,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "draft-picks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "drafted-player-ids"] });
     },
   });
 
@@ -160,19 +210,42 @@ export default function DraftRoom() {
     enabled: activeTab === "players",
   });
 
-  const rosterPositions = league?.rosterPositions || [];
-  const totalRounds = rosterPositions.length;
-  const numTeams = league?.maxTeams || 12;
-  const myTeam = teams?.find((t) => t.userId === user?.id);
+  const draftedPlayerIdsSet = new Set(draftedPlayerIds);
+  const availablePlayers = playersData?.players.filter(p => !draftedPlayerIdsSet.has(p.id)) || [];
+  const availableTotal = playersData ? playersData.total - draftedPlayerIds.length : 0;
+
+  const draftPickPlayerIds = draftPicks.map(p => p.playerId);
+  const { data: allPlayers } = useQuery<Player[]>({
+    queryKey: ["/api/players/by-ids", draftPicks.length],
+    queryFn: async () => {
+      const ids = draftPicks.map(p => p.playerId);
+      if (ids.length === 0) return [];
+      const results = await Promise.all(
+        ids.map(async (id) => {
+          const res = await fetch(`/api/players/${id}`);
+          if (!res.ok) return null;
+          return res.json();
+        })
+      );
+      return results.filter(Boolean) as Player[];
+    },
+    enabled: draftPicks.length > 0,
+  });
+
+  const playerMap = new Map<number, Player>();
+  allPlayers?.forEach(p => playerMap.set(p.id, p));
+
+  const myPicks = draftPicks.filter(p => myTeam && p.teamId === myTeam.id);
+  const myRosteredPlayers = myPicks.map(p => playerMap.get(p.playerId)).filter(Boolean) as Player[];
 
   const buildDraftBoard = () => {
     const board: { round: number; pick: number; overall: number; teamIndex: number }[][] = [];
     for (let round = 0; round < totalRounds; round++) {
       const row: { round: number; pick: number; overall: number; teamIndex: number }[] = [];
       for (let col = 0; col < numTeams; col++) {
-        const isEvenRound = round % 2 === 0;
-        const teamIndex = isEvenRound ? col : numTeams - 1 - col;
-        const pickInRound = isEvenRound ? col + 1 : numTeams - col;
+        const isEven = round % 2 === 0;
+        const teamIndex = isEven ? col : numTeams - 1 - col;
+        const pickInRound = isEven ? col + 1 : numTeams - col;
         const overall = round * numTeams + pickInRound;
         row.push({ round: round + 1, pick: pickInRound, overall, teamIndex });
       }
@@ -264,7 +337,9 @@ export default function DraftRoom() {
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
                   </span>
-                  <p className="text-green-400 text-[10px] font-medium uppercase tracking-wide">Draft is Live</p>
+                  <p className="text-green-400 text-[10px] font-medium uppercase tracking-wide">
+                    {isMyTurn ? "Your Pick!" : `${currentPickingTeam?.name || "..."} is picking`}
+                  </p>
                 </div>
                 <p className={`text-2xl font-bold tabular-nums ${
                   pickTimeLeft <= 10 ? "text-red-400" : pickTimeLeft <= 30 ? "text-yellow-400" : "text-white"
@@ -285,8 +360,8 @@ export default function DraftRoom() {
               )}
               {!isCommissioner && (
                 <div className="text-right shrink-0">
-                  <p className="text-gray-400 text-[10px]">Time per pick</p>
-                  <p className="text-gray-300 text-xs font-medium">{secondsPerPick}s</p>
+                  <p className="text-gray-400 text-[10px]">Round {currentRound}, Pick {currentPickInRound}</p>
+                  <p className="text-gray-300 text-xs font-medium">#{nextOverall} overall</p>
                 </div>
               )}
             </div>
@@ -380,7 +455,9 @@ export default function DraftRoom() {
               <div
                 key={i}
                 style={{ width: CELL_W }}
-                className="text-center text-[10px] text-gray-500 font-medium truncate px-0.5"
+                className={`text-center text-[10px] font-medium truncate px-0.5 ${
+                  isDraftActive && currentTeamIndex === i ? "text-green-400" : "text-gray-500"
+                }`}
               >
                 {teams?.[i]?.name || `Team ${i + 1}`}
               </div>
@@ -389,15 +466,45 @@ export default function DraftRoom() {
 
           {board.map((row, roundIndex) => (
             <div key={roundIndex} className="flex gap-1 mb-1">
-              {row.map((cell) => (
-                <div
-                  key={cell.overall}
-                  style={{ width: CELL_W, height: CELL_H }}
-                  className="rounded-lg border border-gray-700 bg-gray-800/60 flex flex-col items-center justify-center shrink-0 hover:border-gray-500 transition-colors"
-                >
-                  <span className="text-gray-600 text-[10px] font-medium">{cell.round}.{String(cell.pick).padStart(2, "0")}</span>
-                </div>
-              ))}
+              {row.map((cell) => {
+                const pick = picksByOverall.get(cell.overall);
+                const pickedPlayer = pick ? playerMap.get(pick.playerId) : null;
+                const isCurrentPick = isDraftActive && cell.overall === nextOverall;
+                const isMyTeamCell = myTeam && teams?.[cell.teamIndex]?.id === myTeam.id;
+
+                return (
+                  <div
+                    key={cell.overall}
+                    style={{ width: CELL_W, height: CELL_H }}
+                    className={`rounded-lg border flex flex-col items-center justify-center shrink-0 transition-all ${
+                      isCurrentPick
+                        ? "border-green-400 bg-green-900/40 ring-1 ring-green-400/50 shadow-lg shadow-green-400/20"
+                        : pick
+                          ? "border-gray-600 bg-gray-700/60"
+                          : "border-gray-700 bg-gray-800/60 hover:border-gray-500"
+                    }`}
+                  >
+                    {pickedPlayer ? (
+                      <>
+                        <span className={`text-[9px] font-bold px-1 rounded ${positionColor(pickedPlayer.position)} text-white`}>
+                          {pickedPlayer.position}
+                        </span>
+                        <span className="text-white text-[10px] font-medium truncate w-full text-center px-1 leading-tight">
+                          {pickedPlayer.lastName || pickedPlayer.name.split(" ").pop()}
+                        </span>
+                        <span className="text-gray-500 text-[8px]">{pickedPlayer.teamAbbreviation}</span>
+                      </>
+                    ) : isCurrentPick ? (
+                      <>
+                        <span className="text-green-400 text-[10px] font-bold animate-pulse">ON CLOCK</span>
+                        <span className="text-green-400/70 text-[9px]">{cell.round}.{String(cell.pick).padStart(2, "0")}</span>
+                      </>
+                    ) : (
+                      <span className="text-gray-600 text-[10px] font-medium">{cell.round}.{String(cell.pick).padStart(2, "0")}</span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           ))}
         </div>
@@ -410,7 +517,7 @@ export default function DraftRoom() {
           </div>
           <h3 className="text-white font-semibold text-sm px-4 pb-2">
             Available Players
-            {playersData && <span className="text-gray-500 font-normal ml-1.5">({playersData.total.toLocaleString()})</span>}
+            {playersData && <span className="text-gray-500 font-normal ml-1.5">({Math.max(0, availableTotal).toLocaleString()})</span>}
           </h3>
 
           <div className="px-3 pb-2 space-y-2">
@@ -476,8 +583,8 @@ export default function DraftRoom() {
                   </div>
                 </div>
               ))
-            ) : playersData && playersData.players.length > 0 ? (
-              playersData.players.map((player) => (
+            ) : availablePlayers.length > 0 ? (
+              availablePlayers.map((player) => (
                 <div
                   key={player.id}
                   className="flex items-center gap-3 p-2.5 rounded-lg sleeper-card-bg"
@@ -494,16 +601,26 @@ export default function DraftRoom() {
                     </div>
                     <div className="flex items-center gap-1.5 text-xs">
                       <span className="text-gray-400 truncate">{player.teamAbbreviation || player.team}</span>
-                      <span className="text-gray-600">·</span>
+                      <span className="text-gray-600">&middot;</span>
                       <span className={levelColor(player.mlbLevel || "MLB")}>{player.mlbLevel}</span>
                       {player.bats && player.throws && (
                         <>
-                          <span className="text-gray-600">·</span>
+                          <span className="text-gray-600">&middot;</span>
                           <span className="text-gray-500">B:{player.bats} T:{player.throws}</span>
                         </>
                       )}
                     </div>
                   </div>
+                  {isMyTurn && (
+                    <Button
+                      onClick={() => draftPlayerMutation.mutate(player.id)}
+                      disabled={draftPlayerMutation.isPending}
+                      size="sm"
+                      className="bg-green-600 hover:bg-green-700 text-white h-8 px-3 text-xs shrink-0"
+                    >
+                      Draft
+                    </Button>
+                  )}
                 </div>
               ))
             ) : (
@@ -528,19 +645,35 @@ export default function DraftRoom() {
           <div className="flex-1 overflow-auto hide-scrollbar px-3 pb-3">
             {myTeam ? (
               <div className="space-y-1.5">
-                {rosterPositions.map((pos, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center gap-3 p-2.5 rounded-lg sleeper-card-bg"
-                  >
-                    <span className="text-[11px] font-bold w-10 text-center py-1 rounded bg-gray-700 text-gray-300 shrink-0">
-                      {pos}
-                    </span>
-                    <div className="flex-1 border-l border-gray-700 pl-3">
-                      <p className="text-gray-500 text-sm italic">Empty</p>
+                {rosterPositions.map((pos, index) => {
+                  const rosteredPlayer = myRosteredPlayers[index] || null;
+                  return (
+                    <div
+                      key={index}
+                      className="flex items-center gap-3 p-2.5 rounded-lg sleeper-card-bg"
+                    >
+                      <span className="text-[11px] font-bold w-10 text-center py-1 rounded bg-gray-700 text-gray-300 shrink-0">
+                        {pos}
+                      </span>
+                      <div className="flex-1 border-l border-gray-700 pl-3">
+                        {rosteredPlayer ? (
+                          <div>
+                            <p className="text-white text-sm font-medium">{rosteredPlayer.name}</p>
+                            <div className="flex items-center gap-1.5 text-xs">
+                              <span className={`text-[9px] font-bold px-1.5 rounded ${positionColor(rosteredPlayer.position)} text-white`}>
+                                {rosteredPlayer.position}
+                              </span>
+                              <span className="text-gray-400">{rosteredPlayer.teamAbbreviation || rosteredPlayer.team}</span>
+                              <span className={levelColor(rosteredPlayer.mlbLevel || "MLB")}>{rosteredPlayer.mlbLevel}</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-gray-500 text-sm italic">Empty</p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center py-8">

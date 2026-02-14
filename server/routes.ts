@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertLeagueSchema, insertTeamSchema, insertUserSchema } from "@shared/schema";
+import { insertLeagueSchema, insertTeamSchema, insertUserSchema, insertDraftPickSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Get public leagues
@@ -274,6 +274,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(team);
     } catch (error) {
       res.status(500).json({ message: "Failed to join league" });
+    }
+  });
+
+  // Get draft picks for a league
+  app.get("/api/leagues/:id/draft-picks", async (req, res) => {
+    try {
+      const leagueId = parseInt(req.params.id);
+      const picks = await storage.getDraftPicksByLeague(leagueId);
+      res.json(picks);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch draft picks" });
+    }
+  });
+
+  // Make a draft pick
+  app.post("/api/leagues/:id/draft-picks", async (req, res) => {
+    try {
+      const leagueId = parseInt(req.params.id);
+      const league = await storage.getLeague(leagueId);
+      if (!league) {
+        return res.status(404).json({ message: "League not found" });
+      }
+      if (league.draftStatus !== "active") {
+        return res.status(400).json({ message: "Draft is not active" });
+      }
+
+      const { userId, playerId } = req.body;
+      if (!userId || !playerId) {
+        return res.status(400).json({ message: "userId and playerId are required" });
+      }
+
+      const leagueTeams = await storage.getTeamsByLeagueId(leagueId);
+      const userTeam = leagueTeams.find(t => t.userId === userId);
+      if (!userTeam) {
+        return res.status(403).json({ message: "You don't have a team in this league" });
+      }
+
+      const existingPicks = await storage.getDraftPicksByLeague(leagueId);
+      const totalRounds = (league.rosterPositions || []).length;
+      const numTeams = leagueTeams.length;
+
+      const nextOverall = existingPicks.length + 1;
+      if (nextOverall > totalRounds * numTeams) {
+        return res.status(400).json({ message: "Draft is complete" });
+      }
+
+      const round = Math.ceil(nextOverall / numTeams);
+      const pickInRound = ((nextOverall - 1) % numTeams) + 1;
+      const isEvenRound = round % 2 === 1;
+      const teamIndex = isEvenRound ? pickInRound - 1 : numTeams - pickInRound;
+      const expectedTeam = leagueTeams[teamIndex];
+
+      if (!expectedTeam || expectedTeam.id !== userTeam.id) {
+        return res.status(403).json({ message: "It's not your turn to pick" });
+      }
+
+      const alreadyDrafted = existingPicks.some(p => p.playerId === playerId);
+      if (alreadyDrafted) {
+        return res.status(400).json({ message: "Player already drafted" });
+      }
+
+      const pick = await storage.createDraftPick({
+        leagueId,
+        teamId: userTeam.id,
+        playerId,
+        overallPick: nextOverall,
+        round,
+        pickInRound,
+      });
+      res.status(201).json(pick);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to make draft pick" });
+    }
+  });
+
+  // Get drafted player IDs for a league (for filtering available players)
+  app.get("/api/leagues/:id/drafted-player-ids", async (req, res) => {
+    try {
+      const leagueId = parseInt(req.params.id);
+      const playerIds = await storage.getDraftedPlayerIds(leagueId);
+      res.json(playerIds);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch drafted player IDs" });
     }
   });
 

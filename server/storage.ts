@@ -1,13 +1,14 @@
 import { 
-  users, leagues, teams, players, activities,
+  users, leagues, teams, players, activities, draftPicks,
   type User, type InsertUser,
   type League, type InsertLeague,
   type Team, type InsertTeam,
   type Player, type InsertPlayer,
+  type DraftPick, type InsertDraftPick,
   type Activity, type InsertActivity
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, ilike, or, and, sql } from "drizzle-orm";
+import { eq, ilike, or, and, sql, notInArray, asc } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -36,6 +37,11 @@ export interface IStorage {
   searchPlayers(query?: string, position?: string, mlbLevel?: string, limit?: number, offset?: number): Promise<{ players: Player[]; total: number }>;
   createPlayer(player: InsertPlayer): Promise<Player>;
   
+  // Draft Picks
+  getDraftPicksByLeague(leagueId: number): Promise<DraftPick[]>;
+  createDraftPick(pick: InsertDraftPick): Promise<DraftPick>;
+  getDraftedPlayerIds(leagueId: number): Promise<number[]>;
+
   // Activities
   getActivitiesByUserId(userId: number): Promise<Activity[]>;
   createActivity(activity: InsertActivity): Promise<Activity>;
@@ -161,6 +167,27 @@ export class DatabaseStorage implements IStorage {
       .values(insertPlayer)
       .returning();
     return player;
+  }
+
+  async getDraftPicksByLeague(leagueId: number): Promise<DraftPick[]> {
+    return await db.select().from(draftPicks)
+      .where(eq(draftPicks.leagueId, leagueId))
+      .orderBy(asc(draftPicks.overallPick));
+  }
+
+  async createDraftPick(pick: InsertDraftPick): Promise<DraftPick> {
+    const [draftPick] = await db
+      .insert(draftPicks)
+      .values(pick)
+      .returning();
+    return draftPick;
+  }
+
+  async getDraftedPlayerIds(leagueId: number): Promise<number[]> {
+    const picks = await db.select({ playerId: draftPicks.playerId })
+      .from(draftPicks)
+      .where(eq(draftPicks.leagueId, leagueId));
+    return picks.map(p => p.playerId);
   }
 
   async getActivitiesByUserId(userId: number): Promise<Activity[]> {
