@@ -32,6 +32,7 @@ export const leagues = pgTable("leagues", {
   draftDate: text("draft_date"),
   secondsPerPick: integer("seconds_per_pick").default(60),
   draftOrder: text("draft_order").default("Random"),
+  draftStatus: text("draft_status").default("pending"),
   createdBy: integer("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
