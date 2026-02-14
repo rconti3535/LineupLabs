@@ -6,12 +6,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
+import { useLocation } from "wouter";
 import type { League, Team } from "@shared/schema";
 
 export function FeaturedLeagues() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
   const { data: allPublicLeagues, isLoading } = useQuery<League[]>({
     queryKey: ["/api/leagues/public"],
   });
@@ -31,15 +33,16 @@ export function FeaturedLeagues() {
       const response = await apiRequest("POST", `/api/leagues/${leagueId}/join`, {
         userId: user?.id,
       });
-      return await response.json();
+      return { leagueId, ...(await response.json()) };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast({
         title: "Joined League!",
-        description: "Your team has been created. Check the Teams tab.",
+        description: "Your team has been created.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/leagues/public"] });
       queryClient.invalidateQueries({ queryKey: ["/api/teams/user"] });
+      navigate(`/league/${data.leagueId}`);
     },
     onError: (error) => {
       toast({
