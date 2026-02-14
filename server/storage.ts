@@ -7,7 +7,7 @@ import {
   type Activity, type InsertActivity
 } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, ilike, or, and, sql } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -33,6 +33,7 @@ export interface IStorage {
   // Players
   getPlayers(): Promise<Player[]>;
   getPlayer(id: number): Promise<Player | undefined>;
+  searchPlayers(query?: string, position?: string, mlbLevel?: string, limit?: number, offset?: number): Promise<{ players: Player[]; total: number }>;
   createPlayer(player: InsertPlayer): Promise<Player>;
   
   // Activities
@@ -131,6 +132,27 @@ export class DatabaseStorage implements IStorage {
   async getPlayer(id: number): Promise<Player | undefined> {
     const [player] = await db.select().from(players).where(eq(players.id, id));
     return player || undefined;
+  }
+
+  async searchPlayers(query?: string, position?: string, mlbLevel?: string, limit = 50, offset = 0): Promise<{ players: Player[]; total: number }> {
+    const conditions = [];
+    if (query) {
+      conditions.push(ilike(players.name, `%${query}%`));
+    }
+    if (position && position !== "ALL") {
+      conditions.push(eq(players.position, position));
+    }
+    if (mlbLevel && mlbLevel !== "ALL") {
+      conditions.push(eq(players.mlbLevel, mlbLevel));
+    }
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [countResult] = await db.select({ count: sql<number>`count(*)` }).from(players).where(where);
+    const total = Number(countResult.count);
+
+    const result = await db.select().from(players).where(where).orderBy(players.name).limit(limit).offset(offset);
+
+    return { players: result, total };
   }
 
   async createPlayer(insertPlayer: InsertPlayer): Promise<Player> {

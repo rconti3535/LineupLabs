@@ -86,6 +86,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Search players
+  app.get("/api/players", async (req, res) => {
+    try {
+      const query = req.query.q as string | undefined;
+      const position = req.query.position as string | undefined;
+      const mlbLevel = req.query.level as string | undefined;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
+      const result = await storage.searchPlayers(query, position, mlbLevel, limit, offset);
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to search players" });
+    }
+  });
+
+  // Get player by ID
+  app.get("/api/players/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const player = await storage.getPlayer(id);
+      if (!player) {
+        return res.status(404).json({ message: "Player not found" });
+      }
+      res.json(player);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch player" });
+    }
+  });
+
   // Get user profile
   app.get("/api/users/:id", async (req, res) => {
     try {
