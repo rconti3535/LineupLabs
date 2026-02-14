@@ -163,7 +163,7 @@ export default function DraftRoom() {
   const isDraftCompleted = serverDraftStatus === "completed";
   const rosterPositions = league?.rosterPositions || [];
   const totalRounds = rosterPositions.length;
-  const numTeams = teams?.length || league?.maxTeams || 12;
+  const numTeams = league?.numberOfTeams || league?.maxTeams || 12;
   const myTeam = teams?.find((t) => t.userId === user?.id);
 
   const nextOverall = draftPicks.length + 1;
@@ -559,7 +559,7 @@ export default function DraftRoom() {
                   isDraftActive && currentTeamIndex === i ? "text-green-400" : "text-gray-500"
                 }`}
               >
-                {teams?.[i]?.isCpu ? "🤖 " : ""}{teams?.[i]?.name || `Team ${i + 1}`}
+                {teams?.[i]?.isCpu ? "🤖 " : ""}{teams?.[i]?.name || `Team${i + 1}`}
               </div>
             ))}
           </div>
