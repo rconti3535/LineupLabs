@@ -88,7 +88,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid action" });
       }
       const newStatus = action === "pause" ? "paused" : "active";
-      const updated = await storage.updateLeague(id, { draftStatus: newStatus });
+      const updateData: Record<string, unknown> = { draftStatus: newStatus };
+      if (newStatus === "active") {
+        updateData.draftPickStartedAt = new Date().toISOString();
+      } else {
+        updateData.draftPickStartedAt = null;
+      }
+      const updated = await storage.updateLeague(id, updateData);
       res.json(updated);
     } catch (error) {
       res.status(500).json({ message: "Failed to update draft status" });
@@ -343,6 +349,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         round,
         pickInRound,
       });
+
+      const totalPicks = totalRounds * numTeams;
+      if (nextOverall >= totalPicks) {
+        await storage.updateLeague(leagueId, { draftStatus: "completed", draftPickStartedAt: null });
+      } else {
+        await storage.updateLeague(leagueId, { draftPickStartedAt: new Date().toISOString() });
+      }
+
       res.status(201).json(pick);
     } catch (error) {
       res.status(500).json({ message: "Failed to make draft pick" });
@@ -453,6 +467,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         round,
         pickInRound,
       });
+
+      const totalPicks = totalRounds * numTeams;
+      if (nextOverall >= totalPicks) {
+        await storage.updateLeague(leagueId, { draftStatus: "completed", draftPickStartedAt: null });
+      } else {
+        await storage.updateLeague(leagueId, { draftPickStartedAt: new Date().toISOString() });
+      }
+
       res.status(201).json({ pick, player: selectedPlayer });
     } catch (error) {
       res.status(500).json({ message: "Failed to auto-pick" });
@@ -471,5 +493,119 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
+
+  async function checkExpiredDraftPicks() {
+    try {
+      const activeLeagues = await storage.getActiveDraftLeagues();
+      for (const league of activeLeagues) {
+        if (!league.draftPickStartedAt) continue;
+        const startedAt = new Date(league.draftPickStartedAt).getTime();
+        const secondsPerPick = league.secondsPerPick || 60;
+        const elapsed = (Date.now() - startedAt) / 1000;
+        if (elapsed < secondsPerPick) continue;
+
+        const leagueTeams = await storage.getTeamsByLeagueId(league.id);
+        const existingPicks = await storage.getDraftPicksByLeague(league.id);
+        const rosterPositions = league.rosterPositions || [];
+        const totalRounds = rosterPositions.length;
+        const numTeams = leagueTeams.length;
+        if (numTeams === 0) continue;
+
+        const nextOverall = existingPicks.length + 1;
+        if (nextOverall > totalRounds * numTeams) {
+          await storage.updateLeague(league.id, { draftStatus: "completed", draftPickStartedAt: null });
+          continue;
+        }
+
+        const round = Math.ceil(nextOverall / numTeams);
+        const pickInRound = ((nextOverall - 1) % numTeams) + 1;
+        const isEvenRound = round % 2 === 1;
+        const teamIndex = isEvenRound ? pickInRound - 1 : numTeams - pickInRound;
+        const pickingTeam = leagueTeams[teamIndex];
+        if (!pickingTeam) continue;
+
+        const draftedPlayerIds = await storage.getDraftedPlayerIds(league.id);
+        const teamPicks = existingPicks.filter(p => p.teamId === pickingTeam.id);
+        const teamPlayerIds = teamPicks.map(p => p.playerId);
+
+        const teamPlayers: { position: string }[] = [];
+        for (const pid of teamPlayerIds) {
+          const pl = await storage.getPlayer(pid);
+          if (pl) teamPlayers.push({ position: pl.position });
+        }
+
+        const filledSlots = new Set<number>();
+        for (const tp of teamPlayers) {
+          const idx = rosterPositions.findIndex((slot, i) => {
+            if (filledSlots.has(i)) return false;
+            if (slot === tp.position) return true;
+            if (slot === "OF" && ["OF", "LF", "CF", "RF"].includes(tp.position)) return true;
+            return false;
+          });
+          if (idx !== -1) filledSlots.add(idx);
+          else {
+            if (!["SP", "RP"].includes(tp.position)) {
+              const utilIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "UTIL");
+              if (utilIdx !== -1) filledSlots.add(utilIdx);
+              else {
+                const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
+                if (bnIdx !== -1) filledSlots.add(bnIdx);
+              }
+            } else {
+              const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
+              if (bnIdx !== -1) filledSlots.add(bnIdx);
+            }
+          }
+        }
+
+        const emptySlotPositions: string[] = [];
+        for (let i = 0; i < rosterPositions.length; i++) {
+          if (!filledSlots.has(i)) emptySlotPositions.push(rosterPositions[i]);
+        }
+
+        const priorityOrder = ["C", "1B", "2B", "3B", "SS", "OF", "SP", "RP", "DH", "UTIL", "BN", "IL"];
+        emptySlotPositions.sort((a, b) => {
+          const ai = priorityOrder.indexOf(a);
+          const bi = priorityOrder.indexOf(b);
+          return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+        });
+
+        let selectedPlayer = null;
+        for (const slotPos of emptySlotPositions) {
+          if (slotPos === "BN" || slotPos === "IL" || slotPos === "UTIL") continue;
+          selectedPlayer = await storage.getBestAvailablePlayer(draftedPlayerIds, slotPos);
+          if (selectedPlayer) break;
+        }
+        if (!selectedPlayer) {
+          selectedPlayer = await storage.getBestAvailablePlayer(draftedPlayerIds);
+        }
+        if (!selectedPlayer) {
+          await storage.updateLeague(league.id, { draftStatus: "completed", draftPickStartedAt: null });
+          continue;
+        }
+
+        await storage.createDraftPick({
+          leagueId: league.id,
+          teamId: pickingTeam.id,
+          playerId: selectedPlayer.id,
+          overallPick: nextOverall,
+          round,
+          pickInRound,
+        });
+
+        const totalPicks = totalRounds * numTeams;
+        if (nextOverall >= totalPicks) {
+          await storage.updateLeague(league.id, { draftStatus: "completed", draftPickStartedAt: null });
+        } else {
+          await storage.updateLeague(league.id, { draftPickStartedAt: new Date().toISOString() });
+        }
+      }
+    } catch (error) {
+      console.error("Error checking expired draft picks:", error);
+    }
+  }
+
+  setInterval(checkExpiredDraftPicks, 5000);
+
   return httpServer;
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -48,32 +48,26 @@ function useCountdown(targetDate: Date | null) {
   return { timeLeft, hasReached };
 }
 
-function usePickTimer(isActive: boolean, secondsPerPick: number, pickCount: number, onExpire?: () => void) {
+function usePickTimer(isActive: boolean, secondsPerPick: number, draftPickStartedAt: string | null) {
   const [pickTimeLeft, setPickTimeLeft] = useState(secondsPerPick);
-  const expiredRef = useRef(false);
 
   useEffect(() => {
-    if (isActive) {
+    if (!isActive || !draftPickStartedAt) {
       setPickTimeLeft(secondsPerPick);
-      expiredRef.current = false;
-    }
-  }, [isActive, secondsPerPick, pickCount]);
-
-  useEffect(() => {
-    if (!isActive) return;
-    if (pickTimeLeft <= 0) {
-      if (!expiredRef.current && onExpire) {
-        expiredRef.current = true;
-        onExpire();
-      }
       return;
     }
 
-    const interval = setInterval(() => {
-      setPickTimeLeft(prev => Math.max(0, prev - 1));
-    }, 1000);
+    const update = () => {
+      const startedAt = new Date(draftPickStartedAt).getTime();
+      const elapsed = (Date.now() - startedAt) / 1000;
+      const remaining = Math.max(0, secondsPerPick - elapsed);
+      setPickTimeLeft(Math.ceil(remaining));
+    };
+
+    update();
+    const interval = setInterval(update, 1000);
     return () => clearInterval(interval);
-  }, [isActive, pickTimeLeft, onExpire]);
+  }, [isActive, secondsPerPick, draftPickStartedAt]);
 
   return { pickTimeLeft };
 }
@@ -120,6 +114,7 @@ export default function DraftRoom() {
       return res.json();
     },
     enabled: !!leagueId,
+    refetchInterval: 5000,
   });
 
   const { data: teams } = useQuery<Team[]>({
@@ -174,28 +169,7 @@ export default function DraftRoom() {
   const currentPickingTeam = teams?.[currentTeamIndex];
   const isMyTurn = isDraftActive && currentPickingTeam && myTeam && currentPickingTeam.id === myTeam.id;
 
-  const autoPickInProgress = useRef(false);
-  const isCommissionerRef = useRef(isCommissioner);
-  isCommissionerRef.current = isCommissioner;
-  const leagueIdRef = useRef(leagueId);
-  leagueIdRef.current = leagueId;
-
-  const onTimerExpire = useCallback(() => {
-    if (autoPickInProgress.current) return;
-    if (!isCommissionerRef.current) return;
-    autoPickInProgress.current = true;
-    apiRequest("POST", `/api/leagues/${leagueIdRef.current}/auto-pick`, {})
-      .then(() => {
-        autoPickInProgress.current = false;
-        queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueIdRef.current, "draft-picks"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueIdRef.current, "drafted-player-ids"] });
-      })
-      .catch(() => {
-        autoPickInProgress.current = false;
-      });
-  }, []);
-
-  const { pickTimeLeft } = usePickTimer(isDraftActive, secondsPerPick, draftPicks.length, onTimerExpire);
+  const { pickTimeLeft } = usePickTimer(isDraftActive, secondsPerPick, league?.draftPickStartedAt || null);
 
   const picksByOverall = new Map<number, DraftPick>();
   draftPicks.forEach(p => picksByOverall.set(p.overallPick, p));

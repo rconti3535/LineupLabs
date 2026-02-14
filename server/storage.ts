@@ -43,6 +43,9 @@ export interface IStorage {
   getDraftedPlayerIds(leagueId: number): Promise<number[]>;
   getBestAvailablePlayer(excludeIds: number[], position?: string): Promise<Player | undefined>;
 
+  // Active drafts
+  getActiveDraftLeagues(): Promise<League[]>;
+
   // Activities
   getActivitiesByUserId(userId: number): Promise<Activity[]>;
   createActivity(activity: InsertActivity): Promise<Activity>;
@@ -223,6 +226,10 @@ export class DatabaseStorage implements IStorage {
       .limit(1);
 
     return anyPlayer || undefined;
+  }
+
+  async getActiveDraftLeagues(): Promise<League[]> {
+    return await db.select().from(leagues).where(eq(leagues.draftStatus, "active"));
   }
 
   async getActivitiesByUserId(userId: number): Promise<Activity[]> {
