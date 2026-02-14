@@ -8,7 +8,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/leagues/public", async (req, res) => {
     try {
       const leagues = await storage.getPublicLeagues();
-      res.json(leagues);
+      const leaguesWithTeamCount = await Promise.all(
+        leagues.map(async (league) => {
+          const teams = await storage.getTeamsByLeagueId(league.id);
+          return { ...league, currentTeams: teams.length };
+        })
+      );
+      res.json(leaguesWithTeamCount);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch public leagues" });
     }
