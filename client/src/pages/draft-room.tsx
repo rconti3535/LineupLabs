@@ -330,6 +330,42 @@ export default function DraftRoom() {
   const myDraftedPlayers = myPicks.map(p => playerMap.get(p.playerId)).filter(Boolean) as Player[];
   const rosterAssignment = assignPlayersToRoster(rosterPositions, myDraftedPlayers);
 
+  const canDraftPosition = (playerPos: string): boolean => {
+    if (!rosterPositions.length) return true;
+    const filledSlots = new Set<number>();
+    for (const tp of myDraftedPlayers) {
+      const idx = rosterPositions.findIndex((slot, i) => {
+        if (filledSlots.has(i)) return false;
+        if (slot === tp.position) return true;
+        if (slot === "OF" && ["OF", "LF", "CF", "RF"].includes(tp.position)) return true;
+        return false;
+      });
+      if (idx !== -1) filledSlots.add(idx);
+      else {
+        if (!["SP", "RP"].includes(tp.position)) {
+          const utilIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "UTIL");
+          if (utilIdx !== -1) filledSlots.add(utilIdx);
+          else {
+            const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
+            if (bnIdx !== -1) filledSlots.add(bnIdx);
+          }
+        } else {
+          const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
+          if (bnIdx !== -1) filledSlots.add(bnIdx);
+        }
+      }
+    }
+    for (let i = 0; i < rosterPositions.length; i++) {
+      if (filledSlots.has(i)) continue;
+      const slot = rosterPositions[i];
+      if (slot === "BN" || slot === "IL") return true;
+      if (slot === "UTIL" && !["SP", "RP"].includes(playerPos)) return true;
+      if (slot === "OF" && ["OF", "LF", "CF", "RF"].includes(playerPos)) return true;
+      if (slot === playerPos) return true;
+    }
+    return false;
+  };
+
   const buildDraftBoard = () => {
     const board: { round: number; pick: number; overall: number; teamIndex: number }[][] = [];
     for (let round = 0; round < totalRounds; round++) {
@@ -777,14 +813,20 @@ export default function DraftRoom() {
                       Assign
                     </Button>
                   ) : isMyTurn ? (
-                    <Button
-                      onClick={() => draftPlayerMutation.mutate(player.id)}
-                      disabled={draftPlayerMutation.isPending}
-                      size="sm"
-                      className="bg-green-600 hover:bg-green-700 text-white h-8 px-3 text-xs shrink-0"
-                    >
-                      Draft
-                    </Button>
+                    canDraftPosition(player.position) ? (
+                      <Button
+                        onClick={() => draftPlayerMutation.mutate(player.id)}
+                        disabled={draftPlayerMutation.isPending}
+                        size="sm"
+                        className="bg-green-600 hover:bg-green-700 text-white h-8 px-3 text-xs shrink-0"
+                      >
+                        Draft
+                      </Button>
+                    ) : (
+                      <span className="text-[10px] text-red-400 font-medium shrink-0 text-right leading-tight w-14">
+                        No slot
+                      </span>
+                    )
                   ) : null}
                 </div>
               ))

@@ -386,6 +386,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Player already drafted" });
       }
 
+      const player = await storage.getPlayer(playerId);
+      if (!player) {
+        return res.status(404).json({ message: "Player not found" });
+      }
+
+      const rosterPositions = league.rosterPositions || [];
+      const teamPicks = existingPicks.filter(p => p.teamId === userTeam.id);
+      const teamPlayers: { position: string }[] = [];
+      for (const tp of teamPicks) {
+        const pl = await storage.getPlayer(tp.playerId);
+        if (pl) teamPlayers.push({ position: pl.position });
+      }
+
+      const filledSlots = new Set<number>();
+      for (const tp of teamPlayers) {
+        const idx = rosterPositions.findIndex((slot, i) => {
+          if (filledSlots.has(i)) return false;
+          if (slot === tp.position) return true;
+          if (slot === "OF" && ["OF", "LF", "CF", "RF"].includes(tp.position)) return true;
+          return false;
+        });
+        if (idx !== -1) filledSlots.add(idx);
+        else {
+          if (!["SP", "RP"].includes(tp.position)) {
+            const utilIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "UTIL");
+            if (utilIdx !== -1) filledSlots.add(utilIdx);
+            else {
+              const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
+              if (bnIdx !== -1) filledSlots.add(bnIdx);
+            }
+          } else {
+            const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
+            if (bnIdx !== -1) filledSlots.add(bnIdx);
+          }
+        }
+      }
+
+      const canFitPlayer = (playerPos: string): boolean => {
+        for (let i = 0; i < rosterPositions.length; i++) {
+          if (filledSlots.has(i)) continue;
+          const slot = rosterPositions[i];
+          if (slot === "BN" || slot === "IL") return true;
+          if (slot === "UTIL" && !["SP", "RP"].includes(playerPos)) return true;
+          if (slot === "OF" && ["OF", "LF", "CF", "RF"].includes(playerPos)) return true;
+          if (slot === playerPos) return true;
+        }
+        return false;
+      };
+
+      if (!canFitPlayer(player.position)) {
+        return res.status(400).json({ message: `No open roster slot for ${player.position}. You can only draft players at positions you have unfilled.` });
+      }
+
       const pick = await storage.createDraftPick({
         leagueId,
         teamId: userTeam.id,
