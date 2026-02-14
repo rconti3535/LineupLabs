@@ -59,8 +59,9 @@ export default function DraftRoom() {
       for (let col = 0; col < numTeams; col++) {
         const isEvenRound = round % 2 === 0;
         const teamIndex = isEvenRound ? col : numTeams - 1 - col;
-        const overall = round * numTeams + col + 1;
-        row.push({ round: round + 1, pick: col + 1, overall, teamIndex });
+        const pickInRound = isEvenRound ? col + 1 : numTeams - col;
+        const overall = round * numTeams + pickInRound;
+        row.push({ round: round + 1, pick: pickInRound, overall, teamIndex });
       }
       board.push(row);
     }
@@ -136,8 +137,7 @@ export default function DraftRoom() {
                   style={{ width: CELL_W, height: CELL_H }}
                   className="rounded-lg border border-gray-700 bg-gray-800/60 flex flex-col items-center justify-center shrink-0 hover:border-gray-500 transition-colors"
                 >
-                  <span className="text-gray-600 text-[10px] font-medium">{cell.overall}</span>
-                  <span className="text-gray-700 text-[9px] mt-0.5">{rosterPositions[roundIndex] || ""}</span>
+                  <span className="text-gray-600 text-[10px] font-medium">{cell.round}.{String(cell.pick).padStart(2, "0")}</span>
                 </div>
               ))}
             </div>
