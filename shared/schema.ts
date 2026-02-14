@@ -51,11 +51,23 @@ export const teams = pgTable("teams", {
 
 export const players = pgTable("players", {
   id: serial("id").primaryKey(),
+  mlbId: integer("mlb_id").unique(),
   name: text("name").notNull(),
+  firstName: text("first_name"),
+  lastName: text("last_name"),
   position: text("position").notNull(),
   team: text("team").notNull(),
+  teamAbbreviation: text("team_abbreviation"),
+  jerseyNumber: text("jersey_number"),
+  bats: text("bats"),
+  throws: text("throws"),
+  age: integer("age"),
+  height: text("height"),
+  weight: integer("weight"),
+  mlbLevel: text("mlb_level").default("MLB"),
   avatar: text("avatar"),
   points: integer("points").default(0),
+  status: text("status").default("Active"),
 });
 
 export const activities = pgTable("activities", {
@@ -90,6 +102,7 @@ export const insertTeamSchema = createInsertSchema(teams).omit({
 export const insertPlayerSchema = createInsertSchema(players).omit({
   id: true,
   points: true,
+  status: true,
 });
 
 export const insertActivitySchema = createInsertSchema(activities).omit({
