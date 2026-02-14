@@ -258,7 +258,7 @@ export default function LeaguePage() {
 
       {activeTab === "roster" && (
         <div>
-          {league.status === "Private" || league.status === "Public" || !league.status ? (
+          {league.draftStatus !== "completed" && (league.status === "Private" || league.status === "Public" || !league.status) ? (
             <Card className="gradient-card rounded-xl p-4 border-0 mb-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-blue-600/20 flex items-center justify-center shrink-0">
@@ -570,6 +570,27 @@ export default function LeaguePage() {
             </div>
           )}
         </Card>
+
+        {league.draftStatus === "completed" && (
+          <Card className="gradient-card rounded-xl p-4 border-0 mt-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-yellow-600/20 flex items-center justify-center shrink-0">
+                <Trophy className="w-5 h-5 text-yellow-400" />
+              </div>
+              <div className="flex-1">
+                <p className="text-white font-semibold text-sm">Draft Completed</p>
+                <p className="text-gray-400 text-xs">View the full draft board and results</p>
+              </div>
+              <Button
+                onClick={() => setLocation(`/league/${leagueId}/draft`)}
+                size="sm"
+                className="bg-yellow-600 hover:bg-yellow-700 text-white text-xs h-8 px-4 shrink-0"
+              >
+                View Draft
+              </Button>
+            </div>
+          </Card>
+        )}
 
         <Card className="gradient-card rounded-xl p-5 border-0 mt-4">
           <div className="flex items-center justify-between mb-4">
