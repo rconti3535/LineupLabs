@@ -374,6 +374,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Commissioner assign: commissioner picks a player for the current pick
+  app.post("/api/leagues/:id/commissioner-pick", async (req, res) => {
+    try {
+      const leagueId = parseInt(req.params.id);
+      const league = await storage.getLeague(leagueId);
+      if (!league) {
+        return res.status(404).json({ message: "League not found" });
+      }
+      if (league.draftStatus !== "active") {
+        return res.status(400).json({ message: "Draft is not active" });
+      }
+
+      const { commissionerId, playerId } = req.body;
+      if (!commissionerId || !playerId) {
+        return res.status(400).json({ message: "commissionerId and playerId are required" });
+      }
+      if (league.createdBy !== commissionerId) {
+        return res.status(403).json({ message: "Only the commissioner can assign players" });
+      }
+
+      const leagueTeams = await storage.getTeamsByLeagueId(leagueId);
+      const existingPicks = await storage.getDraftPicksByLeague(leagueId);
+      const totalRounds = (league.rosterPositions || []).length;
+      const numTeams = leagueTeams.length;
+      const nextOverall = existingPicks.length + 1;
+
+      if (nextOverall > totalRounds * numTeams) {
+        return res.status(400).json({ message: "Draft is complete" });
+      }
+
+      const round = Math.ceil(nextOverall / numTeams);
+      const pickInRound = ((nextOverall - 1) % numTeams) + 1;
+      const isEvenRound = round % 2 === 1;
+      const teamIndex = isEvenRound ? pickInRound - 1 : numTeams - pickInRound;
+      const expectedTeam = leagueTeams[teamIndex];
+
+      if (!expectedTeam) {
+        return res.status(400).json({ message: "Cannot determine team for this pick" });
+      }
+
+      const alreadyDrafted = existingPicks.some(p => p.playerId === playerId);
+      if (alreadyDrafted) {
+        return res.status(400).json({ message: "Player already drafted" });
+      }
+
+      const pick = await storage.createDraftPick({
+        leagueId,
+        teamId: expectedTeam.id,
+        playerId,
+        overallPick: nextOverall,
+        round,
+        pickInRound,
+      });
+
+      const totalPicks = totalRounds * numTeams;
+      if (nextOverall >= totalPicks) {
+        await storage.updateLeague(leagueId, { draftStatus: "completed", draftPickStartedAt: null });
+        recalculateAdpForLeague(league).catch(e => console.error("ADP recalc error:", e));
+      } else {
+        await storage.updateLeague(leagueId, { draftPickStartedAt: new Date().toISOString() });
+      }
+
+      res.status(201).json(pick);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to make commissioner pick" });
+    }
+  });
+
   // Auto-pick: system selects best available player for the team on the clock
   app.post("/api/leagues/:id/auto-pick", async (req, res) => {
     try {
