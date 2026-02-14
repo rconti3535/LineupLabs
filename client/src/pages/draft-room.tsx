@@ -545,7 +545,7 @@ export default function DraftRoom() {
                 const isMyTeamCell = myTeam && teams?.[cell.teamIndex]?.id === myTeam.id;
                 const isEmpty = !pick;
                 const isSelected = selectedCellOverall === cell.overall;
-                const canCommissionerAssign = isCommissioner && isDraftActive && isEmpty;
+                const canCommissionerAssign = isCommissioner && (isDraftActive || isDraftPaused) && isEmpty;
 
                 return (
                   <div

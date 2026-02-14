@@ -382,8 +382,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!league) {
         return res.status(404).json({ message: "League not found" });
       }
-      if (league.draftStatus !== "active") {
-        return res.status(400).json({ message: "Draft is not active" });
+      if (league.draftStatus !== "active" && league.draftStatus !== "paused") {
+        return res.status(400).json({ message: "Draft is not active or paused" });
       }
 
       const { commissionerId, playerId } = req.body;
