@@ -17,7 +17,7 @@ import { ArrowLeft } from "lucide-react";
 const createLeagueSchema = z.object({
   name: z.string().min(1, "League name is required"),
   type: z.enum(["Redraft"]),
-  numberOfTeams: z.number().min(6, "Minimum 6 teams").max(30, "Maximum 30 teams"),
+  numberOfTeams: z.number().min(4, "Minimum 4 teams").max(30, "Maximum 30 teams"),
   scoringFormat: z.enum(["5x5 Roto"]),
   isPublic: z.boolean(),
 });

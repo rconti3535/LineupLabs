@@ -374,10 +374,8 @@ export default function LeaguePage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Open">Open</SelectItem>
-                      <SelectItem value="Full">Full</SelectItem>
-                      <SelectItem value="Active">Active</SelectItem>
-                      <SelectItem value="Completed">Completed</SelectItem>
+                      <SelectItem value="Private">Private</SelectItem>
+                      <SelectItem value="Public">Public</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
