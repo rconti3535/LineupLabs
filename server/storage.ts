@@ -45,6 +45,7 @@ export interface IStorage {
   updateDraftPickPlayer(leagueId: number, overallPick: number, playerId: number): Promise<DraftPick>;
   getDraftedPlayerIds(leagueId: number): Promise<number[]>;
   getBestAvailablePlayer(excludeIds: number[], position?: string): Promise<Player | undefined>;
+  getBestAvailableByAdp(excludeIds: number[], leagueType: string, scoringFormat: string, season: number, eligiblePositions: string[]): Promise<Player | undefined>;
 
   // ADP
   recalculateAdp(leagueType: string, scoringFormat: string, season: number): Promise<void>;
@@ -280,6 +281,66 @@ export class DatabaseStorage implements IStorage {
       .limit(1);
 
     return anyPlayer || undefined;
+  }
+
+  async getBestAvailableByAdp(excludeIds: number[], leagueType: string, scoringFormat: string, season: number, eligiblePositions: string[]): Promise<Player | undefined> {
+    const expandedPositions: string[] = [];
+    for (const pos of eligiblePositions) {
+      if (pos === "OF") {
+        expandedPositions.push("OF", "LF", "CF", "RF");
+      } else {
+        expandedPositions.push(pos);
+      }
+    }
+    const uniquePositions = Array.from(new Set(expandedPositions));
+
+    const adpConditions = and(
+      eq(playerAdp.leagueType, leagueType),
+      eq(playerAdp.scoringFormat, scoringFormat),
+      eq(playerAdp.season, season),
+      ...(excludeIds.length > 0 ? [notInArray(playerAdp.playerId, excludeIds)] : [])
+    );
+
+    const adpRecords = await db.select().from(playerAdp)
+      .innerJoin(players, eq(playerAdp.playerId, players.id))
+      .where(and(
+        adpConditions,
+        inArray(players.position, uniquePositions),
+        eq(players.mlbLevel, "MLB")
+      ))
+      .orderBy(asc(playerAdp.adp))
+      .limit(1);
+
+    if (adpRecords.length > 0) return adpRecords[0].players;
+
+    const adpRecordsFallback = await db.select().from(playerAdp)
+      .innerJoin(players, eq(playerAdp.playerId, players.id))
+      .where(and(
+        adpConditions,
+        inArray(players.position, uniquePositions)
+      ))
+      .orderBy(asc(playerAdp.adp))
+      .limit(1);
+
+    if (adpRecordsFallback.length > 0) return adpRecordsFallback[0].players;
+
+    const conds = [
+      inArray(players.position, uniquePositions),
+      ...(excludeIds.length > 0 ? [notInArray(players.id, excludeIds)] : [])
+    ];
+    const [fallback] = await db.select().from(players)
+      .where(and(...conds, eq(players.mlbLevel, "MLB")))
+      .orderBy(desc(players.points), asc(players.name))
+      .limit(1);
+
+    if (fallback) return fallback;
+
+    const [anyFallback] = await db.select().from(players)
+      .where(and(...conds))
+      .orderBy(desc(players.points), asc(players.name))
+      .limit(1);
+
+    return anyFallback || undefined;
   }
 
   async getCompletedLeaguesByType(leagueType: string, scoringFormat: string, season: number): Promise<League[]> {

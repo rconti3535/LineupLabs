@@ -616,19 +616,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      const priorityOrder = ["C", "1B", "2B", "3B", "SS", "OF", "SP", "RP", "DH", "UTIL", "BN", "IL"];
-      emptySlotPositions.sort((a, b) => {
-        const ai = priorityOrder.indexOf(a);
-        const bi = priorityOrder.indexOf(b);
-        return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
-      });
+      const hasBenchOrIL = emptySlotPositions.some(s => s === "BN" || s === "IL");
+      const hasUtil = emptySlotPositions.some(s => s === "UTIL");
 
-      let selectedPlayer = null;
-      for (const slotPos of emptySlotPositions) {
-        if (slotPos === "BN" || slotPos === "IL" || slotPos === "UTIL") continue;
-        selectedPlayer = await storage.getBestAvailablePlayer(draftedPlayerIds, slotPos);
-        if (selectedPlayer) break;
+      const eligiblePositions: string[] = [];
+      for (const slot of emptySlotPositions) {
+        if (slot === "BN" || slot === "IL") continue;
+        if (slot === "UTIL") continue;
+        if (!eligiblePositions.includes(slot)) eligiblePositions.push(slot);
       }
+
+      if (hasUtil) {
+        for (const p of ["C", "1B", "2B", "3B", "SS", "OF", "DH"]) {
+          if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
+        }
+      }
+
+      if (hasBenchOrIL) {
+        for (const p of ["C", "1B", "2B", "3B", "SS", "OF", "SP", "RP", "DH"]) {
+          if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
+        }
+      }
+
+      const leagueType = league.type || "Redraft";
+      const scoringFormat = league.scoringFormat || "5x5 Roto";
+      const season = new Date().getFullYear();
+
+      let selectedPlayer = await storage.getBestAvailableByAdp(
+        draftedPlayerIds, leagueType, scoringFormat, season, eligiblePositions
+      );
 
       if (!selectedPlayer) {
         selectedPlayer = await storage.getBestAvailablePlayer(draftedPlayerIds);
