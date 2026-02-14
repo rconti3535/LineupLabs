@@ -216,7 +216,7 @@ export default function DraftRoom() {
     enabled: activeTab === "players",
   });
 
-  const { data: adpData } = useQuery<PlayerAdp[]>({
+  const { data: adpData } = useQuery<{ adpRecords: PlayerAdp[]; total: number }>({
     queryKey: ["/api/adp", league?.type, league?.scoringFormat],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -231,7 +231,7 @@ export default function DraftRoom() {
   });
 
   const adpMap = new Map<number, number>();
-  adpData?.forEach(a => adpMap.set(a.playerId, parseFloat(String(a.adp))));
+  adpData?.adpRecords?.forEach(a => adpMap.set(a.playerId, parseFloat(String(a.adp))));
 
   const draftedPlayerIdsSet = new Set(draftedPlayerIds);
   const availablePlayers = (playersData?.players.filter(p => !draftedPlayerIdsSet.has(p.id)) || [])
@@ -644,7 +644,7 @@ export default function DraftRoom() {
                   <div className="text-right shrink-0 mr-1">
                     <p className="text-[10px] text-gray-500 uppercase">ADP</p>
                     <p className="text-sm font-semibold text-gray-300">
-                      {adpMap.has(player.id) ? adpMap.get(player.id)!.toFixed(1) : "—"}
+                      {adpMap.has(player.id) ? adpMap.get(player.id)!.toFixed(1) : "9999.0"}
                     </p>
                   </div>
                   {isMyTurn && (
