@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useQuery, useInfiniteQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -201,14 +201,22 @@ export default function DraftRoom() {
     },
   });
 
-  const { data: playersData, isLoading: playersLoading } = useQuery<{ players: Player[]; total: number }>({
+  const PAGE_SIZE = 100;
+  const {
+    data: playersInfinite,
+    isLoading: playersLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery<{ players: Player[]; total: number }>({
     queryKey: ["/api/players", debouncedQuery, positionFilter, levelFilter, league?.type, league?.scoringFormat],
-    queryFn: async () => {
+    queryFn: async ({ pageParam }) => {
       const params = new URLSearchParams();
       if (debouncedQuery) params.set("q", debouncedQuery);
       if (positionFilter !== "ALL") params.set("position", positionFilter);
       if (levelFilter !== "ALL") params.set("level", levelFilter);
-      params.set("limit", "100");
+      params.set("limit", String(PAGE_SIZE));
+      params.set("offset", String(pageParam));
       params.set("adpType", league?.type || "Redraft");
       params.set("adpScoring", league?.scoringFormat || "5x5 Roto");
       params.set("adpSeason", String(new Date().getFullYear()));
@@ -216,8 +224,16 @@ export default function DraftRoom() {
       if (!res.ok) throw new Error("Failed to fetch players");
       return res.json();
     },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      const loaded = allPages.reduce((sum, p) => sum + p.players.length, 0);
+      return loaded < lastPage.total ? loaded : undefined;
+    },
     enabled: activeTab === "players" && !!league,
   });
+
+  const allFetchedPlayers = playersInfinite?.pages.flatMap(p => p.players) || [];
+  const playersTotal = playersInfinite?.pages[0]?.total ?? 0;
 
   const { data: adpData } = useQuery<{ adpRecords: PlayerAdp[]; total: number }>({
     queryKey: ["/api/adp", league?.type || "Redraft", league?.scoringFormat || "5x5 Roto"],
@@ -238,8 +254,17 @@ export default function DraftRoom() {
   adpData?.adpRecords?.forEach(a => adpMap.set(a.playerId, parseFloat(String(a.adp))));
 
   const draftedPlayerIdsSet = new Set(draftedPlayerIds);
-  const availablePlayers = playersData?.players.filter(p => !draftedPlayerIdsSet.has(p.id)) || [];
-  const availableTotal = playersData ? playersData.total - draftedPlayerIds.length : 0;
+  const availablePlayers = allFetchedPlayers.filter(p => !draftedPlayerIdsSet.has(p.id));
+  const availableTotal = Math.max(0, playersTotal - draftedPlayerIds.length);
+
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const handlePlayersScroll = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el || !hasNextPage || isFetchingNextPage) return;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 200) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const draftPickPlayerIds = draftPicks.map(p => p.playerId);
   const sortedPickIds = [...draftPickPlayerIds].sort((a, b) => a - b);
@@ -546,7 +571,7 @@ export default function DraftRoom() {
           </div>
           <h3 className="text-white font-semibold text-sm px-4 pb-2">
             Available Players
-            {playersData && <span className="text-gray-500 font-normal ml-1.5">({Math.max(0, availableTotal).toLocaleString()})</span>}
+            {playersInfinite && <span className="text-gray-500 font-normal ml-1.5">({availableTotal.toLocaleString()})</span>}
           </h3>
 
           <div className="px-3 pb-2 space-y-2">
@@ -601,7 +626,11 @@ export default function DraftRoom() {
             </div>
           </div>
 
-          <div className="flex-1 overflow-auto hide-scrollbar px-3 pb-3 space-y-1">
+          <div
+            ref={scrollContainerRef}
+            onScroll={handlePlayersScroll}
+            className="flex-1 overflow-auto hide-scrollbar px-3 pb-3 space-y-1"
+          >
             {playersLoading ? (
               Array.from({ length: 8 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg sleeper-card-bg">
@@ -665,6 +694,16 @@ export default function DraftRoom() {
                     ? "No players match your filters."
                     : "No players available."}
                 </p>
+              </div>
+            )}
+            {isFetchingNextPage && (
+              <div className="flex justify-center py-3">
+                <div className="text-gray-500 text-xs">Loading more players...</div>
+              </div>
+            )}
+            {!playersLoading && availablePlayers.length > 0 && hasNextPage && !isFetchingNextPage && (
+              <div className="flex justify-center py-2">
+                <p className="text-gray-600 text-[10px]">Scroll for more</p>
               </div>
             )}
           </div>
