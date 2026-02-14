@@ -18,7 +18,7 @@ const createLeagueSchema = z.object({
   name: z.string().min(1, "League name is required"),
   type: z.enum(["Redraft", "Dynasty"]),
   numberOfTeams: z.number().min(6, "Minimum 6 teams").max(30, "Maximum 30 teams"),
-  scoringFormat: z.enum(["Roto", "Points"]),
+  scoringFormat: z.enum(["5x5 Roto"]),
   isPublic: z.boolean(),
 });
 
@@ -36,7 +36,7 @@ export default function CreateLeague() {
       name: "",
       type: "Redraft",
       numberOfTeams: 12,
-      scoringFormat: "Roto",
+      scoringFormat: "5x5 Roto",
       isPublic: false,
     },
   });
@@ -193,23 +193,12 @@ export default function CreateLeague() {
                       className="space-y-3"
                     >
                       <div className="flex items-center space-x-3 p-4 rounded-lg sleeper-card-bg border sleeper-border">
-                        <RadioGroupItem value="Roto" id="roto" className="text-blue-400" />
+                        <RadioGroupItem value="5x5 Roto" id="roto" className="text-blue-400" />
                         <Label htmlFor="roto" className="text-white cursor-pointer flex-1">
                           <div>
-                            <div className="font-medium">Roto</div>
+                            <div className="font-medium">5x5 Roto</div>
                             <div className="text-sm text-gray-400">
                               Traditional rotisserie scoring
-                            </div>
-                          </div>
-                        </Label>
-                      </div>
-                      <div className="flex items-center space-x-3 p-4 rounded-lg sleeper-card-bg border sleeper-border">
-                        <RadioGroupItem value="Points" id="points" className="text-blue-400" />
-                        <Label htmlFor="points" className="text-white cursor-pointer flex-1">
-                          <div>
-                            <div className="font-medium">Points</div>
-                            <div className="text-sm text-gray-400">
-                              Points-based scoring system
                             </div>
                           </div>
                         </Label>

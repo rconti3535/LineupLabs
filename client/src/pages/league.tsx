@@ -353,8 +353,6 @@ export default function LeaguePage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="5x5 Roto">5x5 Roto</SelectItem>
-                      <SelectItem value="Points">Points</SelectItem>
-                      <SelectItem value="Head-to-Head">Head-to-Head</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
