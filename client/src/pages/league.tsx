@@ -69,6 +69,7 @@ export default function LeaguePage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues/public"] });
       setIsEditing(false);
       toast({ title: "Settings updated" });
     },

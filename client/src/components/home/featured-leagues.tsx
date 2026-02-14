@@ -6,15 +6,25 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
-import type { League } from "@shared/schema";
+import type { League, Team } from "@shared/schema";
 
 export function FeaturedLeagues() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { data: leagues, isLoading } = useQuery<League[]>({
+  const { data: allPublicLeagues, isLoading } = useQuery<League[]>({
     queryKey: ["/api/leagues/public"],
   });
+
+  const { data: userTeams } = useQuery<Team[]>({
+    queryKey: ["/api/teams/user", user?.id],
+    enabled: !!user,
+  });
+
+  const userLeagueIds = new Set((userTeams || []).map(t => t.leagueId));
+  const leagues = (allPublicLeagues || []).filter(
+    league => !userLeagueIds.has(league.id) && (league.currentTeams || 0) < (league.maxTeams || 0)
+  );
 
   const joinMutation = useMutation({
     mutationFn: async (leagueId: number) => {
