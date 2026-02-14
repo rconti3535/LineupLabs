@@ -72,13 +72,15 @@ export default function LeaguePage() {
 
   const myPicks = draftPicks.filter(p => myTeam && p.teamId === myTeam.id);
 
+  const myPickPlayerIds = myPicks.map(p => p.playerId).sort((a, b) => a - b);
+  const myPickIdsKey = myPickPlayerIds.join(",");
+
   const { data: myRosteredPlayers = [] } = useQuery<Player[]>({
-    queryKey: ["/api/players/roster", leagueId, myTeam?.id],
+    queryKey: ["/api/players/roster", leagueId, myTeam?.id, myPickIdsKey],
     queryFn: async () => {
-      const ids = myPicks.map(p => p.playerId);
-      if (ids.length === 0) return [];
+      if (myPickPlayerIds.length === 0) return [];
       const results = await Promise.all(
-        ids.map(async (id) => {
+        myPickPlayerIds.map(async (id) => {
           const res = await fetch(`/api/players/${id}`);
           if (!res.ok) return null;
           return res.json();
@@ -86,7 +88,7 @@ export default function LeaguePage() {
       );
       return results.filter(Boolean) as Player[];
     },
-    enabled: myPicks.length > 0,
+    enabled: myPickPlayerIds.length > 0,
   });
 
   const updateMutation = useMutation({

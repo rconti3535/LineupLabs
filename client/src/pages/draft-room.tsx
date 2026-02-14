@@ -247,13 +247,14 @@ export default function DraftRoom() {
   const availableTotal = playersData ? playersData.total - draftedPlayerIds.length : 0;
 
   const draftPickPlayerIds = draftPicks.map(p => p.playerId);
+  const sortedPickIds = [...draftPickPlayerIds].sort((a, b) => a - b);
+  const pickIdsKey = sortedPickIds.join(",");
   const { data: allPlayers } = useQuery<Player[]>({
-    queryKey: ["/api/players/by-ids", draftPicks.length],
+    queryKey: ["/api/players/by-ids", pickIdsKey],
     queryFn: async () => {
-      const ids = draftPicks.map(p => p.playerId);
-      if (ids.length === 0) return [];
+      if (sortedPickIds.length === 0) return [];
       const results = await Promise.all(
-        ids.map(async (id) => {
+        sortedPickIds.map(async (id) => {
           const res = await fetch(`/api/players/${id}`);
           if (!res.ok) return null;
           return res.json();
@@ -261,7 +262,7 @@ export default function DraftRoom() {
       );
       return results.filter(Boolean) as Player[];
     },
-    enabled: draftPicks.length > 0,
+    enabled: sortedPickIds.length > 0,
   });
 
   const playerMap = new Map<number, Player>();
