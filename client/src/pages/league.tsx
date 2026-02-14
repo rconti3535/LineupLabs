@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { League, Team, DraftPick, Player } from "@shared/schema";
+import { assignPlayersToRoster } from "@/lib/roster-utils";
 
 type Tab = "roster" | "standings" | "settings";
 
@@ -289,29 +290,33 @@ export default function LeaguePage() {
             <Card className="gradient-card rounded-xl p-5 border-0">
               <h3 className="text-white font-semibold mb-3">{myTeam.name}</h3>
               <div className="space-y-1.5">
-                {(league.rosterPositions || []).map((pos, index) => {
-                  const rosteredPlayer = myRosteredPlayers[index] || null;
-                  return (
-                    <div
-                      key={index}
-                      className="flex items-center gap-3 p-2.5 rounded-lg sleeper-card-bg"
-                    >
-                      <span className="text-[11px] font-bold w-10 text-center py-1 rounded bg-gray-700 text-gray-300 shrink-0">
-                        {pos}
-                      </span>
-                      <div className="flex-1 border-l border-gray-700 pl-3">
-                        {rosteredPlayer ? (
-                          <div>
-                            <p className="text-white text-sm font-medium">{rosteredPlayer.name}</p>
-                            <p className="text-gray-400 text-xs">{rosteredPlayer.position} — {rosteredPlayer.teamAbbreviation || rosteredPlayer.team}</p>
-                          </div>
-                        ) : (
-                          <p className="text-gray-500 text-sm italic">Empty</p>
-                        )}
+                {(() => {
+                  const rosterSlots = league.rosterPositions || [];
+                  const assignment = assignPlayersToRoster(rosterSlots, myRosteredPlayers);
+                  return rosterSlots.map((pos, index) => {
+                    const rosteredPlayer = assignment[index] || null;
+                    return (
+                      <div
+                        key={index}
+                        className="flex items-center gap-3 p-2.5 rounded-lg sleeper-card-bg"
+                      >
+                        <span className="text-[11px] font-bold w-10 text-center py-1 rounded bg-gray-700 text-gray-300 shrink-0">
+                          {pos}
+                        </span>
+                        <div className="flex-1 border-l border-gray-700 pl-3">
+                          {rosteredPlayer ? (
+                            <div>
+                              <p className="text-white text-sm font-medium">{rosteredPlayer.name}</p>
+                              <p className="text-gray-400 text-xs">{rosteredPlayer.position} — {rosteredPlayer.teamAbbreviation || rosteredPlayer.team}</p>
+                            </div>
+                          ) : (
+                            <p className="text-gray-500 text-sm italic">Empty</p>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  });
+                })()}
               </div>
             </Card>
           ) : (

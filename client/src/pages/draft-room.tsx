@@ -9,6 +9,7 @@ import { ArrowLeft, ListFilter, Users2, Search, X, Clock, Timer, Play, Pause } f
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { League, Team, Player, DraftPick } from "@shared/schema";
+import { assignPlayersToRoster } from "@/lib/roster-utils";
 
 type DraftTab = "board" | "players" | "team";
 
@@ -236,7 +237,8 @@ export default function DraftRoom() {
   allPlayers?.forEach(p => playerMap.set(p.id, p));
 
   const myPicks = draftPicks.filter(p => myTeam && p.teamId === myTeam.id);
-  const myRosteredPlayers = myPicks.map(p => playerMap.get(p.playerId)).filter(Boolean) as Player[];
+  const myDraftedPlayers = myPicks.map(p => playerMap.get(p.playerId)).filter(Boolean) as Player[];
+  const rosterAssignment = assignPlayersToRoster(rosterPositions, myDraftedPlayers);
 
   const buildDraftBoard = () => {
     const board: { round: number; pick: number; overall: number; teamIndex: number }[][] = [];
@@ -646,7 +648,7 @@ export default function DraftRoom() {
             {myTeam ? (
               <div className="space-y-1.5">
                 {rosterPositions.map((pos, index) => {
-                  const rosteredPlayer = myRosteredPlayers[index] || null;
+                  const rosteredPlayer = rosterAssignment[index] || null;
                   return (
                     <div
                       key={index}
