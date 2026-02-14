@@ -100,8 +100,13 @@ export default function LeaguePage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/leagues/public"] });
       queryClient.invalidateQueries({ queryKey: ["/api/teams/user"] });
-      toast({ title: "League deleted" });
-      setLocation("/home");
+      setLocation("/teams");
+      setTimeout(() => {
+        toast({
+          title: "League deleted",
+          description: `"${league?.name}" has been permanently deleted. ADP data was preserved.`,
+        });
+      }, 100);
     },
     onError: () => {
       toast({ title: "Failed to delete league", variant: "destructive" });
