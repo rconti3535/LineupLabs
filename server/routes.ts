@@ -130,7 +130,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const mlbLevel = req.query.level as string | undefined;
       const limit = parseInt(req.query.limit as string) || 50;
       const offset = parseInt(req.query.offset as string) || 0;
-      const result = await storage.searchPlayers(query, position, mlbLevel, limit, offset);
+      const adpType = req.query.adpType as string | undefined;
+      const adpScoring = req.query.adpScoring as string | undefined;
+      const adpSeason = req.query.adpSeason ? parseInt(req.query.adpSeason as string) : undefined;
+      const result = await storage.searchPlayers(query, position, mlbLevel, limit, offset, adpType, adpScoring, adpSeason);
       res.json(result);
     } catch (error) {
       res.status(500).json({ message: "Failed to search players" });

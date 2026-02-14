@@ -35,7 +35,7 @@ export interface IStorage {
   // Players
   getPlayers(): Promise<Player[]>;
   getPlayer(id: number): Promise<Player | undefined>;
-  searchPlayers(query?: string, position?: string, mlbLevel?: string, limit?: number, offset?: number): Promise<{ players: Player[]; total: number }>;
+  searchPlayers(query?: string, position?: string, mlbLevel?: string, limit?: number, offset?: number, adpLeagueType?: string, adpScoringFormat?: string, adpSeason?: number): Promise<{ players: Player[]; total: number }>;
   createPlayer(player: InsertPlayer): Promise<Player>;
   
   // Draft Picks
@@ -151,7 +151,7 @@ export class DatabaseStorage implements IStorage {
     return player || undefined;
   }
 
-  async searchPlayers(query?: string, position?: string, mlbLevel?: string, limit = 50, offset = 0): Promise<{ players: Player[]; total: number }> {
+  async searchPlayers(query?: string, position?: string, mlbLevel?: string, limit = 50, offset = 0, adpLeagueType?: string, adpScoringFormat?: string, adpSeason?: number): Promise<{ players: Player[]; total: number }> {
     const conditions = [];
     if (query) {
       conditions.push(ilike(players.name, `%${query}%`));
@@ -166,6 +166,27 @@ export class DatabaseStorage implements IStorage {
 
     const [countResult] = await db.select({ count: sql<number>`count(*)` }).from(players).where(where);
     const total = Number(countResult.count);
+
+    if (adpLeagueType && adpScoringFormat && adpSeason) {
+      const result = await db
+        .select({ player: players, adpValue: playerAdp.adp })
+        .from(players)
+        .leftJoin(
+          playerAdp,
+          and(
+            eq(playerAdp.playerId, players.id),
+            eq(playerAdp.leagueType, adpLeagueType),
+            eq(playerAdp.scoringFormat, adpScoringFormat),
+            eq(playerAdp.season, adpSeason)
+          )
+        )
+        .where(where)
+        .orderBy(sql`COALESCE(${playerAdp.adp}, 9999) ASC`)
+        .limit(limit)
+        .offset(offset);
+
+      return { players: result.map(r => r.player), total };
+    }
 
     const result = await db.select().from(players).where(where).orderBy(players.name).limit(limit).offset(offset);
 

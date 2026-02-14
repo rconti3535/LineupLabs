@@ -202,18 +202,21 @@ export default function DraftRoom() {
   });
 
   const { data: playersData, isLoading: playersLoading } = useQuery<{ players: Player[]; total: number }>({
-    queryKey: ["/api/players", debouncedQuery, positionFilter, levelFilter],
+    queryKey: ["/api/players", debouncedQuery, positionFilter, levelFilter, league?.type, league?.scoringFormat],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (debouncedQuery) params.set("q", debouncedQuery);
       if (positionFilter !== "ALL") params.set("position", positionFilter);
       if (levelFilter !== "ALL") params.set("level", levelFilter);
       params.set("limit", "100");
+      params.set("adpType", league?.type || "Redraft");
+      params.set("adpScoring", league?.scoringFormat || "5x5 Roto");
+      params.set("adpSeason", String(new Date().getFullYear()));
       const res = await fetch(`/api/players?${params}`);
       if (!res.ok) throw new Error("Failed to fetch players");
       return res.json();
     },
-    enabled: activeTab === "players",
+    enabled: activeTab === "players" && !!league,
   });
 
   const { data: adpData } = useQuery<{ adpRecords: PlayerAdp[]; total: number }>({
@@ -235,12 +238,7 @@ export default function DraftRoom() {
   adpData?.adpRecords?.forEach(a => adpMap.set(a.playerId, parseFloat(String(a.adp))));
 
   const draftedPlayerIdsSet = new Set(draftedPlayerIds);
-  const availablePlayers = (playersData?.players.filter(p => !draftedPlayerIdsSet.has(p.id)) || [])
-    .sort((a, b) => {
-      const adpA = adpMap.get(a.id) ?? 99999;
-      const adpB = adpMap.get(b.id) ?? 99999;
-      return adpA - adpB;
-    });
+  const availablePlayers = playersData?.players.filter(p => !draftedPlayerIdsSet.has(p.id)) || [];
   const availableTotal = playersData ? playersData.total - draftedPlayerIds.length : 0;
 
   const draftPickPlayerIds = draftPicks.map(p => p.playerId);
