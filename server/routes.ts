@@ -72,6 +72,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Commissioner draft control (start/pause/resume)
+  app.post("/api/leagues/:id/draft-control", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const league = await storage.getLeague(id);
+      if (!league) {
+        return res.status(404).json({ message: "League not found" });
+      }
+      const { userId, action } = req.body;
+      if (league.createdBy !== userId) {
+        return res.status(403).json({ message: "Only the commissioner can control the draft" });
+      }
+      if (!["start", "pause", "resume"].includes(action)) {
+        return res.status(400).json({ message: "Invalid action" });
+      }
+      const newStatus = action === "pause" ? "paused" : "active";
+      const updated = await storage.updateLeague(id, { draftStatus: newStatus });
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update draft status" });
+    }
+  });
+
   // Get league by ID
   app.get("/api/leagues/:id", async (req, res) => {
     try {
