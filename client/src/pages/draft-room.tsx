@@ -5,14 +5,86 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, ListFilter, Users2, Search, X } from "lucide-react";
+import { ArrowLeft, ListFilter, Users2, Search, X, Clock, Timer } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import type { League, Team, Player } from "@shared/schema";
 
 type DraftTab = "board" | "players" | "team";
+type DraftStatus = "scheduled" | "live" | "not_scheduled";
 
 const POSITION_FILTERS = ["ALL", "C", "1B", "2B", "3B", "SS", "OF", "SP", "RP", "DH", "UTIL"];
 const LEVEL_FILTERS = ["ALL", "MLB", "AAA", "AA", "A+", "A", "Rookie"];
+
+function useCountdown(targetDate: Date | null) {
+  const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number; minutes: number; seconds: number } | null>(null);
+  const [hasReached, setHasReached] = useState(false);
+
+  useEffect(() => {
+    if (!targetDate) { setTimeLeft(null); return; }
+
+    const update = () => {
+      const now = new Date().getTime();
+      const diff = targetDate.getTime() - now;
+      if (diff <= 0) {
+        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+        setHasReached(true);
+        return;
+      }
+      setHasReached(false);
+      setTimeLeft({
+        days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+        hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+        minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
+        seconds: Math.floor((diff % (1000 * 60)) / 1000),
+      });
+    };
+
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [targetDate]);
+
+  return { timeLeft, hasReached };
+}
+
+function usePickTimer(isLive: boolean, secondsPerPick: number) {
+  const [pickTimeLeft, setPickTimeLeft] = useState(secondsPerPick);
+  const [currentPick, setCurrentPick] = useState(1);
+
+  useEffect(() => {
+    if (!isLive) return;
+    setPickTimeLeft(secondsPerPick);
+  }, [isLive, secondsPerPick, currentPick]);
+
+  useEffect(() => {
+    if (!isLive) return;
+    if (pickTimeLeft <= 0) return;
+
+    const interval = setInterval(() => {
+      setPickTimeLeft(prev => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isLive, pickTimeLeft]);
+
+  return { pickTimeLeft, currentPick, setCurrentPick };
+}
+
+function formatCountdown(t: { days: number; hours: number; minutes: number; seconds: number }) {
+  if (t.days > 0) {
+    return `${t.days}d ${t.hours}h ${t.minutes}m ${t.seconds}s`;
+  }
+  if (t.hours > 0) {
+    return `${t.hours}h ${t.minutes}m ${t.seconds}s`;
+  }
+  return `${t.minutes}m ${String(t.seconds).padStart(2, "0")}s`;
+}
+
+function formatPickTime(seconds: number) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  if (m > 0) return `${m}:${String(s).padStart(2, "0")}`;
+  return `0:${String(s).padStart(2, "0")}`;
+}
 
 export default function DraftRoom() {
   const [, params] = useRoute("/league/:id/draft");
@@ -50,6 +122,12 @@ export default function DraftRoom() {
     },
     enabled: !!leagueId,
   });
+
+  const draftDate = league?.draftDate ? new Date(league.draftDate) : null;
+  const secondsPerPick = league?.secondsPerPick || 60;
+  const { timeLeft, hasReached } = useCountdown(draftDate);
+  const draftStatus: DraftStatus = !draftDate ? "not_scheduled" : hasReached ? "live" : "scheduled";
+  const { pickTimeLeft } = usePickTimer(draftStatus === "live", secondsPerPick);
 
   const { data: playersData, isLoading: playersLoading } = useQuery<{ players: Player[]; total: number }>({
     queryKey: ["/api/players", debouncedQuery, positionFilter, levelFilter],
@@ -139,16 +217,73 @@ export default function DraftRoom() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden relative">
-      <div className="px-3 py-3 flex items-center gap-2 shrink-0 border-b border-gray-800">
-        <Button
-          onClick={() => setLocation(`/league/${leagueId}`)}
-          variant="ghost"
-          size="sm"
-          className="text-gray-400 hover:text-white -ml-1 h-8 px-2"
-        >
-          <ArrowLeft className="w-4 h-4" />
-        </Button>
-        <span className="text-white text-sm font-semibold truncate">{league.name}</span>
+      <div className="px-3 py-2 shrink-0 border-b border-gray-800">
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={() => setLocation(`/league/${leagueId}`)}
+            variant="ghost"
+            size="sm"
+            className="text-gray-400 hover:text-white -ml-1 h-8 px-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
+          <span className="text-white text-sm font-semibold truncate flex-1">{league.name}</span>
+        </div>
+
+        <div className="mt-1.5">
+          {draftStatus === "not_scheduled" ? (
+            <div className="flex items-center gap-2 bg-gray-800/80 rounded-lg px-3 py-2">
+              <Clock className="w-4 h-4 text-gray-500 shrink-0" />
+              <span className="text-gray-400 text-xs">Draft not yet scheduled</span>
+            </div>
+          ) : draftStatus === "scheduled" && timeLeft ? (
+            <div className="flex items-center gap-2 bg-blue-900/30 border border-blue-800/50 rounded-lg px-3 py-2">
+              <Clock className="w-4 h-4 text-blue-400 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-blue-400 text-[10px] font-medium uppercase tracking-wide">Draft starts in</p>
+                <p className="text-white text-sm font-bold tabular-nums">{formatCountdown(timeLeft)}</p>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-gray-500 text-[10px]">
+                  {draftDate?.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                </p>
+                <p className="text-gray-400 text-[10px]">
+                  {draftDate?.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                </p>
+              </div>
+            </div>
+          ) : draftStatus === "live" ? (
+            <div className={`flex items-center gap-2 rounded-lg px-3 py-2 border ${
+              pickTimeLeft <= 10
+                ? "bg-red-900/30 border-red-800/50"
+                : pickTimeLeft <= 30
+                  ? "bg-yellow-900/30 border-yellow-800/50"
+                  : "bg-green-900/30 border-green-800/50"
+            }`}>
+              <Timer className={`w-4 h-4 shrink-0 ${
+                pickTimeLeft <= 10 ? "text-red-400" : pickTimeLeft <= 30 ? "text-yellow-400" : "text-green-400"
+              }`} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                  </span>
+                  <p className="text-green-400 text-[10px] font-medium uppercase tracking-wide">Draft is Live</p>
+                </div>
+                <p className={`text-2xl font-bold tabular-nums ${
+                  pickTimeLeft <= 10 ? "text-red-400" : pickTimeLeft <= 30 ? "text-yellow-400" : "text-white"
+                }`}>
+                  {formatPickTime(pickTimeLeft)}
+                </p>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-gray-400 text-[10px]">Time per pick</p>
+                <p className="text-gray-300 text-xs font-medium">{secondsPerPick}s</p>
+              </div>
+            </div>
+          ) : null}
+        </div>
       </div>
 
       <div className="flex-1 overflow-auto hide-scrollbar relative">
