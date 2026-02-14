@@ -25,7 +25,7 @@ export function FeaturedLeagues() {
 
   const userLeagueIds = new Set((userTeams || []).map(t => t.leagueId));
   const leagues = (allPublicLeagues || []).filter(
-    league => !userLeagueIds.has(league.id) && (league.currentTeams || 0) < (league.maxTeams || 0) && (!league.draftStatus || league.draftStatus === "pending")
+    league => (league.currentTeams || 0) < (league.maxTeams || 0) && (!league.draftStatus || league.draftStatus === "pending")
   );
 
   const joinMutation = useMutation({
@@ -107,13 +107,22 @@ export function FeaturedLeagues() {
                   <p className="text-white font-medium">{league.scoringFormat}</p>
                 </div>
               </div>
-              <Button
-                onClick={() => joinMutation.mutate(league.id)}
-                disabled={joinMutation.isPending}
-                className="w-full bg-green-600 hover:bg-green-700 rounded-lg text-white text-sm font-medium"
-              >
-                {joinMutation.isPending ? "Joining..." : "Join League"}
-              </Button>
+              {userLeagueIds.has(league.id) ? (
+                <Button
+                  onClick={() => navigate(`/league/${league.id}`)}
+                  className="w-full bg-gray-600 hover:bg-gray-700 rounded-lg text-white text-sm font-medium"
+                >
+                  Your League
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => joinMutation.mutate(league.id)}
+                  disabled={joinMutation.isPending}
+                  className="w-full bg-green-600 hover:bg-green-700 rounded-lg text-white text-sm font-medium"
+                >
+                  {joinMutation.isPending ? "Joining..." : "Join League"}
+                </Button>
+              )}
             </Card>
           ))
         ) : (
