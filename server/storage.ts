@@ -8,7 +8,7 @@ import {
   type Activity, type InsertActivity
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, ilike, or, and, sql, notInArray, asc } from "drizzle-orm";
+import { eq, ilike, or, and, sql, notInArray, asc, desc, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -41,6 +41,7 @@ export interface IStorage {
   getDraftPicksByLeague(leagueId: number): Promise<DraftPick[]>;
   createDraftPick(pick: InsertDraftPick): Promise<DraftPick>;
   getDraftedPlayerIds(leagueId: number): Promise<number[]>;
+  getBestAvailablePlayer(excludeIds: number[], position?: string): Promise<Player | undefined>;
 
   // Activities
   getActivitiesByUserId(userId: number): Promise<Activity[]>;
@@ -188,6 +189,40 @@ export class DatabaseStorage implements IStorage {
       .from(draftPicks)
       .where(eq(draftPicks.leagueId, leagueId));
     return picks.map(p => p.playerId);
+  }
+
+  async getBestAvailablePlayer(excludeIds: number[], position?: string): Promise<Player | undefined> {
+    const buildConditions = (includeMLB: boolean) => {
+      const conds: ReturnType<typeof eq>[] = [];
+      if (excludeIds.length > 0) {
+        conds.push(notInArray(players.id, excludeIds));
+      }
+      if (position) {
+        if (position === "OF") {
+          conds.push(inArray(players.position, ["OF", "LF", "CF", "RF"]));
+        } else {
+          conds.push(eq(players.position, position));
+        }
+      }
+      if (includeMLB) {
+        conds.push(eq(players.mlbLevel, "MLB"));
+      }
+      return conds.length > 0 ? and(...conds) : undefined;
+    };
+
+    const [mlbPlayer] = await db.select().from(players)
+      .where(buildConditions(true))
+      .orderBy(desc(players.points), asc(players.name))
+      .limit(1);
+
+    if (mlbPlayer) return mlbPlayer;
+
+    const [anyPlayer] = await db.select().from(players)
+      .where(buildConditions(false))
+      .orderBy(desc(players.points), asc(players.name))
+      .limit(1);
+
+    return anyPlayer || undefined;
   }
 
   async getActivitiesByUserId(userId: number): Promise<Activity[]> {

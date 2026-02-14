@@ -48,22 +48,32 @@ function useCountdown(targetDate: Date | null) {
   return { timeLeft, hasReached };
 }
 
-function usePickTimer(isActive: boolean, secondsPerPick: number, pickCount: number) {
+function usePickTimer(isActive: boolean, secondsPerPick: number, pickCount: number, onExpire?: () => void) {
   const [pickTimeLeft, setPickTimeLeft] = useState(secondsPerPick);
+  const expiredRef = useRef(false);
 
   useEffect(() => {
-    if (isActive) setPickTimeLeft(secondsPerPick);
+    if (isActive) {
+      setPickTimeLeft(secondsPerPick);
+      expiredRef.current = false;
+    }
   }, [isActive, secondsPerPick, pickCount]);
 
   useEffect(() => {
     if (!isActive) return;
-    if (pickTimeLeft <= 0) return;
+    if (pickTimeLeft <= 0) {
+      if (!expiredRef.current && onExpire) {
+        expiredRef.current = true;
+        onExpire();
+      }
+      return;
+    }
 
     const interval = setInterval(() => {
       setPickTimeLeft(prev => Math.max(0, prev - 1));
     }, 1000);
     return () => clearInterval(interval);
-  }, [isActive, pickTimeLeft]);
+  }, [isActive, pickTimeLeft, onExpire]);
 
   return { pickTimeLeft };
 }
@@ -151,8 +161,6 @@ export default function DraftRoom() {
   const isCommissioner = !!(user && league && league.createdBy === user.id);
   const isDraftActive = serverDraftStatus === "active";
   const isDraftPaused = serverDraftStatus === "paused";
-  const { pickTimeLeft } = usePickTimer(isDraftActive, secondsPerPick, draftPicks.length);
-
   const rosterPositions = league?.rosterPositions || [];
   const totalRounds = rosterPositions.length;
   const numTeams = teams?.length || league?.maxTeams || 12;
@@ -165,6 +173,29 @@ export default function DraftRoom() {
   const currentTeamIndex = isEvenRound ? currentPickInRound - 1 : numTeams - currentPickInRound;
   const currentPickingTeam = teams?.[currentTeamIndex];
   const isMyTurn = isDraftActive && currentPickingTeam && myTeam && currentPickingTeam.id === myTeam.id;
+
+  const autoPickInProgress = useRef(false);
+  const isCommissionerRef = useRef(isCommissioner);
+  isCommissionerRef.current = isCommissioner;
+  const leagueIdRef = useRef(leagueId);
+  leagueIdRef.current = leagueId;
+
+  const onTimerExpire = useCallback(() => {
+    if (autoPickInProgress.current) return;
+    if (!isCommissionerRef.current) return;
+    autoPickInProgress.current = true;
+    apiRequest("POST", `/api/leagues/${leagueIdRef.current}/auto-pick`, {})
+      .then(() => {
+        autoPickInProgress.current = false;
+        queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueIdRef.current, "draft-picks"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueIdRef.current, "drafted-player-ids"] });
+      })
+      .catch(() => {
+        autoPickInProgress.current = false;
+      });
+  }, []);
+
+  const { pickTimeLeft } = usePickTimer(isDraftActive, secondsPerPick, draftPicks.length, onTimerExpire);
 
   const picksByOverall = new Map<number, DraftPick>();
   draftPicks.forEach(p => picksByOverall.set(p.overallPick, p));
