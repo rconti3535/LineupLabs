@@ -49,6 +49,7 @@ export const teams = pgTable("teams", {
   rank: integer("rank").default(1),
   logo: text("logo"),
   nextOpponent: text("next_opponent"),
+  isCpu: boolean("is_cpu").default(false),
 });
 
 export const players = pgTable("players", {

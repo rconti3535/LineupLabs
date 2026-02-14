@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, ListFilter, Users2, Search, X, Clock, Timer, Play, Pause, UserPlus, Trophy } from "lucide-react";
+import { ArrowLeft, ListFilter, Users2, Search, X, Clock, Timer, Play, Pause, UserPlus, Trophy, AlertTriangle, Bot, Settings } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { League, Team, Player, DraftPick, PlayerAdp } from "@shared/schema";
@@ -97,6 +98,7 @@ export default function DraftRoom() {
   const [activeTab, setActiveTab] = useState<DraftTab>("board");
   const [commissionerAssignMode, setCommissionerAssignMode] = useState(false);
   const [selectedCellOverall, setSelectedCellOverall] = useState<number | null>(null);
+  const [showTeamWarning, setShowTeamWarning] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [positionFilter, setPositionFilter] = useState("ALL");
@@ -178,17 +180,33 @@ export default function DraftRoom() {
   draftPicks.forEach(p => picksByOverall.set(p.overallPick, p));
 
   const draftControlMutation = useMutation({
-    mutationFn: async (action: "start" | "pause" | "resume") => {
+    mutationFn: async ({ action, fillWithCpu }: { action: "start" | "pause" | "resume"; fillWithCpu?: boolean }) => {
       const res = await apiRequest("POST", `/api/leagues/${leagueId}/draft-control`, {
         userId: user?.id,
         action,
+        fillWithCpu,
       });
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/teams/league", leagueId] });
+      setShowTeamWarning(false);
     },
   });
+
+  const targetTeamCount = league?.numberOfTeams || league?.maxTeams || 12;
+  const currentTeamCount = teams?.length || 0;
+  const teamsShort = targetTeamCount - currentTeamCount;
+  const hasEnoughTeams = currentTeamCount >= targetTeamCount;
+
+  const handleStartDraft = () => {
+    if (!hasEnoughTeams && serverDraftStatus === "pending") {
+      setShowTeamWarning(true);
+    } else {
+      draftControlMutation.mutate({ action: "start" });
+    }
+  };
 
   const draftPlayerMutation = useMutation({
     mutationFn: async (playerId: number) => {
@@ -423,7 +441,7 @@ export default function DraftRoom() {
               </div>
               {isCommissioner && (
                 <Button
-                  onClick={() => draftControlMutation.mutate("pause")}
+                  onClick={() => draftControlMutation.mutate({ action: "pause" })}
                   disabled={draftControlMutation.isPending}
                   size="sm"
                   className="bg-yellow-600 hover:bg-yellow-700 text-white h-9 px-3 gap-1.5 shrink-0"
@@ -448,7 +466,7 @@ export default function DraftRoom() {
               </div>
               {isCommissioner && (
                 <Button
-                  onClick={() => draftControlMutation.mutate("resume")}
+                  onClick={() => draftControlMutation.mutate({ action: "resume" })}
                   disabled={draftControlMutation.isPending}
                   size="sm"
                   className="bg-green-600 hover:bg-green-700 text-white h-9 px-3 gap-1.5 shrink-0"
@@ -464,7 +482,7 @@ export default function DraftRoom() {
               <span className="text-gray-400 text-xs flex-1">Draft not yet scheduled</span>
               {isCommissioner && (
                 <Button
-                  onClick={() => draftControlMutation.mutate("start")}
+                  onClick={handleStartDraft}
                   disabled={draftControlMutation.isPending}
                   size="sm"
                   className="bg-green-600 hover:bg-green-700 text-white h-9 px-3 gap-1.5 shrink-0"
@@ -483,7 +501,7 @@ export default function DraftRoom() {
               </div>
               {isCommissioner ? (
                 <Button
-                  onClick={() => draftControlMutation.mutate("start")}
+                  onClick={handleStartDraft}
                   disabled={draftControlMutation.isPending}
                   size="sm"
                   className="bg-green-600 hover:bg-green-700 text-white h-9 px-3 gap-1.5 shrink-0"
@@ -508,7 +526,7 @@ export default function DraftRoom() {
               <span className="text-gray-400 text-xs flex-1">Draft ready to begin</span>
               {isCommissioner && (
                 <Button
-                  onClick={() => draftControlMutation.mutate("start")}
+                  onClick={handleStartDraft}
                   disabled={draftControlMutation.isPending}
                   size="sm"
                   className="bg-green-600 hover:bg-green-700 text-white h-9 px-3 gap-1.5 shrink-0"
@@ -860,6 +878,46 @@ export default function DraftRoom() {
           ))}
         </div>
       </nav>
+
+      <Dialog open={showTeamWarning} onOpenChange={setShowTeamWarning}>
+        <DialogContent className="bg-gray-900 border-gray-700 max-w-sm">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-1">
+              <div className="w-10 h-10 rounded-full bg-yellow-600/20 flex items-center justify-center">
+                <AlertTriangle className="w-5 h-5 text-yellow-400" />
+              </div>
+              <DialogTitle className="text-white text-lg">Not Enough Teams</DialogTitle>
+            </div>
+            <DialogDescription className="text-gray-400 text-sm pt-2">
+              This league is set for <span className="text-white font-semibold">{targetTeamCount} teams</span>, but only <span className="text-white font-semibold">{currentTeamCount}</span> {currentTeamCount === 1 ? "has" : "have"} joined. You're short <span className="text-yellow-400 font-semibold">{teamsShort} {teamsShort === 1 ? "team" : "teams"}</span>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 mt-2">
+            <Button
+              onClick={() => {
+                setShowTeamWarning(false);
+                setLocation(`/league/${leagueId}`);
+              }}
+              variant="outline"
+              className="w-full border-gray-600 text-gray-200 hover:bg-gray-800 hover:text-white gap-2 h-11"
+            >
+              <Settings className="w-4 h-4" />
+              Go to Settings & Change Team Count
+            </Button>
+            <Button
+              onClick={() => draftControlMutation.mutate({ action: "start", fillWithCpu: true })}
+              disabled={draftControlMutation.isPending}
+              className="w-full bg-green-600 hover:bg-green-700 text-white gap-2 h-11"
+            >
+              <Bot className="w-4 h-4" />
+              {draftControlMutation.isPending ? "Starting..." : `Start Draft — CPU Drafts ${teamsShort} Empty ${teamsShort === 1 ? "Team" : "Teams"}`}
+            </Button>
+          </div>
+          <p className="text-gray-500 text-xs text-center mt-1">
+            CPU teams will auto-draft the best available players each round.
+          </p>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

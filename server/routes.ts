@@ -87,13 +87,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!league) {
         return res.status(404).json({ message: "League not found" });
       }
-      const { userId, action } = req.body;
+      const { userId, action, fillWithCpu } = req.body;
       if (league.createdBy !== userId) {
         return res.status(403).json({ message: "Only the commissioner can control the draft" });
       }
       if (!["start", "pause", "resume"].includes(action)) {
         return res.status(400).json({ message: "Invalid action" });
       }
+
+      if (action === "start" && fillWithCpu) {
+        const existingTeams = await storage.getTeamsByLeagueId(id);
+        const targetTeams = league.numberOfTeams || league.maxTeams || 12;
+        const cpuNeeded = targetTeams - existingTeams.length;
+        for (let i = 0; i < cpuNeeded; i++) {
+          await storage.createTeam({
+            name: `CPU Team ${existingTeams.length + i + 1}`,
+            leagueId: id,
+            userId: null,
+            logo: null,
+            nextOpponent: null,
+            isCpu: true,
+          });
+        }
+      }
+
       const newStatus = action === "pause" ? "paused" : "active";
       const updateData: Record<string, unknown> = { draftStatus: newStatus };
       if (newStatus === "active") {
@@ -633,10 +650,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const activeLeagues = await storage.getActiveDraftLeagues();
       for (const league of activeLeagues) {
         if (!league.draftPickStartedAt) continue;
-        const startedAt = new Date(league.draftPickStartedAt).getTime();
         const secondsPerPick = league.secondsPerPick || 60;
-        const elapsed = (Date.now() - startedAt) / 1000;
-        if (elapsed < secondsPerPick) continue;
 
         const leagueTeams = await storage.getTeamsByLeagueId(league.id);
         const existingPicks = await storage.getDraftPicksByLeague(league.id);
@@ -658,6 +672,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const teamIndex = isEvenRound ? pickInRound - 1 : numTeams - pickInRound;
         const pickingTeam = leagueTeams[teamIndex];
         if (!pickingTeam) continue;
+
+        const isCpuTeam = pickingTeam.isCpu === true;
+        if (!isCpuTeam) {
+          const startedAt = new Date(league.draftPickStartedAt!).getTime();
+          const elapsed = (Date.now() - startedAt) / 1000;
+          if (elapsed < secondsPerPick) continue;
+        }
 
         const draftedPlayerIds = await storage.getDraftedPlayerIds(league.id);
         const teamPicks = existingPicks.filter(p => p.teamId === pickingTeam.id);
