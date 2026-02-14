@@ -386,7 +386,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Draft is not active or paused" });
       }
 
-      const { commissionerId, playerId } = req.body;
+      const { commissionerId, playerId, targetOverall } = req.body;
       if (!commissionerId || !playerId) {
         return res.status(400).json({ message: "commissionerId and playerId are required" });
       }
@@ -398,8 +398,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const existingPicks = await storage.getDraftPicksByLeague(leagueId);
       const totalRounds = (league.rosterPositions || []).length;
       const numTeams = leagueTeams.length;
-      const nextOverall = existingPicks.length + 1;
 
+      const existingPickForSlot = targetOverall ? existingPicks.find(p => p.overallPick === targetOverall) : null;
+
+      if (existingPickForSlot) {
+        const alreadyDrafted = existingPicks.some(p => p.playerId === playerId && p.overallPick !== targetOverall);
+        if (alreadyDrafted) {
+          return res.status(400).json({ message: "Player already drafted in another slot" });
+        }
+
+        const pick = await storage.updateDraftPickPlayer(leagueId, targetOverall, playerId);
+        return res.status(200).json(pick);
+      }
+
+      const nextOverall = existingPicks.length + 1;
       if (nextOverall > totalRounds * numTeams) {
         return res.status(400).json({ message: "Draft is complete" });
       }

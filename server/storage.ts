@@ -41,6 +41,7 @@ export interface IStorage {
   // Draft Picks
   getDraftPicksByLeague(leagueId: number): Promise<DraftPick[]>;
   createDraftPick(pick: InsertDraftPick): Promise<DraftPick>;
+  updateDraftPickPlayer(leagueId: number, overallPick: number, playerId: number): Promise<DraftPick>;
   getDraftedPlayerIds(leagueId: number): Promise<number[]>;
   getBestAvailablePlayer(excludeIds: number[], position?: string): Promise<Player | undefined>;
 
@@ -213,6 +214,20 @@ export class DatabaseStorage implements IStorage {
       .values(pick)
       .returning();
     return draftPick;
+  }
+
+  async updateDraftPickPlayer(leagueId: number, overallPick: number, playerId: number): Promise<DraftPick> {
+    const [updated] = await db
+      .update(draftPicks)
+      .set({ playerId, pickedAt: new Date() })
+      .where(
+        and(
+          eq(draftPicks.leagueId, leagueId),
+          eq(draftPicks.overallPick, overallPick)
+        )
+      )
+      .returning();
+    return updated;
   }
 
   async getDraftedPlayerIds(leagueId: number): Promise<number[]> {

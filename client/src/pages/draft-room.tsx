@@ -208,6 +208,7 @@ export default function DraftRoom() {
       const res = await apiRequest("POST", `/api/leagues/${leagueId}/commissioner-pick`, {
         commissionerId: user?.id,
         playerId,
+        targetOverall: selectedCellOverall,
       });
       return res.json();
     },
@@ -543,29 +544,27 @@ export default function DraftRoom() {
                 const pickedPlayer = pick ? playerMap.get(pick.playerId) : null;
                 const isCurrentPick = isDraftActive && cell.overall === nextOverall;
                 const isMyTeamCell = myTeam && teams?.[cell.teamIndex]?.id === myTeam.id;
-                const isEmpty = !pick;
                 const isSelected = selectedCellOverall === cell.overall;
-                const canCommissionerAssign = isCommissioner && (isDraftActive || isDraftPaused) && isEmpty;
+                const canCommissionerAssign = isCommissioner && (isDraftActive || isDraftPaused);
 
                 return (
                   <div
                     key={cell.overall}
                     style={{ width: CELL_W, height: CELL_H }}
-                    className={`rounded-lg border flex flex-col items-center justify-center shrink-0 transition-all relative ${
+                    className={`rounded-lg border flex flex-col items-center justify-center shrink-0 transition-all relative group ${
                       isSelected
                         ? "border-yellow-400 bg-yellow-900/40 ring-1 ring-yellow-400/50 shadow-lg shadow-yellow-400/20"
                         : isCurrentPick
                           ? "border-green-400 bg-green-900/40 ring-1 ring-green-400/50 shadow-lg shadow-green-400/20"
                           : pick
                             ? "border-gray-600 bg-gray-700/60"
-                            : canCommissionerAssign
-                              ? "border-gray-700 bg-gray-800/60 hover:border-yellow-500/50 cursor-pointer"
-                              : "border-gray-700 bg-gray-800/60 hover:border-gray-500"
-                    }`}
+                            : "border-gray-700 bg-gray-800/60 hover:border-gray-500"
+                    } ${canCommissionerAssign ? "cursor-pointer" : ""}`}
                     onClick={() => {
                       if (canCommissionerAssign) {
                         if (isSelected) {
                           setSelectedCellOverall(null);
+                          setCommissionerAssignMode(false);
                         } else {
                           setSelectedCellOverall(cell.overall);
                           setCommissionerAssignMode(true);
@@ -583,11 +582,6 @@ export default function DraftRoom() {
                         </span>
                         <span className="text-gray-500 text-[8px]">{pickedPlayer.teamAbbreviation}</span>
                       </>
-                    ) : isSelected ? (
-                      <>
-                        <UserPlus className="w-3 h-3 text-yellow-400 mb-0.5" />
-                        <span className="text-yellow-400 text-[8px] font-bold">ASSIGN</span>
-                      </>
                     ) : isCurrentPick ? (
                       <>
                         <span className="text-green-400 text-[10px] font-bold animate-pulse">ON CLOCK</span>
@@ -595,6 +589,18 @@ export default function DraftRoom() {
                       </>
                     ) : (
                       <span className="text-gray-600 text-[10px] font-medium">{cell.round}.{String(cell.pick).padStart(2, "0")}</span>
+                    )}
+                    {canCommissionerAssign && !isSelected && (
+                      <div className="absolute inset-0 rounded-lg bg-yellow-900/70 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <UserPlus className="w-3 h-3 text-yellow-400 mb-0.5" />
+                        <span className="text-yellow-400 text-[8px] font-bold">ASSIGN</span>
+                      </div>
+                    )}
+                    {isSelected && (
+                      <div className="absolute inset-0 rounded-lg bg-yellow-900/70 flex flex-col items-center justify-center">
+                        <UserPlus className="w-3 h-3 text-yellow-400 mb-0.5" />
+                        <span className="text-yellow-400 text-[8px] font-bold">ASSIGN</span>
+                      </div>
                     )}
                   </div>
                 );
@@ -611,10 +617,10 @@ export default function DraftRoom() {
           </div>
           <div className="flex items-center justify-between px-4 pb-2">
             <h3 className="text-white font-semibold text-sm">
-              {commissionerAssignMode ? (
+              {commissionerAssignMode && selectedCellOverall ? (
                 <>
                   <span className="text-yellow-400">Assign Player</span>
-                  <span className="text-gray-500 font-normal ml-1.5">Pick {Math.ceil(nextOverall / numTeams)}.{String(((nextOverall - 1) % numTeams) + 1).padStart(2, "0")}</span>
+                  <span className="text-gray-500 font-normal ml-1.5">Pick {Math.ceil(selectedCellOverall / numTeams)}.{String(((selectedCellOverall - 1) % numTeams) + 1).padStart(2, "0")}</span>
                 </>
               ) : (
                 <>
