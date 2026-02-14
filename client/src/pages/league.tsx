@@ -595,7 +595,7 @@ export default function LeaguePage() {
         <Card className="gradient-card rounded-xl p-5 border-0 mt-4">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-white font-semibold">Draft Settings</h3>
-            {isCommissioner && !isEditingDraft && (
+            {isCommissioner && !isEditingDraft && league.draftStatus !== "completed" && (
               <Button
                 onClick={startEditingDraft}
                 variant="ghost"
