@@ -258,7 +258,7 @@ export default function LeaguePage() {
 
       {activeTab === "roster" && (
         <div>
-          {league.draftStatus !== "completed" && (league.status === "Private" || league.status === "Public" || !league.status) ? (
+          {league.draftStatus !== "completed" ? (
             <Card className="gradient-card rounded-xl p-4 border-0 mb-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-blue-600/20 flex items-center justify-center shrink-0">
