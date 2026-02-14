@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, ListFilter, Users2, Search, X, Clock, Timer, Play, Pause, UserPlus } from "lucide-react";
+import { ArrowLeft, ListFilter, Users2, Search, X, Clock, Timer, Play, Pause, UserPlus, Trophy } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { League, Team, Player, DraftPick, PlayerAdp } from "@shared/schema";
@@ -158,6 +158,7 @@ export default function DraftRoom() {
   const isCommissioner = !!(user && league && league.createdBy === user.id);
   const isDraftActive = serverDraftStatus === "active";
   const isDraftPaused = serverDraftStatus === "paused";
+  const isDraftCompleted = serverDraftStatus === "completed";
   const rosterPositions = league?.rosterPositions || [];
   const totalRounds = rosterPositions.length;
   const numTeams = teams?.length || league?.maxTeams || 12;
@@ -516,6 +517,14 @@ export default function DraftRoom() {
                   Start Draft
                 </Button>
               )}
+            </div>
+          ) : isDraftCompleted ? (
+            <div className="flex items-center gap-3 bg-gradient-to-r from-yellow-900/60 to-yellow-800/40 border border-yellow-600/50 rounded-lg px-4 py-3">
+              <Trophy className="w-5 h-5 text-yellow-400 shrink-0" />
+              <div className="flex-1">
+                <p className="text-yellow-400 text-sm font-bold">Draft is Completed!</p>
+                <p className="text-yellow-500/70 text-[11px]">All {totalRounds * numTeams} picks have been made</p>
+              </div>
             </div>
           ) : null}
         </div>
