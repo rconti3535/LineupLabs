@@ -25,7 +25,7 @@ export function FeaturedLeagues() {
 
   const userLeagueIds = new Set((userTeams || []).map(t => t.leagueId));
   const leagues = (allPublicLeagues || []).filter(
-    league => !userLeagueIds.has(league.id) && (league.currentTeams || 0) < (league.maxTeams || 0)
+    league => !userLeagueIds.has(league.id) && (league.currentTeams || 0) < (league.maxTeams || 0) && (!league.draftStatus || league.draftStatus === "pending")
   );
 
   const joinMutation = useMutation({
