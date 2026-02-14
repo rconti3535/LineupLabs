@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Users, Trophy, Calendar, TrendingUp, Pencil } from "lucide-react";
+import { ArrowLeft, Users, Trophy, Calendar, TrendingUp, Pencil, Trash2, AlertTriangle } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -35,6 +36,7 @@ export default function LeaguePage() {
   const [editDraftDate, setEditDraftDate] = useState("");
   const [editSecondsPerPick, setEditSecondsPerPick] = useState("");
   const [editDraftOrder, setEditDraftOrder] = useState("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const { toast } = useToast();
 
   const { data: league, isLoading: leagueLoading } = useQuery<League>({
@@ -89,6 +91,21 @@ export default function LeaguePage() {
       return results.filter(Boolean) as Player[];
     },
     enabled: myPickPlayerIds.length > 0,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("DELETE", `/api/leagues/${leagueId}`, { userId: user?.id });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues/public"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/teams/user"] });
+      toast({ title: "League deleted" });
+      setLocation("/home");
+    },
+    onError: () => {
+      toast({ title: "Failed to delete league", variant: "destructive" });
+    },
   });
 
   const updateMutation = useMutation({
@@ -716,6 +733,55 @@ export default function LeaguePage() {
             </div>
           )}
         </Card>
+
+        {isCommissioner && (
+          <Card className="gradient-card rounded-xl p-5 border-0 mt-4 border border-red-900/30">
+            <h3 className="text-red-400 font-semibold mb-2">Danger Zone</h3>
+            <p className="text-gray-400 text-sm mb-4">
+              Permanently delete this league and all its data. Draft position data used for ADP calculations will be preserved.
+            </p>
+            <Button
+              onClick={() => setShowDeleteConfirm(true)}
+              variant="outline"
+              className="w-full border-red-800 text-red-400 hover:bg-red-900/30 hover:text-red-300 gap-2"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete League
+            </Button>
+          </Card>
+        )}
+
+        <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+          <DialogContent className="bg-gray-900 border-gray-700 max-w-sm">
+            <DialogHeader>
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-10 h-10 rounded-full bg-red-600/20 flex items-center justify-center">
+                  <AlertTriangle className="w-5 h-5 text-red-400" />
+                </div>
+                <DialogTitle className="text-white text-lg">Delete League?</DialogTitle>
+              </div>
+              <DialogDescription className="text-gray-400 text-sm pt-2">
+                This will permanently delete <span className="text-white font-semibold">{league.name}</span>, all teams, and draft picks. This action cannot be undone. ADP data will be preserved.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex gap-2 mt-2">
+              <Button
+                onClick={() => setShowDeleteConfirm(false)}
+                variant="outline"
+                className="flex-1 border-gray-600 text-gray-300 hover:bg-gray-800"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => deleteMutation.mutate()}
+                disabled={deleteMutation.isPending}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+              >
+                {deleteMutation.isPending ? "Deleting..." : "Delete League"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
         </>
       )}
     </div>

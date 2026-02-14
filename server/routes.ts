@@ -125,6 +125,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/leagues/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const league = await storage.getLeague(id);
+      if (!league) {
+        return res.status(404).json({ message: "League not found" });
+      }
+      const { userId } = req.body;
+      if (league.createdBy !== userId) {
+        return res.status(403).json({ message: "Only the commissioner can delete the league" });
+      }
+      await storage.deleteLeague(id);
+      res.json({ message: "League deleted" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete league" });
+    }
+  });
+
   // Get league by ID
   app.get("/api/leagues/:id", async (req, res) => {
     try {

@@ -25,6 +25,7 @@ export interface IStorage {
   getLeague(id: number): Promise<League | undefined>;
   createLeague(league: InsertLeague): Promise<League>;
   updateLeague(id: number, data: Partial<InsertLeague>): Promise<League | undefined>;
+  deleteLeague(id: number): Promise<void>;
   
   // Teams
   getTeamsByUserId(userId: number): Promise<Team[]>;
@@ -120,6 +121,16 @@ export class DatabaseStorage implements IStorage {
       .where(eq(leagues.id, id))
       .returning();
     return league || undefined;
+  }
+
+  async deleteLeague(id: number): Promise<void> {
+    const leagueTeams = await db.select().from(teams).where(eq(teams.leagueId, id));
+    const teamIds = leagueTeams.map(t => t.id);
+    if (teamIds.length > 0) {
+      await db.delete(draftPicks).where(eq(draftPicks.leagueId, id));
+      await db.delete(teams).where(eq(teams.leagueId, id));
+    }
+    await db.delete(leagues).where(eq(leagues.id, id));
   }
 
   async getTeamsByUserId(userId: number): Promise<Team[]> {
