@@ -217,17 +217,18 @@ export default function DraftRoom() {
   });
 
   const { data: adpData } = useQuery<{ adpRecords: PlayerAdp[]; total: number }>({
-    queryKey: ["/api/adp", league?.type, league?.scoringFormat],
+    queryKey: ["/api/adp", league?.type || "Redraft", league?.scoringFormat || "5x5 Roto"],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (league?.type) params.set("type", league.type);
-      if (league?.scoringFormat) params.set("scoring", league.scoringFormat);
+      params.set("type", league?.type || "Redraft");
+      params.set("scoring", league?.scoringFormat || "5x5 Roto");
       params.set("limit", "10000");
       const res = await fetch(`/api/adp?${params}`);
       if (!res.ok) throw new Error("Failed to fetch ADP");
       return res.json();
     },
     enabled: activeTab === "players" && !!league,
+    staleTime: 0,
   });
 
   const adpMap = new Map<number, number>();
