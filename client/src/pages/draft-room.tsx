@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, ListFilter, Users2, Search, X, Clock, Timer, Play, Pause } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { League, Team, Player, DraftPick } from "@shared/schema";
+import type { League, Team, Player, DraftPick, PlayerAdp } from "@shared/schema";
 import { assignPlayersToRoster } from "@/lib/roster-utils";
 
 type DraftTab = "board" | "players" | "team";
@@ -216,8 +216,30 @@ export default function DraftRoom() {
     enabled: activeTab === "players",
   });
 
+  const { data: adpData } = useQuery<PlayerAdp[]>({
+    queryKey: ["/api/adp", league?.type, league?.scoringFormat],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (league?.type) params.set("type", league.type);
+      if (league?.scoringFormat) params.set("scoring", league.scoringFormat);
+      params.set("limit", "10000");
+      const res = await fetch(`/api/adp?${params}`);
+      if (!res.ok) throw new Error("Failed to fetch ADP");
+      return res.json();
+    },
+    enabled: activeTab === "players" && !!league,
+  });
+
+  const adpMap = new Map<number, number>();
+  adpData?.forEach(a => adpMap.set(a.playerId, parseFloat(String(a.adp))));
+
   const draftedPlayerIdsSet = new Set(draftedPlayerIds);
-  const availablePlayers = playersData?.players.filter(p => !draftedPlayerIdsSet.has(p.id)) || [];
+  const availablePlayers = (playersData?.players.filter(p => !draftedPlayerIdsSet.has(p.id)) || [])
+    .sort((a, b) => {
+      const adpA = adpMap.get(a.id) ?? 99999;
+      const adpB = adpMap.get(b.id) ?? 99999;
+      return adpA - adpB;
+    });
   const availableTotal = playersData ? playersData.total - draftedPlayerIds.length : 0;
 
   const draftPickPlayerIds = draftPicks.map(p => p.playerId);
@@ -618,6 +640,12 @@ export default function DraftRoom() {
                         </>
                       )}
                     </div>
+                  </div>
+                  <div className="text-right shrink-0 mr-1">
+                    <p className="text-[10px] text-gray-500 uppercase">ADP</p>
+                    <p className="text-sm font-semibold text-gray-300">
+                      {adpMap.has(player.id) ? adpMap.get(player.id)!.toFixed(1) : "—"}
+                    </p>
                   </div>
                   {isMyTurn && (
                     <Button
