@@ -303,7 +303,7 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
           className="pl-8 h-9 bg-gray-800/50 border-gray-700 text-sm text-white"
         />
       </div>
-      <div className="flex items-center gap-2 mb-3 flex-wrap">
+      <div className="flex items-center gap-2 mb-3">
         <div className="flex bg-gray-800/60 rounded-lg p-0.5 shrink-0">
           <button
             className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${playerType === "batters" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-gray-300"}`}
@@ -318,26 +318,16 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
             Pitchers
           </button>
         </div>
-        <div className="flex bg-gray-800/60 rounded-lg p-0.5 shrink-0">
-          <button
-            className={`px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors ${rosterStatus === "free_agents" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-gray-300"}`}
-            onClick={() => { setRosterStatus("free_agents"); setPage(0); }}
-          >
-            Free Agents
-          </button>
-          <button
-            className={`px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors ${rosterStatus === "rostered" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-gray-300"}`}
-            onClick={() => { setRosterStatus("rostered"); setPage(0); }}
-          >
-            Rostered
-          </button>
-          <button
-            className={`px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors ${rosterStatus === "all" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-gray-300"}`}
-            onClick={() => { setRosterStatus("all"); setPage(0); }}
-          >
-            All
-          </button>
-        </div>
+        <Select value={rosterStatus} onValueChange={(v: "free_agents" | "rostered" | "all") => { setRosterStatus(v); setPage(0); }}>
+          <SelectTrigger className="w-[110px] h-9 bg-gray-800/50 border-gray-700 text-sm text-white">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="free_agents">Free Agents</SelectItem>
+            <SelectItem value="rostered">Rostered</SelectItem>
+            <SelectItem value="all">All</SelectItem>
+          </SelectContent>
+        </Select>
         <Select value={positionFilter} onValueChange={(v) => { setPositionFilter(v); setPage(0); }}>
           <SelectTrigger className="w-[72px] h-9 bg-gray-800/50 border-gray-700 text-sm text-white">
             <SelectValue />
