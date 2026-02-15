@@ -273,10 +273,38 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
     },
   });
 
+  const { data: waiverData } = useQuery<{ id: number; playerId: number; waiverExpiresAt: string }[]>({
+    queryKey: ["/api/leagues", leagueId, "waivers"],
+    queryFn: async () => {
+      const res = await fetch(`/api/leagues/${leagueId}/waivers`);
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+  });
+
+  const waiverPlayerIds = new Set((waiverData || []).map(w => w.playerId));
+
   const userTeam = leagueTeams?.find(t => t.userId === user?.id);
   const myTeamPicks = myPicks?.filter(p => p.teamId === userTeam?.id) || [];
   const rosterPositions = league.rosterPositions || [];
   const hasOpenSlot = myTeamPicks.length < rosterPositions.length;
+
+  const claimMutation = useMutation({
+    mutationFn: async (playerId: number) => {
+      const res = await apiRequest("POST", `/api/leagues/${leagueId}/waiver-claim`, {
+        userId: user?.id,
+        playerId,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Waiver claim submitted" });
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "waivers"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: err.message || "Failed to submit claim", variant: "destructive" });
+    },
+  });
 
   const addMutation = useMutation({
     mutationFn: async (playerId: number) => {
@@ -480,23 +508,36 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
                 </tr>
               </thead>
               <tbody>
-                {(data.players as PlayerWithAdp[]).map(player => (
+                {(data.players as PlayerWithAdp[]).map(player => {
+                  const isOnWaivers = waiverPlayerIds.has(player.id);
+                  return (
                   <tr key={player.id} className="border-b border-gray-800/40 hover:bg-white/[0.02]">
                     {userTeam && rosterStatus === "free_agents" && (
                       <td className="py-1.5">
-                        <button
-                          className="w-5 h-5 rounded-full flex items-center justify-center text-green-400 hover:bg-green-500/20 transition-colors disabled:opacity-30"
-                          onClick={() => {
-                            if (hasOpenSlot) {
-                              addMutation.mutate(player.id);
-                            } else {
-                              setAddDropPlayer(player);
-                            }
-                          }}
-                          disabled={addMutation.isPending}
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                        </button>
+                        {isOnWaivers ? (
+                          <button
+                            className="w-5 h-5 rounded-full flex items-center justify-center text-yellow-400 hover:bg-yellow-500/20 transition-colors disabled:opacity-30"
+                            onClick={() => claimMutation.mutate(player.id)}
+                            disabled={claimMutation.isPending}
+                            title="On waivers — submit claim"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                        ) : (
+                          <button
+                            className="w-5 h-5 rounded-full flex items-center justify-center text-green-400 hover:bg-green-500/20 transition-colors disabled:opacity-30"
+                            onClick={() => {
+                              if (hasOpenSlot) {
+                                addMutation.mutate(player.id);
+                              } else {
+                                setAddDropPlayer(player);
+                              }
+                            }}
+                            disabled={addMutation.isPending}
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </td>
                     )}
                     <td className="py-1.5 pl-1">
@@ -518,7 +559,8 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
                       ))
                     )}
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -530,7 +572,7 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
         <DialogContent className="bg-gray-900 border-gray-700">
           <DialogHeader>
             <DialogTitle className="text-white">Drop Player</DialogTitle>
-            <DialogDescription>Are you sure you want to drop this player? They will become available for other teams.</DialogDescription>
+            <DialogDescription>Are you sure you want to drop this player? They will be placed on waivers for 2 days before becoming a free agent.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setDropConfirm(null)} className="text-gray-400">Cancel</Button>
