@@ -1092,10 +1092,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const waiver = await storage.getActiveWaiverForPlayer(leagueId, playerId);
       if (!waiver) return res.status(404).json({ message: "No active waiver for this player" });
 
-      if (waiver.droppedByTeamId === userTeam.id) {
-        return res.status(400).json({ message: "You cannot claim a player you dropped" });
-      }
-
       const existingClaims = await storage.getClaimsForWaiver(waiver.id);
       const alreadyClaimed = existingClaims.find(c => c.teamId === userTeam.id);
       if (alreadyClaimed) return res.status(400).json({ message: "You already have a claim on this player" });
