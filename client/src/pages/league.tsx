@@ -1253,7 +1253,7 @@ export default function LeaguePage() {
           )}
 
           {myTeam ? (() => {
-            const isPitcherSlot = (s: string) => s === "SP" || s === "RP";
+            const isPitcherSlot = (s: string) => s === "SP" || s === "RP" || s === "P";
             const posEntries = rosterEntries.filter(e => !isPitcherSlot(e.slotPos) && e.slotPos !== "BN" && e.slotPos !== "IL");
             const pitchEntries = rosterEntries.filter(e => isPitcherSlot(e.slotPos));
             const benchEntries = rosterEntries.filter(e => e.slotPos === "BN" || e.slotPos === "IL");
