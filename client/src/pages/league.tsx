@@ -185,6 +185,7 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [positionFilter, setPositionFilter] = useState("All");
   const [playerType, setPlayerType] = useState<"batters" | "pitchers">("batters");
+  const [rosterStatus, setRosterStatus] = useState<"free_agents" | "rostered" | "all">("free_agents");
   const [page, setPage] = useState(0);
   const pageSize = 25;
 
@@ -197,12 +198,13 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
   }, [searchQuery]);
 
   const { data, isLoading } = useQuery<{ players: Player[]; total: number }>({
-    queryKey: ["/api/leagues", leagueId, "available-players", debouncedQuery, positionFilter, playerType, page],
+    queryKey: ["/api/leagues", leagueId, "available-players", debouncedQuery, positionFilter, playerType, rosterStatus, page],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (debouncedQuery) params.set("q", debouncedQuery);
       if (positionFilter !== "All") params.set("position", positionFilter);
       params.set("type", playerType);
+      if (rosterStatus !== "all") params.set("status", rosterStatus);
       params.set("limit", String(pageSize));
       params.set("offset", String(page * pageSize));
       const res = await fetch(`/api/leagues/${leagueId}/available-players?${params}`);
@@ -301,7 +303,7 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
           className="pl-8 h-9 bg-gray-800/50 border-gray-700 text-sm text-white"
         />
       </div>
-      <div className="flex gap-2 mb-3">
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
         <div className="flex bg-gray-800/60 rounded-lg p-0.5 shrink-0">
           <button
             className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${playerType === "batters" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-gray-300"}`}
@@ -314,6 +316,26 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
             onClick={() => { setPlayerType("pitchers"); setPositionFilter("All"); setPage(0); }}
           >
             Pitchers
+          </button>
+        </div>
+        <div className="flex bg-gray-800/60 rounded-lg p-0.5 shrink-0">
+          <button
+            className={`px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors ${rosterStatus === "free_agents" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-gray-300"}`}
+            onClick={() => { setRosterStatus("free_agents"); setPage(0); }}
+          >
+            Free Agents
+          </button>
+          <button
+            className={`px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors ${rosterStatus === "rostered" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-gray-300"}`}
+            onClick={() => { setRosterStatus("rostered"); setPage(0); }}
+          >
+            Rostered
+          </button>
+          <button
+            className={`px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors ${rosterStatus === "all" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-gray-300"}`}
+            onClick={() => { setRosterStatus("all"); setPage(0); }}
+          >
+            All
           </button>
         </div>
         <Select value={positionFilter} onValueChange={(v) => { setPositionFilter(v); setPage(0); }}>
@@ -340,10 +362,10 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
         <>
           <div className="text-[10px] text-gray-500 mb-1">{data.total} players available</div>
           <div className="overflow-x-auto hide-scrollbar" style={{ WebkitOverflowScrolling: "touch" }}>
-            <table className="w-full" style={{ minWidth: (userTeam ? 24 : 0) + 120 + activeCats.length * 48 + "px" }}>
+            <table className="w-full" style={{ minWidth: (userTeam && rosterStatus === "free_agents" ? 24 : 0) + 120 + activeCats.length * 48 + "px" }}>
               <thead>
                 <tr className="border-b border-gray-700">
-                  {userTeam && <th className="w-[24px]" />}
+                  {userTeam && rosterStatus === "free_agents" && <th className="w-[24px]" />}
                   <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 pl-1 w-[120px]">Player</th>
                   {activeCats.map(cat => (
                     <th key={cat} className="text-center text-[10px] text-gray-400 font-semibold uppercase pb-1.5 w-[48px]">{cat}</th>
@@ -353,7 +375,7 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
               <tbody>
                 {data.players.map(player => (
                   <tr key={player.id} className="border-b border-gray-800/40 hover:bg-white/[0.02]">
-                    {userTeam && (
+                    {userTeam && rosterStatus === "free_agents" && (
                       <td className="py-1.5">
                         <button
                           className="w-5 h-5 rounded-full flex items-center justify-center text-green-400 hover:bg-green-500/20 transition-colors disabled:opacity-30"

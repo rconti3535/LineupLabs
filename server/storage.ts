@@ -62,7 +62,7 @@ export interface IStorage {
   // Add/Drop
   addPlayerToTeam(leagueId: number, teamId: number, playerId: number, rosterSlot: number): Promise<DraftPick>;
   dropPlayerFromTeam(pickId: number): Promise<void>;
-  searchAvailablePlayers(leagueId: number, query?: string, position?: string, limit?: number, offset?: number, playerType?: string): Promise<{ players: Player[]; total: number }>;
+  searchAvailablePlayers(leagueId: number, query?: string, position?: string, limit?: number, offset?: number, playerType?: string, rosterStatus?: string): Promise<{ players: Player[]; total: number }>;
 
   // Active drafts
   getActiveDraftLeagues(): Promise<League[]>;
@@ -496,13 +496,21 @@ export class DatabaseStorage implements IStorage {
     await db.delete(draftPicks).where(eq(draftPicks.id, pickId));
   }
 
-  async searchAvailablePlayers(leagueId: number, query?: string, position?: string, limit = 50, offset = 0, playerType?: string): Promise<{ players: Player[]; total: number }> {
+  async searchAvailablePlayers(leagueId: number, query?: string, position?: string, limit = 50, offset = 0, playerType?: string, rosterStatus?: string): Promise<{ players: Player[]; total: number }> {
     const draftedIds = await this.getDraftedPlayerIds(leagueId);
 
     const conditions: ReturnType<typeof eq>[] = [];
     conditions.push(eq(players.mlbLevel, "MLB"));
-    if (draftedIds.length > 0) {
-      conditions.push(notInArray(players.id, draftedIds));
+    if (rosterStatus === "free_agents" || !rosterStatus) {
+      if (draftedIds.length > 0) {
+        conditions.push(notInArray(players.id, draftedIds));
+      }
+    } else if (rosterStatus === "rostered") {
+      if (draftedIds.length > 0) {
+        conditions.push(inArray(players.id, draftedIds));
+      } else {
+        return { players: [], total: 0 };
+      }
     }
     if (query) {
       conditions.push(ilike(players.name, `%${query}%`));
