@@ -36,6 +36,7 @@ export interface IStorage {
   // Players
   getPlayers(): Promise<Player[]>;
   getPlayer(id: number): Promise<Player | undefined>;
+  getPlayersByIds(ids: number[]): Promise<Player[]>;
   searchPlayers(query?: string, position?: string, mlbLevel?: string, limit?: number, offset?: number, adpLeagueType?: string, adpScoringFormat?: string, adpSeason?: number): Promise<{ players: Player[]; total: number }>;
   createPlayer(player: InsertPlayer): Promise<Player>;
   
@@ -167,6 +168,12 @@ export class DatabaseStorage implements IStorage {
   async getPlayer(id: number): Promise<Player | undefined> {
     const [player] = await db.select().from(players).where(eq(players.id, id));
     return player || undefined;
+  }
+
+  async getPlayersByIds(ids: number[]): Promise<Player[]> {
+    if (ids.length === 0) return [];
+    const result = await db.select().from(players).where(inArray(players.id, ids));
+    return result;
   }
 
   async searchPlayers(query?: string, position?: string, mlbLevel?: string, limit = 50, offset = 0, adpLeagueType?: string, adpScoringFormat?: string, adpSeason?: number): Promise<{ players: Player[]; total: number }> {
