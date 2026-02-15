@@ -179,6 +179,50 @@ const PITCHING_STAT_MAP: Record<string, { key: keyof Player; isRate?: boolean }>
   K: { key: "statSO" }, CG: { key: "statCG" }, SHO: { key: "statSHO" }, BSV: { key: "statBSV" },
 };
 
+function AddDropRosterRow({ pick, rosterPositions, isPending, onSelect }: {
+  pick: DraftPick;
+  rosterPositions: string[];
+  isPending: boolean;
+  onSelect: (pickId: number) => void;
+}) {
+  const { data: player } = useQuery<Player>({
+    queryKey: ["/api/players", pick.playerId],
+    queryFn: async () => {
+      const res = await fetch(`/api/players/${pick.playerId}`);
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+  });
+
+  const slotLabel = pick.rosterSlot !== null && pick.rosterSlot !== undefined
+    ? rosterPositions[pick.rosterSlot] || "BN"
+    : "BN";
+
+  return (
+    <button
+      className="w-full flex items-center gap-3 py-3 border-b border-gray-800/40 hover:bg-red-950/20 transition-colors text-left disabled:opacity-40"
+      onClick={() => onSelect(pick.id)}
+      disabled={isPending}
+    >
+      <span className="w-8 text-center text-[10px] text-gray-500 font-semibold uppercase shrink-0">{slotLabel}</span>
+      {player ? (
+        <div className="flex-1 min-w-0">
+          <p className="text-white text-sm font-medium truncate">{player.name}</p>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] text-blue-400 font-medium">{player.position}</span>
+            <span className="text-[11px] text-gray-500">{player.teamAbbreviation || player.team}</span>
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1">
+          <span className="text-gray-400 text-xs">Loading...</span>
+        </div>
+      )}
+      <Trash2 className="w-4 h-4 text-red-400/60 shrink-0" />
+    </button>
+  );
+}
+
 function PlayersTab({ leagueId, league, user }: { leagueId: number; league: League; user: { id: number } | null }) {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
@@ -276,7 +320,29 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
     },
   });
 
+  const addDropMutation = useMutation({
+    mutationFn: async ({ addPlayerId, dropPickId }: { addPlayerId: number; dropPickId: number }) => {
+      const res = await apiRequest("POST", `/api/leagues/${leagueId}/add-drop`, {
+        userId: user?.id,
+        addPlayerId,
+        dropPickId,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Player swap successful" });
+      setAddDropPlayer(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "available-players"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "draft-picks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "standings"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: err.message || "Failed to add/drop player", variant: "destructive" });
+    },
+  });
+
   const [dropConfirm, setDropConfirm] = useState<{ pickId: number; playerName: string } | null>(null);
+  const [addDropPlayer, setAddDropPlayer] = useState<Player | null>(null);
 
   const totalPages = data ? Math.ceil(data.total / pageSize) : 0;
 
@@ -425,8 +491,14 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
                       <td className="py-1.5">
                         <button
                           className="w-5 h-5 rounded-full flex items-center justify-center text-green-400 hover:bg-green-500/20 transition-colors disabled:opacity-30"
-                          onClick={() => addMutation.mutate(player.id)}
-                          disabled={addMutation.isPending || !hasOpenSlot}
+                          onClick={() => {
+                            if (hasOpenSlot) {
+                              addMutation.mutate(player.id);
+                            } else {
+                              setAddDropPlayer(player);
+                            }
+                          }}
+                          disabled={addMutation.isPending}
                         >
                           <Plus className="w-3.5 h-3.5" />
                         </button>
@@ -504,6 +576,58 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {addDropPlayer && (
+        <div className="fixed inset-0 z-50 bg-gray-950 flex flex-col">
+          <div className="flex items-center gap-3 p-4 border-b border-gray-800">
+            <button onClick={() => setAddDropPlayer(null)} className="text-gray-400 hover:text-white">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div className="flex-1">
+              <h2 className="text-white font-semibold text-sm">Add / Drop</h2>
+              <p className="text-gray-400 text-xs">Select a player to drop</p>
+            </div>
+          </div>
+
+          <div className="p-4 border-b border-gray-800 bg-green-950/30">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[10px] text-green-400 font-semibold uppercase tracking-wider">Adding</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-green-600/20 flex items-center justify-center shrink-0">
+                <Plus className="w-4 h-4 text-green-400" />
+              </div>
+              <div>
+                <p className="text-white text-sm font-medium">{addDropPlayer.name}</p>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] text-blue-400 font-medium">{addDropPlayer.position}</span>
+                  <span className="text-[11px] text-gray-500">{addDropPlayer.teamAbbreviation || addDropPlayer.team}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-4 pb-2">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[10px] text-red-400 font-semibold uppercase tracking-wider">Select a player to drop</span>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto hide-scrollbar px-4 pb-20">
+            {myTeamPicks.map((pick) => (
+              <AddDropRosterRow
+                key={pick.id}
+                pick={pick}
+                rosterPositions={rosterPositions}
+                isPending={addDropMutation.isPending}
+                onSelect={(pickId) => {
+                  addDropMutation.mutate({ addPlayerId: addDropPlayer.id, dropPickId: pickId });
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
