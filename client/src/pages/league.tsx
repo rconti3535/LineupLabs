@@ -335,10 +335,11 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: "Player dropped from your roster" });
+      toast({ title: "Player dropped — on waivers for 2 days" });
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "available-players"] });
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "draft-picks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "standings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "waivers"] });
     },
     onError: (err: Error) => {
       toast({ title: err.message || "Failed to drop player", variant: "destructive" });
@@ -355,11 +356,12 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: "Player swap successful" });
+      toast({ title: "Player swap successful — dropped player on waivers" });
       setAddDropPlayer(null);
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "available-players"] });
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "draft-picks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "standings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "waivers"] });
     },
     onError: (err: Error) => {
       toast({ title: err.message || "Failed to add/drop player", variant: "destructive" });
