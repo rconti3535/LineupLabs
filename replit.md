@@ -49,6 +49,8 @@ Key API routes:
 - `POST /api/leagues/:id/roster-swap` — swap two players' roster positions (with position eligibility validation)
 - `POST /api/leagues/:id/init-roster-slots` — initialize persisted roster slot assignments after draft completion
 - `GET /api/leagues/:id/standings` — compute and return Roto standings with category values, points, and rankings
+- `GET /api/leagues/:id/waivers` — fetch active waivers with player info and claim counts
+- `POST /api/leagues/:id/waiver-claim` — submit a waiver claim on a player
 
 ### Data Storage
 - **Database**: PostgreSQL (via Neon serverless driver `@neondatabase/serverless`)
@@ -64,6 +66,8 @@ Key API routes:
 - **players** — id, mlbId (unique), name, firstName, lastName, position, team, teamAbbreviation, jerseyNumber, bats, throws, age, height, weight, mlbLevel (MLB/AAA/AA/A+/A/Rookie), avatar, points, status. ~8,200 real players imported from MLB Stats API.
 - **draft_picks** — id, leagueId (FK to leagues), teamId (FK to teams), playerId (FK to players), overallPick, round, pickInRound, pickedAt, rosterSlot (nullable integer for persisted lineup position). Tracks all draft selections per league.
 - **player_adp** — id, playerId (FK to players), leagueType, scoringFormat, season, adp (average draft position), draftCount, totalPositionSum. Recalculated when drafts complete. Undrafted players get position 9999.
+- **waivers** — id, leagueId (FK to leagues), playerId (FK to players), droppedByTeamId (FK to teams), waiverExpiresAt (ISO string), status (active/claimed/cleared), createdAt. 2-day waiver period for dropped players.
+- **waiver_claims** — id, waiverId (FK to waivers), teamId (FK to teams), createdAt. Teams submit claims on waiver players; first claim wins when waiver expires.
 - **activities** — user activity tracking
 
 ### Storage Layer
