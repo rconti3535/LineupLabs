@@ -36,6 +36,9 @@ export default function LeaguePage() {
   const [editDraftDate, setEditDraftDate] = useState("");
   const [editSecondsPerPick, setEditSecondsPerPick] = useState("");
   const [editDraftOrder, setEditDraftOrder] = useState("");
+  const [isEditingScoring, setIsEditingScoring] = useState(false);
+  const [editHittingCategories, setEditHittingCategories] = useState<string[]>([]);
+  const [editPitchingCategories, setEditPitchingCategories] = useState<string[]>([]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedSwapIndex, setSelectedSwapIndex] = useState<number | null>(null);
   const [swapTargets, setSwapTargets] = useState<number[]>([]);
@@ -213,11 +216,52 @@ export default function LeaguePage() {
   const saveSettings = () => {
     updateMutation.mutate({
       maxTeams: parseInt(editMaxTeams),
-      scoringFormat: editScoringFormat,
       type: editType,
       status: editStatus,
       isPublic: editStatus === "Public",
     });
+  };
+
+  const ALL_HITTING_STATS = ["R", "HR", "RBI", "SB", "AVG", "H", "2B", "3B", "BB", "K", "OBP", "SLG", "OPS", "TB", "CS", "HBP"];
+  const ALL_PITCHING_STATS = ["W", "SV", "K", "ERA", "WHIP", "L", "QS", "HLD", "IP", "SO", "BB", "HR", "CG", "SHO", "BSV", "K/9"];
+
+  const STAT_LABELS: Record<string, string> = {
+    R: "Runs", HR: "Home Runs", RBI: "RBI", SB: "Stolen Bases", AVG: "Batting Average",
+    H: "Hits", "2B": "Doubles", "3B": "Triples", BB: "Walks", K: "Strikeouts",
+    OBP: "On-Base %", SLG: "Slugging %", OPS: "OBP+SLG", TB: "Total Bases",
+    CS: "Caught Stealing", HBP: "Hit By Pitch",
+    W: "Wins", SV: "Saves", ERA: "ERA", WHIP: "WHIP", L: "Losses",
+    QS: "Quality Starts", HLD: "Holds", IP: "Innings Pitched", SO: "Strikeouts",
+    CG: "Complete Games", SHO: "Shutouts", BSV: "Blown Saves", "K/9": "K per 9",
+  };
+
+  const startEditingScoring = () => {
+    if (!league) return;
+    setEditScoringFormat(league.scoringFormat || "Roto");
+    setEditHittingCategories(league.hittingCategories || ["R", "HR", "RBI", "SB", "AVG"]);
+    setEditPitchingCategories(league.pitchingCategories || ["W", "SV", "K", "ERA", "WHIP"]);
+    setIsEditingScoring(true);
+  };
+
+  const saveScoringSettings = () => {
+    updateMutation.mutate({
+      scoringFormat: editScoringFormat,
+      hittingCategories: editHittingCategories,
+      pitchingCategories: editPitchingCategories,
+    });
+    setIsEditingScoring(false);
+  };
+
+  const toggleHittingStat = (stat: string) => {
+    setEditHittingCategories(prev =>
+      prev.includes(stat) ? prev.filter(s => s !== stat) : [...prev, stat]
+    );
+  };
+
+  const togglePitchingStat = (stat: string) => {
+    setEditPitchingCategories(prev =>
+      prev.includes(stat) ? prev.filter(s => s !== stat) : [...prev, stat]
+    );
   };
 
   const positionsToCountsMap = (positions: string[]): Record<string, number> => {
@@ -659,17 +703,6 @@ export default function LeaguePage() {
                   />
                 </div>
                 <div>
-                  <label className="text-gray-400 text-xs block mb-1">Scoring Format</label>
-                  <Select value={editScoringFormat} onValueChange={setEditScoringFormat}>
-                    <SelectTrigger className="bg-gray-800 border-gray-700 text-white text-sm h-9">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Roto">Roto</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
                   <label className="text-gray-400 text-xs block mb-1">League Type</label>
                   <Select value={editType} onValueChange={setEditType}>
                     <SelectTrigger className="bg-gray-800 border-gray-700 text-white text-sm h-9">
@@ -703,13 +736,6 @@ export default function LeaguePage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-blue-400" />
-                  <div>
-                    <p className="text-gray-400 text-xs">Scoring</p>
-                    <p className="text-white font-medium text-sm">{league.scoringFormat}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-blue-400" />
                   <div>
                     <p className="text-gray-400 text-xs">Type</p>
@@ -729,6 +755,172 @@ export default function LeaguePage() {
             <p className="text-gray-400 text-sm text-center py-6">
               Only the commissioner can adjust league settings.
             </p>
+          )}
+        </Card>
+
+        <Card className="gradient-card rounded-xl p-5 border-0 mt-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-white font-semibold">Scoring Settings</h3>
+            {isCommissioner && !isEditingScoring && (
+              <Button
+                onClick={startEditingScoring}
+                variant="ghost"
+                size="sm"
+                className="text-blue-400 hover:text-blue-300 h-8 px-2"
+              >
+                <Pencil className="w-3.5 h-3.5 mr-1" />
+                Edit
+              </Button>
+            )}
+            {isCommissioner && isEditingScoring && (
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => setIsEditingScoring(false)}
+                  variant="ghost"
+                  size="sm"
+                  className="text-gray-400 hover:text-white h-8 px-3"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={saveScoringSettings}
+                  size="sm"
+                  className="bg-blue-600 hover:bg-blue-700 text-white h-8 px-3"
+                  disabled={updateMutation.isPending}
+                >
+                  {updateMutation.isPending ? "Saving..." : "Save"}
+                </Button>
+              </div>
+            )}
+          </div>
+          {isCommissioner ? (
+            isEditingScoring ? (
+              <div className="space-y-5">
+                <div>
+                  <label className="text-gray-400 text-xs block mb-1">Scoring Format</label>
+                  <Select value={editScoringFormat} onValueChange={setEditScoringFormat}>
+                    <SelectTrigger className="bg-gray-800 border-gray-700 text-white text-sm h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Roto">Roto</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {editScoringFormat === "Roto" && (
+                  <>
+                    <div>
+                      <label className="text-white text-sm font-medium block mb-2">Hitting Categories</label>
+                      <div className="flex flex-wrap gap-2">
+                        {ALL_HITTING_STATS.map(stat => (
+                          <button
+                            key={stat}
+                            type="button"
+                            onClick={() => toggleHittingStat(stat)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                              editHittingCategories.includes(stat)
+                                ? "bg-blue-600 text-white"
+                                : "bg-gray-800 text-gray-400 border border-gray-700 hover:border-gray-500"
+                            }`}
+                          >
+                            {stat}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-gray-500 text-xs mt-2">{editHittingCategories.length} categories selected</p>
+                    </div>
+                    <div>
+                      <label className="text-white text-sm font-medium block mb-2">Pitching Categories</label>
+                      <div className="flex flex-wrap gap-2">
+                        {ALL_PITCHING_STATS.map(stat => (
+                          <button
+                            key={stat}
+                            type="button"
+                            onClick={() => togglePitchingStat(stat)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                              editPitchingCategories.includes(stat)
+                                ? "bg-green-600 text-white"
+                                : "bg-gray-800 text-gray-400 border border-gray-700 hover:border-gray-500"
+                            }`}
+                          >
+                            {stat}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-gray-500 text-xs mt-2">{editPitchingCategories.length} categories selected</p>
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-blue-400" />
+                  <div>
+                    <p className="text-gray-400 text-xs">Format</p>
+                    <p className="text-white font-medium text-sm">{league.scoringFormat || "Roto"}</p>
+                  </div>
+                </div>
+                {(league.scoringFormat || "Roto") === "Roto" && (
+                  <>
+                    <div>
+                      <p className="text-gray-400 text-xs mb-2">Hitting Categories</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {(league.hittingCategories || ["R", "HR", "RBI", "SB", "AVG"]).map(stat => (
+                          <span key={stat} className="px-2 py-1 bg-blue-600/20 text-blue-400 rounded text-xs font-medium">
+                            {stat}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-gray-400 text-xs mb-2">Pitching Categories</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {(league.pitchingCategories || ["W", "SV", "K", "ERA", "WHIP"]).map(stat => (
+                          <span key={stat} className="px-2 py-1 bg-green-600/20 text-green-400 rounded text-xs font-medium">
+                            {stat}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-blue-400" />
+                <div>
+                  <p className="text-gray-400 text-xs">Format</p>
+                  <p className="text-white font-medium text-sm">{league.scoringFormat || "Roto"}</p>
+                </div>
+              </div>
+              {(league.scoringFormat || "Roto") === "Roto" && (
+                <>
+                  <div>
+                    <p className="text-gray-400 text-xs mb-2">Hitting Categories</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {(league.hittingCategories || ["R", "HR", "RBI", "SB", "AVG"]).map(stat => (
+                        <span key={stat} className="px-2 py-1 bg-blue-600/20 text-blue-400 rounded text-xs font-medium">
+                          {stat}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-xs mb-2">Pitching Categories</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {(league.pitchingCategories || ["W", "SV", "K", "ERA", "WHIP"]).map(stat => (
+                        <span key={stat} className="px-2 py-1 bg-green-600/20 text-green-400 rounded text-xs font-medium">
+                          {stat}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
           )}
         </Card>
 
