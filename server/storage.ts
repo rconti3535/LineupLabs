@@ -1,12 +1,14 @@
 import { 
-  users, leagues, teams, players, activities, draftPicks, playerAdp,
+  users, leagues, teams, players, activities, draftPicks, playerAdp, waivers, waiverClaims,
   type User, type InsertUser,
   type League, type InsertLeague,
   type Team, type InsertTeam,
   type Player, type InsertPlayer,
   type DraftPick, type InsertDraftPick,
   type PlayerAdp, type InsertPlayerAdp,
-  type Activity, type InsertActivity
+  type Activity, type InsertActivity,
+  type Waiver, type InsertWaiver,
+  type WaiverClaim, type InsertWaiverClaim
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, ilike, or, and, sql, notInArray, asc, desc, inArray } from "drizzle-orm";
@@ -63,6 +65,16 @@ export interface IStorage {
   addPlayerToTeam(leagueId: number, teamId: number, playerId: number, rosterSlot: number): Promise<DraftPick>;
   dropPlayerFromTeam(pickId: number): Promise<void>;
   searchAvailablePlayers(leagueId: number, query?: string, position?: string, limit?: number, offset?: number, playerType?: string, rosterStatus?: string): Promise<{ players: Player[]; total: number }>;
+
+  // Waivers
+  createWaiver(waiver: InsertWaiver): Promise<Waiver>;
+  getActiveWaiversByLeague(leagueId: number): Promise<Waiver[]>;
+  getActiveWaiverForPlayer(leagueId: number, playerId: number): Promise<Waiver | undefined>;
+  getWaiverPlayerIds(leagueId: number): Promise<number[]>;
+  createWaiverClaim(claim: InsertWaiverClaim): Promise<WaiverClaim>;
+  getClaimsForWaiver(waiverId: number): Promise<WaiverClaim[]>;
+  getExpiredWaivers(): Promise<Waiver[]>;
+  completeWaiver(waiverId: number, status: string): Promise<void>;
 
   // Active drafts
   getActiveDraftLeagues(): Promise<League[]>;
@@ -566,6 +578,51 @@ export class DatabaseStorage implements IStorage {
       .values(insertActivity)
       .returning();
     return activity;
+  }
+
+  async createWaiver(waiver: InsertWaiver): Promise<Waiver> {
+    const [w] = await db.insert(waivers).values(waiver).returning();
+    return w;
+  }
+
+  async getActiveWaiversByLeague(leagueId: number): Promise<Waiver[]> {
+    return await db.select().from(waivers).where(
+      and(eq(waivers.leagueId, leagueId), eq(waivers.status, "active"))
+    );
+  }
+
+  async getActiveWaiverForPlayer(leagueId: number, playerId: number): Promise<Waiver | undefined> {
+    const [w] = await db.select().from(waivers).where(
+      and(eq(waivers.leagueId, leagueId), eq(waivers.playerId, playerId), eq(waivers.status, "active"))
+    );
+    return w || undefined;
+  }
+
+  async getWaiverPlayerIds(leagueId: number): Promise<number[]> {
+    const rows = await db.select({ playerId: waivers.playerId }).from(waivers).where(
+      and(eq(waivers.leagueId, leagueId), eq(waivers.status, "active"))
+    );
+    return rows.map(r => r.playerId);
+  }
+
+  async createWaiverClaim(claim: InsertWaiverClaim): Promise<WaiverClaim> {
+    const [c] = await db.insert(waiverClaims).values(claim).returning();
+    return c;
+  }
+
+  async getClaimsForWaiver(waiverId: number): Promise<WaiverClaim[]> {
+    return await db.select().from(waiverClaims).where(eq(waiverClaims.waiverId, waiverId));
+  }
+
+  async getExpiredWaivers(): Promise<Waiver[]> {
+    const now = new Date().toISOString();
+    return await db.select().from(waivers).where(
+      and(eq(waivers.status, "active"), sql`${waivers.waiverExpiresAt} <= ${now}`)
+    );
+  }
+
+  async completeWaiver(waiverId: number, status: string): Promise<void> {
+    await db.update(waivers).set({ status }).where(eq(waivers.id, waiverId));
   }
 }
 
