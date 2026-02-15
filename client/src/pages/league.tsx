@@ -120,7 +120,14 @@ function StandingsTab({ leagueId, league, teamsLoading, teams }: { leagueId: num
                       {idx + 1}
                     </span>
                     <div className="min-w-0">
-                      <p className="text-white text-xs font-medium truncate">{team.teamName}</p>
+                      <div className="flex items-center gap-1.5 overflow-hidden">
+                        <p className="text-white text-xs font-medium truncate">{team.teamName}</p>
+                        {team.userId === league.createdBy && (
+                          <Badge variant="outline" className="text-[8px] h-3 px-1 border-blue-500/50 text-blue-400 bg-blue-500/5 shrink-0">
+                            COMMISH
+                          </Badge>
+                        )}
+                      </div>
                       {team.isCpu && <span className="text-[9px] text-gray-500">CPU</span>}
                     </div>
                   </div>
@@ -1092,27 +1099,27 @@ export default function LeaguePage() {
   ];
 
   return (
-    <div className="px-4 py-6">
-      <Button
-        onClick={() => setLocation("/teams")}
-        variant="ghost"
-        className="text-gray-400 hover:text-white mb-3 -ml-2"
-      >
-        <ArrowLeft className="w-4 h-4 mr-2" />
-        Back to Teams
-      </Button>
+    <div className="px-4 py-4">
+      <div className="flex items-center justify-between mb-4">
+        <Button
+          onClick={() => setLocation("/teams")}
+          variant="ghost"
+          size="icon"
+          className="text-gray-400 hover:text-white shrink-0 -ml-2 h-9 w-9"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </Button>
+
+        <div className="flex-1 text-center min-w-0 px-2">
+          <h1 className="text-xl font-bold text-white truncate tracking-tight">{league.name}</h1>
+        </div>
+
+        <div className="w-9 shrink-0" />
+      </div>
 
       <div className="mb-4">
-        <div className="flex items-center gap-2 mb-1">
-          <h1 className="text-lg font-bold text-white">{league.name}</h1>
-          {isCommissioner && (
-            <Badge className="text-[10px] px-1.5 py-0 shrink-0 bg-yellow-600 text-white">
-              Commish
-            </Badge>
-          )}
-        </div>
         {league.description && (
-          <p className="text-gray-400 text-sm">{league.description}</p>
+          <p className="text-gray-400 text-sm text-center">{league.description}</p>
         )}
       </div>
 
