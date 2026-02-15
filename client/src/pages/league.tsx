@@ -1,66 +1,193 @@
-import { useState, useEffect } from "react";
-import { useRoute, useLocation, Link } from "wouter";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Player, League, Team, DraftPick, Activity, Waiver } from "@shared/schema";
+import { useRoute, useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/use-auth";
-import { 
-  Users, 
-  Trophy, 
-  Calendar, 
-  TrendingUp, 
-  MessageSquare, 
-  Settings, 
-  Plus, 
-  ArrowLeft,
-  Search,
-  ChevronRight,
-  Clock,
-  Pencil,
-  Trash2,
-  X,
-  ArrowUpDown
-} from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ArrowLeft, Users, Trophy, Calendar, TrendingUp, Pencil, Trash2, AlertTriangle, ArrowUpDown, Search, Plus, X, ChevronDown, Menu, Clock } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { useAuth } from "@/hooks/useAuth";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import type { League, Team, DraftPick, Player } from "@shared/schema";
 import { assignPlayersToRosterWithPicks, getSwapTargets, type RosterEntry } from "@/lib/roster-utils";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 type Tab = "roster" | "players" | "standings" | "settings";
 
-const HITTING_STAT_MAP: Record<string, { key: keyof Player; label: string }> = {
-  R: { key: "statR", label: "R" },
-  HR: { key: "statHR", label: "HR" },
-  RBI: { key: "statRBI", label: "RBI" },
-  SB: { key: "statSB", label: "SB" },
-  AVG: { key: "statAVG", label: "AVG" },
+interface StandingsData {
+  standings: {
+    teamId: number;
+    teamName: string;
+    userId: number | null;
+    isCpu: boolean | null;
+    categoryValues: Record<string, number>;
+    categoryPoints: Record<string, number>;
+    totalPoints: number;
+  }[];
+  hittingCategories: string[];
+  pitchingCategories: string[];
+  numTeams: number;
+}
+
+function formatStatValue(cat: string, value: number): string {
+  const RATE_STATS = ["AVG", "OBP", "SLG", "OPS"];
+  const DECIMAL_STATS = ["ERA", "WHIP", "K/9"];
+  if (RATE_STATS.includes(cat)) return value === 0 ? ".000" : value.toFixed(3).replace(/^0/, "");
+  if (DECIMAL_STATS.includes(cat)) return value.toFixed(2);
+  if (cat === "IP") return value.toFixed(1);
+  return String(Math.round(value));
+}
+
+function StandingsTab({ leagueId, league, teamsLoading, teams }: { leagueId: number; league: League; teamsLoading: boolean; teams: Team[] | undefined }) {
+  const { data: standingsData, isLoading } = useQuery<StandingsData>({
+    queryKey: ["/api/leagues", leagueId, "standings"],
+    queryFn: async () => {
+      const res = await fetch(`/api/leagues/${leagueId}/standings`);
+      if (!res.ok) throw new Error("Failed to fetch standings");
+      return res.json();
+    },
+    enabled: leagueId !== null,
+  });
+
+  const loading = teamsLoading || isLoading;
+
+  if (loading) {
+    return (
+      <Card className="gradient-card rounded-xl p-5 border-0">
+        <h3 className="text-white font-semibold mb-4">League Standings</h3>
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-14 w-full rounded-lg" />
+          ))}
+        </div>
+      </Card>
+    );
+  }
+
+  if (!teams || teams.length === 0) {
+    return (
+      <Card className="gradient-card rounded-xl p-5 border-0">
+        <h3 className="text-white font-semibold mb-4">League Standings</h3>
+        <p className="text-gray-400 text-sm text-center py-4">No teams in this league yet</p>
+      </Card>
+    );
+  }
+
+  if (!standingsData) {
+    return (
+      <Card className="gradient-card rounded-xl p-5 border-0">
+        <h3 className="text-white font-semibold mb-4">League Standings</h3>
+        <p className="text-gray-400 text-sm text-center py-4">Unable to load standings</p>
+      </Card>
+    );
+  }
+
+  const { standings, hittingCategories, pitchingCategories } = standingsData;
+  const allCats = [
+    ...hittingCategories.map(c => ({ key: `h_${c}`, label: c, isHitting: true })),
+    ...pitchingCategories.map(c => ({ key: `p_${c}`, label: c, isHitting: false })),
+  ];
+
+  const totalCats = hittingCategories.length + pitchingCategories.length;
+  const minWidth = 140 + 48 + totalCats * 56;
+
+  return (
+    <Card className="gradient-card rounded-xl p-4 border-0">
+      <h3 className="text-white font-semibold mb-3">Roto Standings</h3>
+      <div className="overflow-x-auto hide-scrollbar -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
+        <table className="w-full" style={{ minWidth: minWidth + "px" }}>
+          <thead>
+            <tr className="border-b border-gray-700">
+              <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 sticky left-0 bg-[#1a1d26] z-10 w-[140px] pl-1">Team</th>
+              <th className="text-center text-[10px] text-yellow-400 font-bold uppercase pb-1.5 w-[48px]">PTS</th>
+              {hittingCategories.map((cat, i) => (
+                <th key={`h_${cat}`} className={`text-center text-[10px] text-blue-400 font-semibold uppercase pb-1.5 w-[56px] ${i === 0 ? "border-l border-gray-700/50" : ""}`}>{cat}</th>
+              ))}
+              {pitchingCategories.map((cat, i) => (
+                <th key={`p_${cat}`} className={`text-center text-[10px] text-emerald-400 font-semibold uppercase pb-1.5 w-[56px] ${i === 0 ? "border-l border-gray-700/50" : ""}`}>{cat}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {standings.map((team, idx) => (
+              <tr key={team.teamId} className="border-b border-gray-800/50 hover:bg-white/[0.02]">
+                <td className="py-2 sticky left-0 bg-[#1a1d26] z-10 pl-1">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs font-bold w-5 text-center shrink-0 ${idx === 0 ? "text-yellow-400" : idx === 1 ? "text-gray-300" : idx === 2 ? "text-orange-400" : "text-gray-500"}`}>
+                      {idx + 1}
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 overflow-hidden">
+                        <p className="text-white text-xs font-medium truncate">{team.teamName}</p>
+                        {team.userId === league.createdBy && (
+                          <Badge className="text-[8px] h-3 px-1 bg-yellow-600 text-white border-0 shrink-0">
+                            Commish
+                          </Badge>
+                        )}
+                      </div>
+                      {team.isCpu && <span className="text-[9px] text-gray-500">CPU</span>}
+                    </div>
+                  </div>
+                </td>
+                <td className="text-center py-2">
+                  <p className="text-yellow-400 text-xs font-bold">{team.totalPoints.toFixed(1)}</p>
+                </td>
+                {hittingCategories.map((cat, i) => {
+                  const val = team.categoryValues[`h_${cat}`] || 0;
+                  const pts = team.categoryPoints[`h_${cat}`] || 0;
+                  return (
+                    <td key={`h_${cat}`} className={`text-center py-2 ${i === 0 ? "border-l border-gray-700/50" : ""}`}>
+                      <p className="text-white text-[11px] font-medium leading-tight">{formatStatValue(cat, val)}</p>
+                      <p className="text-gray-500 text-[9px] leading-tight">{pts.toFixed(1)}</p>
+                    </td>
+                  );
+                })}
+                {pitchingCategories.map((cat, i) => {
+                  const val = team.categoryValues[`p_${cat}`] || 0;
+                  const pts = team.categoryPoints[`p_${cat}`] || 0;
+                  return (
+                    <td key={`p_${cat}`} className={`text-center py-2 ${i === 0 ? "border-l border-gray-700/50" : ""}`}>
+                      <p className="text-white text-[11px] font-medium leading-tight">{formatStatValue(cat, val)}</p>
+                      <p className="text-gray-500 text-[9px] leading-tight">{pts.toFixed(1)}</p>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex items-center gap-4 mt-2 px-1">
+        <span className="text-[9px] text-blue-400 uppercase tracking-wider font-semibold">Hitting</span>
+        <span className="text-[9px] text-emerald-400 uppercase tracking-wider font-semibold">Pitching</span>
+      </div>
+    </Card>
+  );
+}
+
+const BATTER_POSITIONS = ["All", "C", "1B", "2B", "3B", "SS", "OF", "UT"];
+const PITCHER_POSITIONS = ["All", "SP", "RP"];
+
+const HITTING_STAT_MAP: Record<string, { key: keyof Player; isRate?: boolean }> = {
+  R: { key: "statR" }, HR: { key: "statHR" }, RBI: { key: "statRBI" }, SB: { key: "statSB" },
+  AVG: { key: "statAVG", isRate: true }, H: { key: "statH" }, "2B": { key: "stat2B" }, "3B": { key: "stat3B" },
+  BB: { key: "statBB" }, K: { key: "statK" }, OBP: { key: "statOBP", isRate: true },
+  SLG: { key: "statSLG", isRate: true }, OPS: { key: "statOPS", isRate: true }, TB: { key: "statTB" },
+  CS: { key: "statCS" }, HBP: { key: "statHBP" }, AB: { key: "statAB" }, PA: { key: "statPA" },
 };
 
-const PITCHING_STAT_MAP: Record<string, { key: keyof Player; label: string }> = {
-  W: { key: "statW", label: "W" },
-  SV: { key: "statSV", label: "SV" },
-  K: { key: "statSO", label: "K" },
-  ERA: { key: "statERA", label: "ERA" },
-  WHIP: { key: "statWHIP", label: "WHIP" },
+const PITCHING_STAT_MAP: Record<string, { key: keyof Player; isRate?: boolean }> = {
+  W: { key: "statW" }, SV: { key: "statSV" }, ERA: { key: "statERA", isRate: true },
+  WHIP: { key: "statWHIP", isRate: true }, L: { key: "statL" }, QS: { key: "statQS" },
+  HLD: { key: "statHLD" }, IP: { key: "statIP", isRate: true }, SO: { key: "statSO" },
+  K: { key: "statSO" }, CG: { key: "statCG" }, SHO: { key: "statSHO" }, BSV: { key: "statBSV" },
 };
 
-const BATTER_POSITIONS = ["All", "C", "1B", "2B", "3B", "SS", "OF", "DH"];
-const PITCHER_POSITIONS = ["All", "SP", "RP", "P"];
-
-function AddDropRosterRow({ pick, rosterPositions, isPending, onSelect }: { 
-  pick: DraftPick; 
+function AddDropRosterRow({ pick, rosterPositions, isPending, onSelect }: {
+  pick: DraftPick;
   rosterPositions: string[];
   isPending: boolean;
   onSelect: (pickId: number) => void;
@@ -74,47 +201,51 @@ function AddDropRosterRow({ pick, rosterPositions, isPending, onSelect }: {
     },
   });
 
-  const slotLabel = pick.rosterSlot !== null && pick.rosterSlot !== undefined 
+  const slotLabel = pick.rosterSlot !== null && pick.rosterSlot !== undefined
     ? rosterPositions[pick.rosterSlot] || "BN"
     : "BN";
 
   return (
-    <div 
-      className="flex items-center gap-3 py-2 border-b border-gray-800/50 cursor-pointer hover:bg-white/[0.02]"
-      onClick={() => !isPending && onSelect(pick.id)}
+    <button
+      className="w-full flex items-center gap-3 py-3 border-b border-gray-800/40 hover:bg-red-950/20 transition-colors text-left disabled:opacity-40"
+      onClick={() => onSelect(pick.id)}
+      disabled={isPending}
     >
-      <div className="w-8 h-8 rounded bg-gray-800 flex items-center justify-center shrink-0 border border-gray-700">
-        <span className="text-[10px] font-bold text-gray-400">{slotLabel}</span>
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-white text-xs font-medium truncate">{player?.name || "Loading..."}</p>
-        <div className="flex items-center gap-1.5">
-          <span className="text-[10px] text-blue-400 font-medium">{player?.position}</span>
-          <span className="text-[10px] text-gray-500">{player?.teamAbbreviation}</span>
+      <span className="w-8 text-center text-[10px] text-gray-500 font-semibold uppercase shrink-0">{slotLabel}</span>
+      {player ? (
+        <div className="flex-1 min-w-0">
+          <p className="text-white text-sm font-medium truncate">{player.name}</p>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] text-blue-400 font-medium">{player.position}</span>
+            <span className="text-[11px] text-gray-500">{player.teamAbbreviation || player.team}</span>
+          </div>
         </div>
-      </div>
-      <div className="w-6 h-6 rounded-full bg-red-600/20 flex items-center justify-center border border-red-900/30">
-        <X className="w-3 h-3 text-red-400" />
-      </div>
-    </div>
+      ) : (
+        <div className="flex-1">
+          <span className="text-gray-400 text-xs">Loading...</span>
+        </div>
+      )}
+      <Trash2 className="w-4 h-4 text-red-400/60 shrink-0" />
+    </button>
   );
 }
 
-function PlayersTab({ leagueId, league, user }: { leagueId: number; league: League; user: any }) {
-  const [query, setQuery] = useState("");
+function PlayersTab({ leagueId, league, user }: { leagueId: number; league: League; user: { id: number } | null }) {
+  const { toast } = useToast();
+  const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [positionFilter, setPositionFilter] = useState("All");
   const [playerType, setPlayerType] = useState<"batters" | "pitchers">("batters");
   const [rosterStatus, setRosterStatus] = useState<"free_agents" | "rostered" | "all">("free_agents");
   const [statView, setStatView] = useState<"adp" | "2025stats" | "2026proj" | "2026stats">("adp");
-  const [addDropPlayer, setAddDropPlayer] = useState<Player | null>(null);
-  const [waiverClaimPlayer, setWaiverClaimPlayer] = useState<Player | null>(null);
-  const { toast } = useToast();
+  const [searchExpanded, setSearchExpanded] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedQuery(query), 300);
+    const timer = setTimeout(() => {
+      setDebouncedQuery(searchQuery);
+    }, 300);
     return () => clearTimeout(timer);
-  }, [query]);
+  }, [searchQuery]);
 
   const { data, isLoading } = useQuery<{ players: Player[]; total: number }>({
     queryKey: ["/api/leagues", leagueId, "available-players", debouncedQuery, positionFilter, playerType, rosterStatus],
@@ -124,84 +255,134 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
       if (positionFilter !== "All") params.set("position", positionFilter);
       params.set("type", playerType);
       if (rosterStatus !== "all") params.set("status", rosterStatus);
-      params.set("limit", "50");
-      const res = await fetch(`/api/leagues/${leagueId}/available-players?${params.toString()}`);
-      if (!res.ok) throw new Error("Failed to fetch available players");
+      params.set("limit", "5000");
+      const res = await fetch(`/api/leagues/${leagueId}/available-players?${params}`);
+      if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
-    }
+    },
   });
 
-  const { data: myPicks = [] } = useQuery<DraftPick[]>({
-    queryKey: ["/api/leagues", leagueId, "draft-picks", user?.id],
+  const { data: myPicks } = useQuery<DraftPick[]>({
+    queryKey: ["/api/leagues", leagueId, "draft-picks"],
     queryFn: async () => {
       const res = await fetch(`/api/leagues/${leagueId}/draft-picks`);
       if (!res.ok) throw new Error("Failed");
-      const allPicks: DraftPick[] = await res.json();
-      const teamsRes = await fetch(`/api/teams/league/${leagueId}`);
-      const teams: Team[] = await teamsRes.json();
-      const userTeam = teams.find(t => t.userId === user?.id);
-      return allPicks.filter(p => p.teamId === userTeam?.id);
+      return res.json();
     },
-    enabled: !!user?.id
   });
 
-  const { data: waiverPlayerIdsData } = useQuery<number[]>({
-    queryKey: ["/api/leagues", leagueId, "waivers", "player-ids"],
+  const { data: leagueTeams } = useQuery<Team[]>({
+    queryKey: ["/api/teams/league", leagueId],
+    queryFn: async () => {
+      const res = await fetch(`/api/teams/league/${leagueId}`);
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+  });
+
+  const { data: waiverData } = useQuery<{ id: number; playerId: number; waiverExpiresAt: string }[]>({
+    queryKey: ["/api/leagues", leagueId, "waivers"],
     queryFn: async () => {
       const res = await fetch(`/api/leagues/${leagueId}/waivers`);
       if (!res.ok) throw new Error("Failed");
-      const waivers: any[] = await res.json();
-      return waivers.map(w => w.playerId);
-    }
-  });
-  const waiverPlayerIds = new Set(waiverPlayerIdsData || []);
-
-  const addMutation = useMutation({
-    mutationFn: async (playerId: number) => {
-      const res = await apiRequest("POST", `/api/leagues/${leagueId}/add-player`, { userId: user?.id, playerId });
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "available-players"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "draft-picks"] });
-      toast({ title: "Player added to your roster" });
-    },
-    onError: (error: Error) => {
-      toast({ title: "Failed to add player", description: error.message, variant: "destructive" });
-    }
   });
+
+  const waiverPlayerIds = new Set((waiverData || []).map(w => w.playerId));
+
+  const userTeam = leagueTeams?.find(t => t.userId === user?.id);
+  const myTeamPicks = myPicks?.filter(p => p.teamId === userTeam?.id) || [];
+  const rosterPositions = league.rosterPositions || [];
+  const hasOpenSlot = myTeamPicks.length < rosterPositions.length;
+  const rosteredPlayerIds = new Set((myPicks || []).map(p => p.playerId));
+
+  const [waiverClaimPlayer, setWaiverClaimPlayer] = useState<Player | null>(null);
 
   const claimMutation = useMutation({
     mutationFn: async ({ playerId, dropPickId }: { playerId: number; dropPickId?: number }) => {
-      const res = await apiRequest("POST", `/api/leagues/${leagueId}/waiver-claim`, { userId: user?.id, playerId, dropPickId });
+      const res = await apiRequest("POST", `/api/leagues/${leagueId}/waiver-claim`, {
+        userId: user?.id,
+        playerId,
+        dropPickId,
+      });
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "available-players"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "my-claims"] });
-      setWaiverClaimPlayer(null);
       toast({ title: "Waiver claim submitted" });
+      setWaiverClaimPlayer(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "waivers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "my-claims"] });
     },
-    onError: (error: Error) => {
-      toast({ title: "Failed to submit claim", description: error.message, variant: "destructive" });
-    }
+    onError: (err: Error) => {
+      toast({ title: err.message || "Failed to submit claim", variant: "destructive" });
+    },
+  });
+
+  const addMutation = useMutation({
+    mutationFn: async (playerId: number) => {
+      const res = await apiRequest("POST", `/api/leagues/${leagueId}/add-player`, {
+        userId: user?.id,
+        playerId,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Player added to your roster" });
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "available-players"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "draft-picks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "standings"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: err.message || "Failed to add player", variant: "destructive" });
+    },
+  });
+
+  const dropMutation = useMutation({
+    mutationFn: async (pickId: number) => {
+      const res = await apiRequest("POST", `/api/leagues/${leagueId}/drop-player`, {
+        userId: user?.id,
+        pickId,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Player dropped — on waivers for 2 days" });
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "available-players"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "draft-picks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "standings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "waivers"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: err.message || "Failed to drop player", variant: "destructive" });
+    },
   });
 
   const addDropMutation = useMutation({
     mutationFn: async ({ addPlayerId, dropPickId }: { addPlayerId: number; dropPickId: number }) => {
-      const res = await apiRequest("POST", `/api/leagues/${leagueId}/add-drop`, { userId: user?.id, addPlayerId, dropPickId });
+      const res = await apiRequest("POST", `/api/leagues/${leagueId}/add-drop`, {
+        userId: user?.id,
+        addPlayerId,
+        dropPickId,
+      });
       return res.json();
     },
     onSuccess: () => {
+      toast({ title: "Player swap successful — dropped player on waivers" });
+      setAddDropPlayer(null);
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "available-players"] });
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "draft-picks"] });
-      setAddDropPlayer(null);
-      toast({ title: "Player added and dropped successfully" });
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "standings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "waivers"] });
     },
-    onError: (error: Error) => {
-      toast({ title: "Add/Drop failed", description: error.message, variant: "destructive" });
-    }
+    onError: (err: Error) => {
+      toast({ title: err.message || "Failed to add/drop player", variant: "destructive" });
+    },
   });
+
+  const [dropConfirm, setDropConfirm] = useState<{ pickId: number; playerName: string } | null>(null);
+  const [addDropPlayer, setAddDropPlayer] = useState<Player | null>(null);
+
 
   const hittingCats = league.hittingCategories || ["R", "HR", "RBI", "SB", "AVG"];
   const pitchingCats = league.pitchingCategories || ["W", "SV", "K", "ERA", "WHIP"];
@@ -247,54 +428,72 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
     adp: "ADP",
     "2025stats": "2025 Stats",
     "2026proj": "2026 Proj",
-    "2026stats": "2026 Stats"
+    "2026stats": "2026 Stats",
   };
 
-  const rosterPositions = league.rosterPositions || [];
-  const myTeamPicks = myPicks || [];
-  const hasOpenSlot = myTeamPicks.length < rosterPositions.length;
-  const rosteredPlayerIds = new Set((myPicks || []).map(p => p.playerId));
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (searchExpanded && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [searchExpanded]);
 
   return (
-    <div className="space-y-4">
-      <div className="flex gap-2 p-1 bg-gray-900/50 rounded-lg border border-gray-800">
-        <button
-          className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-colors ${playerType === "batters" ? "bg-blue-600 text-white shadow-lg" : "text-gray-400 hover:text-gray-300"}`}
-          onClick={() => { setPlayerType("batters"); setPositionFilter("All"); }}
-        >
-          Batters
-        </button>
-        <button
-          className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-colors ${playerType === "pitchers" ? "bg-blue-600 text-white shadow-lg" : "text-gray-400 hover:text-gray-300"}`}
-          onClick={() => { setPlayerType("pitchers"); setPositionFilter("All"); }}
-        >
-          Pitchers
-        </button>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
-          <Input
-            placeholder="Search players..."
-            className="pl-8 bg-gray-900 border-gray-800 text-xs h-9"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
+    <div>
+      {searchExpanded ? (
+        <div className="flex items-center gap-2 mb-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
+            <Input
+              ref={searchInputRef}
+              placeholder="Search players..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8 h-9 bg-gray-800/50 border-gray-700 text-sm text-white"
+            />
+          </div>
+          <button
+            className="w-9 h-9 flex items-center justify-center text-gray-400 hover:text-white transition-colors shrink-0"
+            onClick={() => { setSearchExpanded(false); setSearchQuery(""); }}
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
-        <div className="flex items-center gap-2">
+      ) : (
+        <div className="flex items-center gap-2 mb-3">
+          <button
+            className="h-[34px] w-10 flex items-center justify-center text-gray-400 hover:text-white bg-gray-800/50 border border-gray-700 rounded-lg transition-colors shrink-0"
+            onClick={() => setSearchExpanded(true)}
+          >
+            <Search className="w-4 h-4" />
+          </button>
           <Select value={rosterStatus} onValueChange={(v: "free_agents" | "rostered" | "all") => setRosterStatus(v)}>
-            <SelectTrigger className="w-[100px] bg-gray-900 border-gray-800 text-[11px] h-9 text-white">
-              <SelectValue />
+            <SelectTrigger className="w-10 h-[34px] bg-gray-800/50 border-gray-700 text-white p-0 flex items-center justify-center rounded-lg [&>svg:last-child]:hidden">
+              <Menu className="w-4 h-4" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="free_agents">Free Agents</SelectItem>
               <SelectItem value="rostered">Rostered</SelectItem>
-              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="all">All Players</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={positionFilter} onValueChange={setPositionFilter}>
-            <SelectTrigger className="w-[70px] bg-gray-900 border-gray-800 text-[11px] h-9 text-white">
+          <div className="flex bg-gray-800/60 rounded-lg p-0.5 shrink-0 h-[34px] items-center">
+            <button
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors h-full flex items-center ${playerType === "batters" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-gray-300"}`}
+              onClick={() => { setPlayerType("batters"); setPositionFilter("All"); }}
+            >
+              Batters
+            </button>
+            <button
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors h-full flex items-center ${playerType === "pitchers" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-gray-300"}`}
+              onClick={() => { setPlayerType("pitchers"); setPositionFilter("All"); }}
+            >
+              Pitchers
+            </button>
+          </div>
+          <Select value={positionFilter} onValueChange={(v) => setPositionFilter(v)}>
+            <SelectTrigger className="w-[72px] h-[34px] bg-gray-800/50 border-gray-700 text-sm text-white rounded-lg">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -304,7 +503,7 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
             </SelectContent>
           </Select>
         </div>
-      </div>
+      )}
 
       {isLoading ? (
         <div className="space-y-2">
@@ -404,8 +603,32 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
               </tbody>
             </table>
           </div>
+
         </>
       )}
+
+      <Dialog open={!!dropConfirm} onOpenChange={() => setDropConfirm(null)}>
+        <DialogContent className="bg-gray-900 border-gray-700">
+          <DialogHeader>
+            <DialogTitle className="text-white">Drop Player</DialogTitle>
+            <DialogDescription>Are you sure you want to drop this player? They will be placed on waivers for 2 days before becoming a free agent.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDropConfirm(null)} className="text-gray-400">Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (dropConfirm) {
+                  dropMutation.mutate(dropConfirm.pickId);
+                  setDropConfirm(null);
+                }
+              }}
+            >
+              Drop Player
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {addDropPlayer && (
         <div className="fixed inset-0 z-50 bg-gray-950 flex flex-col">
@@ -514,119 +737,20 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
   );
 }
 
-function StandingsTab({ leagueId, league, teamsLoading, teams }: { leagueId: number; league: League; teamsLoading: boolean; teams: Team[] | undefined }) {
-  const { data: standings, isLoading: standingsLoading } = useQuery<any>({
-    queryKey: ["/api/leagues", leagueId, "standings"],
+function PlayerName({ playerId }: { playerId: number }) {
+  const { data: player } = useQuery<Player>({
+    queryKey: ["/api/players", playerId],
     queryFn: async () => {
-      const res = await fetch(`/api/leagues/${leagueId}/standings`);
-      if (!res.ok) throw new Error("Failed to fetch standings");
+      const res = await fetch(`/api/players/${playerId}`);
+      if (!res.ok) throw new Error("Failed");
       return res.json();
     },
-    enabled: !!leagueId,
   });
-
-  if (standingsLoading || teamsLoading) return <div className="space-y-3"><Skeleton className="h-20 w-full rounded-xl" /><Skeleton className="h-60 w-full rounded-xl" /></div>;
-
-  const hittingCats = league.hittingCategories || ["R", "HR", "RBI", "SB", "AVG"];
-  const pitchingCats = league.pitchingCategories || ["W", "SV", "K", "ERA", "WHIP"];
-
+  if (!player) return <span className="text-gray-400 text-xs">Loading...</span>;
   return (
-    <div className="space-y-6">
-      <Card className="gradient-card rounded-xl border-0 overflow-hidden">
-        <div className="p-4 border-b border-white/5 bg-white/5">
-          <h3 className="text-white font-bold text-sm uppercase tracking-wider flex items-center gap-2">
-            <Trophy className="w-4 h-4 text-yellow-500" />
-            League Standings
-          </h3>
-        </div>
-        <div className="overflow-x-auto hide-scrollbar">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-gray-900/50">
-                <th className="text-left text-[10px] text-gray-500 font-bold uppercase py-3 pl-4 w-8">#</th>
-                <th className="text-left text-[10px] text-gray-500 font-bold uppercase py-3 pl-2">Team</th>
-                <th className="text-right text-[10px] text-gray-500 font-bold uppercase py-3 pr-4">Points</th>
-              </tr>
-            </thead>
-            <tbody>
-              {standings?.map((team: any, i: number) => (
-                <tr key={team.teamId} className="border-b border-gray-800/50 hover:bg-white/[0.02]">
-                  <td className="py-3.5 pl-4 text-xs font-medium text-gray-400">{i + 1}</td>
-                  <td className="py-3.5 pl-2">
-                    <div className="flex items-center gap-2">
-                      <p className="text-white text-xs font-semibold">{team.teamName}</p>
-                      {team.isCommissioner && (
-                        <Badge className="text-[9px] px-1 py-0 bg-yellow-600 text-white border-0">Commish</Badge>
-                      )}
-                    </div>
-                  </td>
-                  <td className="py-3.5 pr-4 text-right">
-                    <span className="text-blue-400 text-xs font-bold">{team.totalPoints.toFixed(1)}</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-
-      <Card className="gradient-card rounded-xl border-0 overflow-hidden">
-        <div className="p-4 border-b border-white/5 bg-white/5">
-          <h3 className="text-white font-bold text-sm uppercase tracking-wider">Hitting Stats</h3>
-        </div>
-        <div className="overflow-x-auto hide-scrollbar">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-gray-900/50">
-                <th className="text-left text-[10px] text-gray-500 font-bold uppercase py-3 pl-4">Team</th>
-                {hittingCats.map(cat => <th key={cat} className="text-right text-[10px] text-gray-500 font-bold uppercase py-3 pr-4">{cat}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {standings?.map((team: any) => (
-                <tr key={team.teamId} className="border-b border-gray-800/50">
-                  <td className="py-3.5 pl-4 text-xs font-medium text-white truncate max-w-[100px]">{team.teamName}</td>
-                  {hittingCats.map(cat => (
-                    <td key={cat} className="py-3.5 pr-4 text-right">
-                      <p className="text-gray-300 text-xs">{team.categories.hitting[cat]?.value || 0}</p>
-                      <p className="text-[9px] text-blue-500 font-medium">({team.categories.hitting[cat]?.points || 0})</p>
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-
-      <Card className="gradient-card rounded-xl border-0 overflow-hidden">
-        <div className="p-4 border-b border-white/5 bg-white/5">
-          <h3 className="text-white font-bold text-sm uppercase tracking-wider">Pitching Stats</h3>
-        </div>
-        <div className="overflow-x-auto hide-scrollbar">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-gray-900/50">
-                <th className="text-left text-[10px] text-gray-500 font-bold uppercase py-3 pl-4">Team</th>
-                {pitchingCats.map(cat => <th key={cat} className="text-right text-[10px] text-gray-500 font-bold uppercase py-3 pr-4">{cat}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {standings?.map((team: any) => (
-                <tr key={team.teamId} className="border-b border-gray-800/50">
-                  <td className="py-3.5 pl-4 text-xs font-medium text-white truncate max-w-[100px]">{team.teamName}</td>
-                  {pitchingCats.map(cat => (
-                    <td key={cat} className="py-3.5 pr-4 text-right">
-                      <p className="text-gray-300 text-xs">{team.categories.pitching[cat]?.value || 0}</p>
-                      <p className="text-[9px] text-green-500 font-medium">({team.categories.pitching[cat]?.points || 0})</p>
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+    <div className="min-w-0">
+      <p className="text-white text-xs font-medium truncate">{player.name}</p>
+      <span className="text-[10px] text-blue-400">{player.position}</span>
     </div>
   );
 }
@@ -643,6 +767,7 @@ export default function LeaguePage() {
   const [editType, setEditType] = useState("");
   const [editStatus, setEditStatus] = useState("");
   const [isEditingRoster, setIsEditingRoster] = useState(false);
+  const [editRosterPositions, setEditRosterPositions] = useState<string[]>([]);
   const [editRosterCounts, setEditRosterCounts] = useState<Record<string, number>>({});
   const [isEditingDraft, setIsEditingDraft] = useState(false);
   const [editDraftType, setEditDraftType] = useState("");
@@ -693,6 +818,7 @@ export default function LeaguePage() {
   });
 
   const myPicks = draftPicks.filter(p => myTeam && p.teamId === myTeam.id);
+
   const myPickPlayerIds = myPicks.map(p => p.playerId).sort((a, b) => a - b);
   const myPickIdsKey = myPickPlayerIds.join(",");
 
@@ -816,7 +942,7 @@ export default function LeaguePage() {
       setTimeout(() => {
         toast({
           title: "League deleted",
-          description: `"${league?.name}" has been permanently deleted.`,
+          description: `"${league?.name}" has been permanently deleted. ADP data was preserved.`,
         });
       }, 100);
     },
@@ -864,6 +990,16 @@ export default function LeaguePage() {
 
   const ALL_HITTING_STATS = ["R", "HR", "RBI", "SB", "AVG", "H", "2B", "3B", "BB", "K", "OBP", "SLG", "OPS", "TB", "CS", "HBP"];
   const ALL_PITCHING_STATS = ["W", "SV", "K", "ERA", "WHIP", "L", "QS", "HLD", "IP", "SO", "BB", "HR", "CG", "SHO", "BSV", "K/9"];
+
+  const STAT_LABELS: Record<string, string> = {
+    R: "Runs", HR: "Home Runs", RBI: "RBI", SB: "Stolen Bases", AVG: "Batting Average",
+    H: "Hits", "2B": "Doubles", "3B": "Triples", BB: "Walks", K: "Strikeouts",
+    OBP: "On-Base %", SLG: "Slugging %", OPS: "OBP+SLG", TB: "Total Bases",
+    CS: "Caught Stealing", HBP: "Hit By Pitch",
+    W: "Wins", SV: "Saves", ERA: "ERA", WHIP: "WHIP", L: "Losses",
+    QS: "Quality Starts", HLD: "Holds", IP: "Innings Pitched", SO: "Strikeouts",
+    CG: "Complete Games", SHO: "Shutouts", BSV: "Blown Saves", "K/9": "K per 9",
+  };
 
   const startEditingScoring = () => {
     if (!league) return;
@@ -918,6 +1054,7 @@ export default function LeaguePage() {
   const startEditingRoster = () => {
     if (!league) return;
     const positions = league.rosterPositions || ["C", "1B", "2B", "3B", "SS", "OF", "OF", "OF", "UT", "SP", "SP", "RP", "RP", "BN", "BN", "IL"];
+    setEditRosterPositions(positions);
     setEditRosterCounts(positionsToCountsMap(positions));
     setIsEditingRoster(true);
   };
@@ -970,7 +1107,9 @@ export default function LeaguePage() {
     return (
       <div className="px-4 py-6 text-center">
         <p className="text-gray-400">League not found</p>
-        <Button onClick={() => setLocation("/teams")} variant="ghost" className="mt-4 text-blue-400">Back to Teams</Button>
+        <Button onClick={() => setLocation("/teams")} variant="ghost" className="mt-4 text-blue-400">
+          Back to Teams
+        </Button>
       </div>
     );
   }
@@ -985,38 +1124,146 @@ export default function LeaguePage() {
   return (
     <div className="px-4 py-4">
       <div className="flex items-center justify-between mb-4">
-        <Button onClick={() => setLocation("/teams")} variant="ghost" size="icon" className="text-gray-400 hover:text-white shrink-0 -ml-2 h-9 w-9"><ArrowLeft className="w-5 h-5" /></Button>
+        <Button
+          onClick={() => setLocation("/teams")}
+          variant="ghost"
+          size="icon"
+          className="text-gray-400 hover:text-white shrink-0 -ml-2 h-9 w-9"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </Button>
+
         <div className="flex-1 flex justify-center min-w-0 px-2">
           <div className="bg-white/5 border border-white/10 px-4 py-1.5 rounded-full shadow-inner backdrop-blur-sm max-w-full">
             <h1 className="text-sm font-bold text-white truncate tracking-wide uppercase">{league.name}</h1>
           </div>
         </div>
+
         <div className="w-9 shrink-0" />
+      </div>
+
+      <div className="mb-4">
+        {league.description && (
+          <p className="text-gray-400 text-sm text-center">{league.description}</p>
+        )}
       </div>
 
       <div className="flex border-b border-gray-700 mb-4">
         {tabs.map((tab) => (
-          <button key={tab.key} onClick={() => setActiveTab(tab.key)} className={`flex-1 py-2.5 text-sm font-medium text-center transition-colors ${activeTab === tab.key ? "text-blue-400 border-b-2 border-blue-400" : "text-gray-400 hover:text-gray-300"}`}>{tab.label}</button>
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`flex-1 py-2.5 text-sm font-medium text-center transition-colors ${
+              activeTab === tab.key
+                ? "text-blue-400 border-b-2 border-blue-400"
+                : "text-gray-400 hover:text-gray-300"
+            }`}
+          >
+            {tab.label}
+          </button>
         ))}
       </div>
 
       {activeTab === "roster" && (
-        <div className="space-y-4">
+        <div>
           {league.draftStatus !== "completed" ? (
             <Card className="gradient-card rounded-xl p-4 border-0 mb-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-blue-600/20 flex items-center justify-center shrink-0"><Calendar className="w-5 h-5 text-blue-400" /></div>
-                <div className="flex-1">
-                  <p className="text-white font-semibold text-sm">Draft Room</p>
-                  <Button onClick={() => setLocation(`/league/${leagueId}/draft`)} className="mt-2 bg-blue-600 hover:bg-blue-700 text-white text-xs h-8 px-4" size="sm">Enter Draft Room</Button>
+                <div className="w-10 h-10 rounded-full bg-blue-600/20 flex items-center justify-center shrink-0">
+                  <Calendar className="w-5 h-5 text-blue-400" />
                 </div>
+                {league.draftDate ? (
+                  <div className="flex-1">
+                    <p className="text-white font-semibold text-sm">Draft Scheduled</p>
+                    <p className="text-gray-400 text-xs">
+                      {league.draftType || "Snake"} Draft — {new Date(league.draftDate).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })} at {new Date(league.draftDate).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                    </p>
+                    <Button
+                      onClick={() => setLocation(`/league/${leagueId}/draft`)}
+                      className="mt-2 bg-blue-600 hover:bg-blue-700 text-white text-xs h-8 px-4"
+                      size="sm"
+                    >
+                      Join Draft Room
+                    </Button>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-white font-semibold text-sm">Draft Not Scheduled</p>
+                    <p className="text-gray-400 text-xs">The commissioner has not scheduled a draft yet. Check back later or review settings.</p>
+                  </div>
+                )}
               </div>
             </Card>
           ) : null}
 
+          {myClaimsData && myClaimsData.length > 0 && (
+            <div className="mb-4">
+              <Select>
+                <SelectTrigger className="w-full bg-yellow-950/20 border-yellow-900/30 text-yellow-400 hover:bg-yellow-950/30 transition-colors h-10 px-4 rounded-xl">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4" />
+                    <span className="text-sm font-semibold">Pending Waiver Claims</span>
+                    <Badge variant="outline" className="ml-auto bg-yellow-400/20 text-yellow-400 border-yellow-400/30 text-[10px] h-5 px-1.5">
+                      {myClaimsData.length}
+                    </Badge>
+                  </div>
+                </SelectTrigger>
+                <SelectContent className="bg-gray-900 border-gray-800 p-2 max-h-[300px] overflow-y-auto">
+                  <div className="space-y-2">
+                    {myClaimsData.map((claim: any) => (
+                      <div key={claim.id} className="flex items-center gap-3 bg-yellow-950/20 rounded-lg p-2.5 border border-yellow-900/30">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white text-xs font-medium truncate">{claim.player?.name || "Unknown"}</p>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-blue-400">{claim.player?.position}</span>
+                            <span className="text-[10px] text-gray-500">{claim.player?.teamAbbreviation}</span>
+                            {claim.dropPlayer && (
+                              <>
+                                <span className="text-[10px] text-gray-600">•</span>
+                                <span className="text-[10px] text-red-400">Drop: {claim.dropPlayer.name}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0 mr-2">
+                          <p className="text-[10px] text-gray-400">Expires</p>
+                          <p className="text-[10px] text-yellow-400 font-medium">
+                            {claim.waiver?.waiverExpiresAt
+                              ? new Date(claim.waiver.waiverExpiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                              : "—"}
+                          </p>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            cancelClaimMut.mutate(claim.id);
+                          }}
+                          disabled={cancelClaimMut.isPending}
+                          className="w-6 h-6 rounded-full bg-red-600/20 hover:bg-red-600/40 flex items-center justify-center shrink-0 transition-colors"
+                          title="Cancel claim"
+                        >
+                          <X className="w-3 h-3 text-red-400" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {myTeam ? (() => {
+            const isPitcherSlot = (s: string) => s === "SP" || s === "RP" || s === "P";
             const isPitcherPlayer = (p: Player) => ["SP", "RP", "P"].includes(p.position);
+            const posEntries = rosterEntries.filter(e => !isPitcherSlot(e.slotPos) && e.slotPos !== "BN" && e.slotPos !== "IL");
+            const pitchEntries = rosterEntries.filter(e => isPitcherSlot(e.slotPos));
+            
+            const benchPosEntries = rosterEntries.filter(e => (e.slotPos === "BN" || e.slotPos === "IL") && e.player && !isPitcherPlayer(e.player));
+            const benchPitchEntries = rosterEntries.filter(e => (e.slotPos === "BN" || e.slotPos === "IL") && e.player && isPitcherPlayer(e.player));
+            const emptyBenchEntries = rosterEntries.filter(e => (e.slotPos === "BN" || e.slotPos === "IL") && !e.player);
+            
             const isDraftCompleted = league.draftStatus === "completed";
+
             const STAT_COL = "w-[42px] text-center text-[11px] shrink-0";
 
             const getRowClass = (idx: number) => {
@@ -1025,127 +1272,349 @@ export default function LeaguePage() {
               return "border-b border-gray-800/50";
             };
 
+
             return (
               <div className="overflow-hidden">
                 <div className="flex items-center justify-between mb-3 px-1">
                   <div className="flex items-center gap-2">
                     <h3 className="text-white font-semibold">{myTeam.name}</h3>
                     {user?.id === league.createdBy && (
-                      <Badge className="text-[10px] px-1.5 py-0 shrink-0 bg-yellow-600 text-white border-0">Commish</Badge>
+                      <Badge className="text-[10px] px-1.5 py-0 shrink-0 bg-yellow-600 text-white border-0">
+                        Commish
+                      </Badge>
                     )}
                   </div>
                   {selectedSwapIndex !== null && (
-                    <Button onClick={() => { setSelectedSwapIndex(null); setSwapTargets([]); }} variant="ghost" size="sm" className="text-gray-400 hover:text-white h-7 px-2 text-xs">Cancel Swap</Button>
+                    <Button
+                      onClick={() => { setSelectedSwapIndex(null); setSwapTargets([]); }}
+                      variant="ghost"
+                      size="sm"
+                      className="text-gray-400 hover:text-white h-7 px-2 text-xs"
+                    >
+                      Cancel Swap
+                    </Button>
                   )}
                 </div>
                 {selectedSwapIndex !== null && (
                   <p className="text-blue-400 text-xs mb-3 px-1">Tap a highlighted slot to swap players</p>
                 )}
-                
-                <div className="overflow-x-auto hide-scrollbar -mx-1 px-1">
-                  <table className="w-full" style={{ minWidth: "300px" }}>
-                    <thead>
-                      <tr className="border-b border-gray-700">
-                        <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-9 pl-1">Pos</th>
-                        <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[140px]">Player</th>
-                        {leagueHittingCats.map(stat => (
-                          <th key={stat} className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>{stat}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rosterEntries.map(entry => {
-                        const p = entry.player as Record<string, any> | null;
-                        const isPitcher = p ? isPitcherPlayer(p as Player) : false;
-                        const activeCats = isPitcher ? leaguePitchingCats : leagueHittingCats;
-                        const isBench = entry.slotPos === "BN" || entry.slotPos === "IL";
-                        
-                        return (
-                          <tr key={entry.slotIndex} className={getRowClass(entry.slotIndex)} onClick={() => swapTargets.includes(entry.slotIndex) ? handleSwapSelect(entry.slotIndex) : undefined}>
-                            <td className="py-1.5 pl-1">
-                              <button
-                                onClick={() => handleSwapSelect(entry.slotIndex)}
-                                className={`text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors ${
-                                  selectedSwapIndex === entry.slotIndex ? "bg-blue-600 text-white" : swapTargets.includes(entry.slotIndex) ? "bg-green-600 text-white animate-pulse" : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                                }`}
-                              >
-                                {entry.slotPos}
-                              </button>
-                            </td>
-                            <td className="py-1.5 pr-2">
-                              {p ? (
-                                <div className="cursor-pointer" onClick={() => isDraftCompleted && handleSwapSelect(entry.slotIndex)}>
-                                  <p className="text-white text-xs font-medium truncate max-w-[130px]">{p.name}</p>
-                                  <p className="text-gray-500 text-[10px]">{p.position} — {p.teamAbbreviation || p.team}</p>
-                                </div>
-                              ) : (
-                                <div className="cursor-pointer" onClick={() => isDraftCompleted && handleSwapSelect(entry.slotIndex)}>
-                                  <p className="text-gray-600 text-xs italic">Empty</p>
-                                </div>
-                              )}
-                            </td>
-                            {leagueHittingCats.map((cat, catIdx) => {
-                              const statName = activeCats[catIdx];
-                              if (!statName) return <td key={cat} className={`${STAT_COL}`}></td>;
+                <div className="space-y-5">
+                  {posEntries.length > 0 && (
+                    <div>
+                      <div className="overflow-x-auto hide-scrollbar -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
+                        <table className="w-full" style={{ minWidth: Math.max(300, 200 + leagueHittingCats.length * 52) + "px" }}>
+                          <thead>
+                            <tr className="border-b border-gray-700">
+                              <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-9 pl-1">Pos</th>
+                              <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[140px]">Player</th>
+                              {leagueHittingCats.map(stat => (
+                                <th key={stat} className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>{stat}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {posEntries.map(entry => {
+                              const p = entry.player as Record<string, unknown> | null;
                               return (
-                                <td key={cat} className={`${STAT_COL} ${isBench ? "text-gray-500 opacity-60" : "text-gray-300"}`}>
-                                  {p ? (p[`stat${statName}`] ?? "-") : "-"}
-                                </td>
+                                <tr key={entry.slotIndex} className={getRowClass(entry.slotIndex)} onClick={() => swapTargets.includes(entry.slotIndex) ? handleSwapSelect(entry.slotIndex) : undefined}>
+                                  <td className="py-1.5 pl-1">
+                                    <button
+                                      onClick={() => handleSwapSelect(entry.slotIndex)}
+                                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors ${
+                                        selectedSwapIndex === entry.slotIndex 
+                                          ? "bg-blue-600 text-white" 
+                                          : swapTargets.includes(entry.slotIndex)
+                                            ? "bg-green-600 text-white animate-pulse"
+                                            : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                                      }`}
+                                    >
+                                      {entry.slotPos}
+                                    </button>
+                                  </td>
+                                  <td className="py-1.5 pr-2">
+                                    {p ? (
+                                      <div className="cursor-pointer" onClick={() => isDraftCompleted && p && handleSwapSelect(entry.slotIndex)}>
+                                        <p className="text-white text-xs font-medium truncate max-w-[130px]">{p.name as string}</p>
+                                        <p className="text-gray-500 text-[10px]">{p.position as string} — {(p.teamAbbreviation || p.team) as string}</p>
+                                      </div>
+                                    ) : (
+                                      <div className="cursor-pointer" onClick={() => isDraftCompleted && handleSwapSelect(entry.slotIndex)}>
+                                        <p className="text-gray-600 text-xs italic">Empty</p>
+                                      </div>
+                                    )}
+                                  </td>
+                                  {leagueHittingCats.map(stat => (
+                                    <td key={stat} className={`${STAT_COL} text-gray-300`}>{p ? (p[`stat${stat}`] as string ?? "-") : "-"}</td>
+                                  ))}
+                                </tr>
                               );
                             })}
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {pitchEntries.length > 0 && (
+                    <div>
+                      <div className="overflow-x-auto hide-scrollbar -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
+                        <table className="w-full" style={{ minWidth: Math.max(300, 200 + leaguePitchingCats.length * 52) + "px" }}>
+                          <thead>
+                            <tr className="border-b border-gray-700">
+                              <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-9 pl-1">Pos</th>
+                              <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[140px]">Player</th>
+                              {leaguePitchingCats.map(stat => (
+                                <th key={stat} className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>{stat}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {pitchEntries.map(entry => {
+                              const p = entry.player as Record<string, unknown> | null;
+                              return (
+                                <tr key={entry.slotIndex} className={getRowClass(entry.slotIndex)} onClick={() => swapTargets.includes(entry.slotIndex) ? handleSwapSelect(entry.slotIndex) : undefined}>
+                                  <td className="py-1.5 pl-1">
+                                    <button
+                                      onClick={() => handleSwapSelect(entry.slotIndex)}
+                                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors ${
+                                        selectedSwapIndex === entry.slotIndex 
+                                          ? "bg-blue-600 text-white" 
+                                          : swapTargets.includes(entry.slotIndex)
+                                            ? "bg-green-600 text-white animate-pulse"
+                                            : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                                      }`}
+                                    >
+                                      {entry.slotPos}
+                                    </button>
+                                  </td>
+                                  <td className="py-1.5 pr-2">
+                                    {p ? (
+                                      <div className="cursor-pointer" onClick={() => isDraftCompleted && p && handleSwapSelect(entry.slotIndex)}>
+                                        <p className="text-white text-xs font-medium truncate max-w-[130px]">{p.name as string}</p>
+                                        <p className="text-gray-500 text-[10px]">{p.position as string} — {(p.teamAbbreviation || p.team) as string}</p>
+                                      </div>
+                                    ) : (
+                                      <div className="cursor-pointer" onClick={() => isDraftCompleted && handleSwapSelect(entry.slotIndex)}>
+                                        <p className="text-gray-600 text-xs italic">Empty</p>
+                                      </div>
+                                    )}
+                                  </td>
+                                  {leaguePitchingCats.map(stat => (
+                                    <td key={stat} className={`${STAT_COL} text-gray-300`}>{p ? (p[`stat${stat}`] as string ?? "-") : "-"}</td>
+                                  ))}
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {(benchPosEntries.length > 0 || benchPitchEntries.length > 0 || emptyBenchEntries.length > 0) && (
+                    <div className="space-y-5">
+                      {benchPosEntries.length > 0 && (
+                        <div>
+                          <div className="overflow-x-auto hide-scrollbar -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
+                            <table className="w-full" style={{ minWidth: Math.max(300, 200 + leagueHittingCats.length * 52) + "px" }}>
+                              <tbody>
+                                {benchPosEntries.map(entry => {
+                                  const p = entry.player as Record<string, unknown> | null;
+                                  return (
+                                    <tr key={entry.slotIndex} className={getRowClass(entry.slotIndex)} onClick={() => swapTargets.includes(entry.slotIndex) ? handleSwapSelect(entry.slotIndex) : undefined}>
+                                      <td className="py-1.5 pl-1">
+                                        <button
+                                          onClick={() => handleSwapSelect(entry.slotIndex)}
+                                          className={`text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors ${
+                                            selectedSwapIndex === entry.slotIndex 
+                                              ? "bg-blue-600 text-white" 
+                                              : swapTargets.includes(entry.slotIndex)
+                                                ? "bg-green-600 text-white animate-pulse"
+                                                : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                                          }`}
+                                        >
+                                          {entry.slotPos}
+                                        </button>
+                                      </td>
+                                      <td className="py-1.5 pr-2">
+                                        <div className="cursor-pointer" onClick={() => isDraftCompleted && p && handleSwapSelect(entry.slotIndex)}>
+                                          <p className="text-white text-xs font-medium truncate max-w-[130px]">{p?.name as string}</p>
+                                          <p className="text-gray-500 text-[10px]">{p?.position as string} — {(p?.teamAbbreviation || p?.team) as string}</p>
+                                        </div>
+                                      </td>
+                                      {leagueHittingCats.map(stat => (
+                                        <td key={stat} className={`${STAT_COL} text-gray-500 opacity-60`}>{p ? (p[`stat${stat}`] as string ?? "-") : "-"}</td>
+                                      ))}
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+
+                      {benchPitchEntries.length > 0 && (
+                        <div>
+                          <div className="overflow-x-auto hide-scrollbar -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
+                            <table className="w-full" style={{ minWidth: Math.max(300, 200 + leaguePitchingCats.length * 52) + "px" }}>
+                              <tbody>
+                                {benchPitchEntries.map(entry => {
+                                  const p = entry.player as Record<string, unknown> | null;
+                                  return (
+                                    <tr key={entry.slotIndex} className={getRowClass(entry.slotIndex)} onClick={() => swapTargets.includes(entry.slotIndex) ? handleSwapSelect(entry.slotIndex) : undefined}>
+                                      <td className="py-1.5 pl-1">
+                                        <button
+                                          onClick={() => handleSwapSelect(entry.slotIndex)}
+                                          className={`text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors ${
+                                            selectedSwapIndex === entry.slotIndex 
+                                              ? "bg-blue-600 text-white" 
+                                              : swapTargets.includes(entry.slotIndex)
+                                                ? "bg-green-600 text-white animate-pulse"
+                                                : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                                          }`}
+                                        >
+                                          {entry.slotPos}
+                                        </button>
+                                      </td>
+                                      <td className="py-1.5 pr-2">
+                                        <div className="cursor-pointer" onClick={() => isDraftCompleted && p && handleSwapSelect(entry.slotIndex)}>
+                                          <p className="text-white text-xs font-medium truncate max-w-[130px]">{p?.name as string}</p>
+                                          <p className="text-gray-500 text-[10px]">{p?.position as string} — {(p?.teamAbbreviation || p?.team) as string}</p>
+                                        </div>
+                                      </td>
+                                      {leaguePitchingCats.map(stat => (
+                                        <td key={stat} className={`${STAT_COL} text-gray-500 opacity-60`}>{p ? (p[`stat${stat}`] as string ?? "-") : "-"}</td>
+                                      ))}
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+
+                      {emptyBenchEntries.length > 0 && (
+                        <div className="space-y-1">
+                          {emptyBenchEntries.map(entry => {
+                            const isTarget = swapTargets.includes(entry.slotIndex);
+                            const isSelected = selectedSwapIndex === entry.slotIndex;
+                            return (
+                              <div
+                                key={entry.slotIndex}
+                                className={`flex items-center gap-2 py-1.5 rounded px-1 transition-colors ${
+                                  isSelected ? "bg-blue-900/30 ring-1 ring-blue-500/50" : isTarget ? "bg-green-900/20 ring-1 ring-green-500/30 cursor-pointer" : ""
+                                }`}
+                                onClick={() => isTarget ? handleSwapSelect(entry.slotIndex) : undefined}
+                              >
+                                <button
+                                  onClick={() => handleSwapSelect(entry.slotIndex)}
+                                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 transition-colors ${
+                                    isSelected 
+                                      ? "bg-blue-600 text-white" 
+                                      : isTarget
+                                        ? "bg-green-600 text-white animate-pulse"
+                                        : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                                  }`}
+                                >
+                                  {entry.slotPos}
+                                </button>
+                                <div className="min-w-0" onClick={() => isDraftCompleted && handleSwapSelect(entry.slotIndex)}>
+                                  <p className="text-gray-600 text-xs italic">Empty</p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             );
           })() : (
             <Card className="gradient-card rounded-xl p-5 border-0">
-              <p className="text-gray-400 text-sm text-center py-6">You don't have a team in this league.</p>
+              <p className="text-gray-400 text-sm text-center py-6">
+                You don't have a team in this league.
+              </p>
             </Card>
           )}
         </div>
       )}
 
       {activeTab === "players" && <PlayersTab leagueId={leagueId!} league={league!} user={user} />}
+
       {activeTab === "standings" && <StandingsTab leagueId={leagueId!} league={league!} teamsLoading={teamsLoading} teams={teams} />}
 
       {activeTab === "settings" && (
-        <div className="space-y-4">
-          <Card className="gradient-card rounded-xl p-5 border-0">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-white font-semibold">League Settings</h3>
-              {isCommissioner && !isEditing && (
-                <Button onClick={startEditing} variant="ghost" size="sm" className="text-blue-400 hover:text-blue-300 h-8 px-2">
-                  <Pencil className="w-3.5 h-3.5 mr-1" /> Edit
+        <>
+        <Card className="gradient-card rounded-xl p-5 border-0">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-white font-semibold">League Settings</h3>
+            {isCommissioner && !isEditing && (
+              <Button
+                onClick={startEditing}
+                variant="ghost"
+                size="sm"
+                className="text-blue-400 hover:text-blue-300 h-8 px-2"
+              >
+                <Pencil className="w-3.5 h-3.5 mr-1" />
+                Edit
+              </Button>
+            )}
+            {isCommissioner && isEditing && (
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => setIsEditing(false)}
+                  variant="ghost"
+                  size="sm"
+                  className="text-gray-400 hover:text-white h-8 px-3"
+                >
+                  Cancel
                 </Button>
-              )}
-              {isCommissioner && isEditing && (
-                <div className="flex gap-2">
-                  <Button onClick={() => setIsEditing(false)} variant="ghost" size="sm" className="text-gray-400 hover:text-white h-8 px-3">Cancel</Button>
-                  <Button onClick={saveSettings} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white h-8 px-3" disabled={updateMutation.isPending}>Save</Button>
-                </div>
-              )}
-            </div>
-            {isEditing ? (
+                <Button
+                  onClick={saveSettings}
+                  size="sm"
+                  className="bg-blue-600 hover:bg-blue-700 text-white h-8 px-3"
+                  disabled={updateMutation.isPending}
+                >
+                  {updateMutation.isPending ? "Saving..." : "Save"}
+                </Button>
+              </div>
+            )}
+          </div>
+          {isCommissioner ? (
+            isEditing ? (
               <div className="space-y-4">
                 <div>
                   <label className="text-gray-400 text-xs block mb-1">Max Teams</label>
-                  <Input type="number" min="2" max="30" value={editMaxTeams} onChange={(e) => setEditMaxTeams(e.target.value)} className="bg-gray-800 border-gray-700 text-white text-sm h-9" />
+                  <Input
+                    type="number"
+                    min="2"
+                    max="30"
+                    value={editMaxTeams}
+                    onChange={(e) => setEditMaxTeams(e.target.value)}
+                    className="bg-gray-800 border-gray-700 text-white text-sm h-9"
+                  />
                 </div>
                 <div>
                   <label className="text-gray-400 text-xs block mb-1">League Type</label>
                   <Select value={editType} onValueChange={setEditType}>
-                    <SelectTrigger className="bg-gray-800 border-gray-700 text-white text-sm h-9"><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="Redraft">Redraft</SelectItem></SelectContent>
+                    <SelectTrigger className="bg-gray-800 border-gray-700 text-white text-sm h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Redraft">Redraft</SelectItem>
+                    </SelectContent>
                   </Select>
                 </div>
                 <div>
                   <label className="text-gray-400 text-xs block mb-1">Status</label>
                   <Select value={editStatus} onValueChange={setEditStatus}>
-                    <SelectTrigger className="bg-gray-800 border-gray-700 text-white text-sm h-9"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="bg-gray-800 border-gray-700 text-white text-sm h-9">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Private">Private</SelectItem>
                       <SelectItem value="Public">Public</SelectItem>
@@ -1169,133 +1638,468 @@ export default function LeaguePage() {
                     <p className="text-white font-medium text-sm">{league.type}</p>
                   </div>
                 </div>
+                <div className="flex items-center gap-2">
+                  <Trophy className="w-4 h-4 text-blue-400" />
+                  <div>
+                    <p className="text-gray-400 text-xs">Status</p>
+                    <p className="text-white font-medium text-sm">{league.isPublic ? "Public" : "Private"}</p>
+                  </div>
+                </div>
+              </div>
+            )
+          ) : (
+            <p className="text-gray-400 text-sm text-center py-6">
+              Only the commissioner can adjust league settings.
+            </p>
+          )}
+        </Card>
+
+        <Card className="gradient-card rounded-xl p-5 border-0 mt-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-white font-semibold">Scoring Settings</h3>
+            {isCommissioner && !isEditingScoring && (
+              <Button
+                onClick={startEditingScoring}
+                variant="ghost"
+                size="sm"
+                className="text-blue-400 hover:text-blue-300 h-8 px-2"
+              >
+                <Pencil className="w-3.5 h-3.5 mr-1" />
+                Edit
+              </Button>
+            )}
+            {isCommissioner && isEditingScoring && (
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => setIsEditingScoring(false)}
+                  variant="ghost"
+                  size="sm"
+                  className="text-gray-400 hover:text-white h-8 px-3"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={saveScoringSettings}
+                  size="sm"
+                  className="bg-blue-600 hover:bg-blue-700 text-white h-8 px-3"
+                  disabled={updateMutation.isPending}
+                >
+                  {updateMutation.isPending ? "Saving..." : "Save"}
+                </Button>
               </div>
             )}
-          </Card>
-
-          <Card className="gradient-card rounded-xl p-5 border-0">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-white font-semibold">Scoring Settings</h3>
-              {isCommissioner && !isEditingScoring && (
-                <Button onClick={startEditingScoring} variant="ghost" size="sm" className="text-blue-400 hover:text-blue-300 h-8 px-2">
-                  <Pencil className="w-3.5 h-3.5 mr-1" /> Edit
-                </Button>
-              )}
-              {isCommissioner && isEditingScoring && (
-                <div className="flex gap-2">
-                  <Button onClick={() => setIsEditingScoring(false)} variant="ghost" size="sm" className="text-gray-400 hover:text-white h-8 px-3">Cancel</Button>
-                  <Button onClick={saveScoringSettings} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white h-8 px-3" disabled={updateMutation.isPending}>Save</Button>
-                </div>
-              )}
-            </div>
-            {isEditingScoring ? (
+          </div>
+          {isCommissioner ? (
+            isEditingScoring ? (
               <div className="space-y-5">
                 <div>
                   <label className="text-gray-400 text-xs block mb-1">Scoring Format</label>
                   <Select value={editScoringFormat} onValueChange={setEditScoringFormat}>
-                    <SelectTrigger className="bg-gray-800 border-gray-700 text-white text-sm h-9"><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="Roto">Roto</SelectItem></SelectContent>
+                    <SelectTrigger className="bg-gray-800 border-gray-700 text-white text-sm h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Roto">Roto</SelectItem>
+                    </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <label className="text-white text-sm font-medium block mb-2">Hitting Categories</label>
-                  <div className="flex flex-wrap gap-2">
-                    {ALL_HITTING_STATS.map(stat => (
-                      <button key={stat} type="button" onClick={() => toggleHittingStat(stat)} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${editHittingCategories.includes(stat) ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-400 border border-gray-700 hover:border-gray-500"}`}>{stat}</button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <label className="text-white text-sm font-medium block mb-2">Pitching Categories</label>
-                  <div className="flex flex-wrap gap-2">
-                    {ALL_PITCHING_STATS.map(stat => (
-                      <button key={stat} type="button" onClick={() => togglePitchingStat(stat)} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${editPitchingCategories.includes(stat) ? "bg-green-600 text-white" : "bg-gray-800 text-gray-400 border border-gray-700 hover:border-gray-500"}`}>{stat}</button>
-                    ))}
-                  </div>
-                </div>
+                {editScoringFormat === "Roto" && (
+                  <>
+                    <div>
+                      <label className="text-white text-sm font-medium block mb-2">Hitting Categories</label>
+                      <div className="flex flex-wrap gap-2">
+                        {ALL_HITTING_STATS.map(stat => (
+                          <button
+                            key={stat}
+                            type="button"
+                            onClick={() => toggleHittingStat(stat)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                              editHittingCategories.includes(stat)
+                                ? "bg-blue-600 text-white"
+                                : "bg-gray-800 text-gray-400 border border-gray-700 hover:border-gray-500"
+                            }`}
+                          >
+                            {stat}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-gray-500 text-xs mt-2">{editHittingCategories.length} categories selected</p>
+                    </div>
+                    <div>
+                      <label className="text-white text-sm font-medium block mb-2">Pitching Categories</label>
+                      <div className="flex flex-wrap gap-2">
+                        {ALL_PITCHING_STATS.map(stat => (
+                          <button
+                            key={stat}
+                            type="button"
+                            onClick={() => togglePitchingStat(stat)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                              editPitchingCategories.includes(stat)
+                                ? "bg-green-600 text-white"
+                                : "bg-gray-800 text-gray-400 border border-gray-700 hover:border-gray-500"
+                            }`}
+                          >
+                            {stat}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-gray-500 text-xs mt-2">{editPitchingCategories.length} categories selected</p>
+                    </div>
+                  </>
+                )}
               </div>
             ) : (
               <div className="space-y-4">
-                <div>
-                  <p className="text-gray-400 text-xs mb-2">Hitting Categories</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {leagueHittingCats.map(stat => <span key={stat} className="px-2 py-1 bg-blue-600/20 text-blue-400 rounded text-xs font-medium">{stat}</span>)}
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-blue-400" />
+                  <div>
+                    <p className="text-gray-400 text-xs">Format</p>
+                    <p className="text-white font-medium text-sm">{league.scoringFormat || "Roto"}</p>
                   </div>
                 </div>
+                {(league.scoringFormat || "Roto") === "Roto" && (
+                  <>
+                    <div>
+                      <p className="text-gray-400 text-xs mb-2">Hitting Categories</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {(league.hittingCategories || ["R", "HR", "RBI", "SB", "AVG"]).map(stat => (
+                          <span key={stat} className="px-2 py-1 bg-blue-600/20 text-blue-400 rounded text-xs font-medium">
+                            {stat}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-gray-400 text-xs mb-2">Pitching Categories</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {(league.pitchingCategories || ["W", "SV", "K", "ERA", "WHIP"]).map(stat => (
+                          <span key={stat} className="px-2 py-1 bg-green-600/20 text-green-400 rounded text-xs font-medium">
+                            {stat}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-blue-400" />
                 <div>
-                  <p className="text-gray-400 text-xs mb-2">Pitching Categories</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {leaguePitchingCats.map(stat => <span key={stat} className="px-2 py-1 bg-green-600/20 text-green-400 rounded text-xs font-medium">{stat}</span>)}
-                  </div>
+                  <p className="text-gray-400 text-xs">Format</p>
+                  <p className="text-white font-medium text-sm">{league.scoringFormat || "Roto"}</p>
                 </div>
               </div>
-            )}
-          </Card>
-
-          <Card className="gradient-card rounded-xl p-5 border-0">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-white font-semibold">Roster Settings</h3>
-              {isCommissioner && !isEditingRoster && (
-                <Button onClick={startEditingRoster} variant="ghost" size="sm" className="text-blue-400 hover:text-blue-300 h-8 px-2">
-                  <Pencil className="w-3.5 h-3.5 mr-1" /> Edit
-                </Button>
-              )}
-              {isCommissioner && isEditingRoster && (
-                <div className="flex gap-2">
-                  <Button onClick={() => setIsEditingRoster(false)} variant="ghost" size="sm" className="text-gray-400 hover:text-white h-8 px-3">Cancel</Button>
-                  <Button onClick={saveRosterSettings} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white h-8 px-3" disabled={updateMutation.isPending}>Save</Button>
-                </div>
+              {(league.scoringFormat || "Roto") === "Roto" && (
+                <>
+                  <div>
+                    <p className="text-gray-400 text-xs mb-2">Hitting Categories</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {(league.hittingCategories || ["R", "HR", "RBI", "SB", "AVG"]).map(stat => (
+                        <span key={stat} className="px-2 py-1 bg-blue-600/20 text-blue-400 rounded text-xs font-medium">
+                          {stat}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-xs mb-2">Pitching Categories</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {(league.pitchingCategories || ["W", "SV", "K", "ERA", "WHIP"]).map(stat => (
+                        <span key={stat} className="px-2 py-1 bg-green-600/20 text-green-400 rounded text-xs font-medium">
+                          {stat}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </>
               )}
             </div>
-            {isEditingRoster ? (
+          )}
+        </Card>
+
+        <Card className="gradient-card rounded-xl p-5 border-0 mt-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-white font-semibold">Roster Settings</h3>
+            {isCommissioner && !isEditingRoster && (
+              <Button
+                onClick={startEditingRoster}
+                variant="ghost"
+                size="sm"
+                className="text-blue-400 hover:text-blue-300 h-8 px-2"
+              >
+                <Pencil className="w-3.5 h-3.5 mr-1" />
+                Edit
+              </Button>
+            )}
+            {isCommissioner && isEditingRoster && (
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => setIsEditingRoster(false)}
+                  variant="ghost"
+                  size="sm"
+                  className="text-gray-400 hover:text-white h-8 px-3"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={saveRosterSettings}
+                  size="sm"
+                  className="bg-blue-600 hover:bg-blue-700 text-white h-8 px-3"
+                  disabled={updateMutation.isPending}
+                >
+                  {updateMutation.isPending ? "Saving..." : "Save"}
+                </Button>
+              </div>
+            )}
+          </div>
+          {isCommissioner ? (
+            isEditingRoster ? (
               <div className="space-y-2">
                 {ALL_POSITIONS.map((pos) => (
                   <div key={pos} className="flex items-center justify-between py-1.5 px-2 rounded-lg bg-gray-800/50">
                     <span className="text-white text-sm font-medium w-12">{pos}</span>
                     <div className="flex items-center gap-3">
-                      <button type="button" onClick={() => updatePositionCount(pos, -1)} className="w-7 h-7 rounded-full bg-gray-700 hover:bg-gray-600 text-white flex items-center justify-center text-sm font-bold" disabled={(editRosterCounts[pos] || 0) === 0}>−</button>
-                      <span className="text-white text-sm font-semibold w-5 text-center">{editRosterCounts[pos] || 0}</span>
-                      <button type="button" onClick={() => updatePositionCount(pos, 1)} className="w-7 h-7 rounded-full bg-gray-700 hover:bg-gray-600 text-white flex items-center justify-center text-sm font-bold">+</button>
+                      <button
+                        type="button"
+                        onClick={() => updatePositionCount(pos, -1)}
+                        className="w-7 h-7 rounded-full bg-gray-700 hover:bg-gray-600 text-white flex items-center justify-center text-sm font-bold"
+                        disabled={(editRosterCounts[pos] || 0) === 0}
+                      >
+                        −
+                      </button>
+                      <span className="text-white text-sm font-semibold w-5 text-center">
+                        {editRosterCounts[pos] || 0}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => updatePositionCount(pos, 1)}
+                        className="w-7 h-7 rounded-full bg-gray-700 hover:bg-gray-600 text-white flex items-center justify-center text-sm font-bold"
+                      >
+                        +
+                      </button>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
               <div className="flex flex-wrap gap-1.5">
-                {rosterSlots.map((pos, index) => <Badge key={index} className="bg-gray-700 text-white text-xs px-2 py-0.5">{pos}</Badge>)}
+                {(league.rosterPositions || []).map((pos, index) => (
+                  <Badge key={index} className="bg-gray-700 text-white text-xs px-2 py-0.5">
+                    {pos}
+                  </Badge>
+                ))}
+              </div>
+            )
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {(league.rosterPositions || []).map((pos, index) => (
+                <Badge key={index} className="bg-gray-700 text-white text-xs px-2 py-0.5">
+                  {pos}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        {league.draftStatus === "completed" && (
+          <Card className="gradient-card rounded-xl p-4 border-0 mt-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-yellow-600/20 flex items-center justify-center shrink-0">
+                <Trophy className="w-5 h-5 text-yellow-400" />
+              </div>
+              <div className="flex-1">
+                <p className="text-white font-semibold text-sm">Draft Completed</p>
+                <p className="text-gray-400 text-xs">View the full draft board and results</p>
+              </div>
+              <Button
+                onClick={() => setLocation(`/league/${leagueId}/draft`)}
+                size="sm"
+                className="bg-yellow-600 hover:bg-yellow-700 text-white text-xs h-8 px-4 shrink-0"
+              >
+                View Draft
+              </Button>
+            </div>
+          </Card>
+        )}
+
+        <Card className="gradient-card rounded-xl p-5 border-0 mt-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-white font-semibold">Draft Settings</h3>
+            {isCommissioner && !isEditingDraft && league.draftStatus !== "completed" && (
+              <Button
+                onClick={startEditingDraft}
+                variant="ghost"
+                size="sm"
+                className="text-blue-400 hover:text-blue-300 h-8 px-2"
+              >
+                <Pencil className="w-3.5 h-3.5 mr-1" />
+                Edit
+              </Button>
+            )}
+            {isCommissioner && isEditingDraft && (
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => setIsEditingDraft(false)}
+                  variant="ghost"
+                  size="sm"
+                  className="text-gray-400 hover:text-white h-8 px-3"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={saveDraftSettings}
+                  size="sm"
+                  className="bg-blue-600 hover:bg-blue-700 text-white h-8 px-3"
+                  disabled={updateMutation.isPending}
+                >
+                  {updateMutation.isPending ? "Saving..." : "Save"}
+                </Button>
               </div>
             )}
-          </Card>
-
-          {isCommissioner && (
-            <Card className="border-red-900/30 bg-red-950/10 p-5 rounded-xl">
-              <h3 className="text-red-400 font-semibold mb-2">Danger Zone</h3>
-              <p className="text-gray-400 text-xs mb-4">Deleting a league is permanent.</p>
-              {!showDeleteConfirm ? (
-                <Button onClick={() => setShowDeleteConfirm(true)} variant="destructive" size="sm">Delete League</Button>
-              ) : (
-                <div className="flex gap-2">
-                  <Button onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending} variant="destructive" size="sm">Confirm Delete</Button>
-                  <Button onClick={() => setShowDeleteConfirm(false)} variant="ghost" size="sm">Cancel</Button>
+          </div>
+          {isCommissioner ? (
+            isEditingDraft ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="text-gray-400 text-xs block mb-1">Draft Type</label>
+                  <Select value={editDraftType} onValueChange={setEditDraftType}>
+                    <SelectTrigger className="bg-gray-800 border-gray-700 text-white text-sm h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Snake">Snake</SelectItem>
+                      <SelectItem value="Auction">Auction</SelectItem>
+                      <SelectItem value="Linear">Linear</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-              )}
-            </Card>
+                <div>
+                  <label className="text-gray-400 text-xs block mb-1">Draft Date</label>
+                  <Input
+                    type="datetime-local"
+                    value={editDraftDate}
+                    onChange={(e) => setEditDraftDate(e.target.value)}
+                    className="bg-gray-800 border-gray-700 text-white text-sm h-9"
+                  />
+                </div>
+                <div>
+                  <label className="text-gray-400 text-xs block mb-1">Seconds Per Pick</label>
+                  <Input
+                    type="number"
+                    value={editSecondsPerPick}
+                    onChange={(e) => setEditSecondsPerPick(e.target.value)}
+                    className="bg-gray-800 border-gray-700 text-white text-sm h-9"
+                  />
+                </div>
+                <div>
+                  <label className="text-gray-400 text-xs block mb-1">Draft Order</label>
+                  <Select value={editDraftOrder} onValueChange={setEditDraftOrder}>
+                    <SelectTrigger className="bg-gray-800 border-gray-700 text-white text-sm h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Random">Random</SelectItem>
+                      <SelectItem value="Manual">Manual</SelectItem>
+                      <SelectItem value="Standings">Standings</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-gray-400 text-xs">Draft Type</p>
+                  <p className="text-white font-medium text-sm">{league.draftType || "Snake"}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400 text-xs">Draft Date</p>
+                  <p className="text-white font-medium text-sm">{league.draftDate ? new Date(league.draftDate).toLocaleDateString() : "TBD"}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400 text-xs">Seconds Per Pick</p>
+                  <p className="text-white font-medium text-sm">{league.secondsPerPick || 60}s</p>
+                </div>
+                <div>
+                  <p className="text-gray-400 text-xs">Draft Order</p>
+                  <p className="text-white font-medium text-sm">{league.draftOrder || "Random"}</p>
+                </div>
+              </div>
+            )
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-gray-400 text-xs">Draft Type</p>
+                <p className="text-white font-medium text-sm">{league.draftType || "Snake"}</p>
+              </div>
+              <div>
+                <p className="text-gray-400 text-xs">Draft Date</p>
+                <p className="text-white font-medium text-sm">{league.draftDate ? new Date(league.draftDate).toLocaleDateString() : "TBD"}</p>
+              </div>
+              <div>
+                <p className="text-gray-400 text-xs">Seconds Per Pick</p>
+                <p className="text-white font-medium text-sm">{league.secondsPerPick || 60}s</p>
+              </div>
+              <div>
+                <p className="text-gray-400 text-xs">Draft Order</p>
+                <p className="text-white font-medium text-sm">{league.draftOrder || "Random"}</p>
+              </div>
+            </div>
           )}
-        </div>
-      )}
+        </Card>
 
-      <Dialog open={!!dropConfirm} onOpenChange={() => setDropConfirm(null)}>
-        <DialogContent className="bg-gray-900 border-gray-700">
-          <DialogHeader>
-            <DialogTitle className="text-white">Drop Player</DialogTitle>
-            <DialogDescription>Are you sure you want to drop this player?</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setDropConfirm(null)} className="text-gray-400">Cancel</Button>
-            <Button variant="destructive" onClick={() => { if (dropConfirm) { dropMutation.mutate(dropConfirm.pickId); setDropConfirm(null); } }}>Drop Player</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        {isCommissioner && (
+          <Card className="gradient-card rounded-xl p-5 border-0 mt-4 border border-red-900/30">
+            <h3 className="text-red-400 font-semibold mb-2">Danger Zone</h3>
+            <p className="text-gray-400 text-sm mb-4">
+              Permanently delete this league and all its data. Draft position data used for ADP calculations will be preserved.
+            </p>
+            <Button
+              onClick={() => setShowDeleteConfirm(true)}
+              variant="outline"
+              className="w-full border-red-800 text-red-400 hover:bg-red-900/30 hover:text-red-300 gap-2"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete League
+            </Button>
+          </Card>
+        )}
+
+        <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+          <DialogContent className="bg-gray-900 border-gray-700 max-w-sm">
+            <DialogHeader>
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-10 h-10 rounded-full bg-red-600/20 flex items-center justify-center">
+                  <AlertTriangle className="w-5 h-5 text-red-400" />
+                </div>
+                <DialogTitle className="text-white text-lg">Delete League?</DialogTitle>
+              </div>
+              <DialogDescription className="text-gray-400 text-sm pt-2">
+                This will permanently delete <span className="text-white font-semibold">{league.name}</span>, all teams, and draft picks. This action cannot be undone. ADP data will be preserved.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex gap-2 mt-2">
+              <Button
+                onClick={() => setShowDeleteConfirm(false)}
+                variant="outline"
+                className="flex-1 border-gray-600 text-gray-300 hover:bg-gray-800"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => deleteMutation.mutate()}
+                disabled={deleteMutation.isPending}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+              >
+                {deleteMutation.isPending ? "Deleting..." : "Delete League"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        </>
+      )}
     </div>
   );
 }
