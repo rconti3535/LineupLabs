@@ -1265,7 +1265,14 @@ export default function LeaguePage() {
             return (
               <div className="overflow-hidden">
                 <div className="flex items-center justify-between mb-3 px-1">
-                  <h3 className="text-white font-semibold">{myTeam.name}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-white font-semibold">{myTeam.name}</h3>
+                    {user?.id === league.createdBy && (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0 border-blue-500/50 text-blue-400 bg-blue-500/5">
+                        Commish
+                      </Badge>
+                    )}
+                  </div>
                   {selectedSwapIndex !== null && (
                     <Button
                       onClick={() => { setSelectedSwapIndex(null); setSwapTargets([]); }}
