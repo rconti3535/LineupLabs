@@ -52,6 +52,7 @@ Key API routes:
 - `GET /api/leagues/:id/waivers` — fetch active waivers with player info and claim counts
 - `GET /api/leagues/:id/my-claims?userId=` — fetch user's outstanding waiver claims with player info
 - `POST /api/leagues/:id/waiver-claim` — submit a waiver claim on a player
+- `DELETE /api/leagues/:id/waiver-claim/:claimId?userId=` — cancel a pending waiver claim
 
 ### Data Storage
 - **Database**: PostgreSQL (via Neon serverless driver `@neondatabase/serverless`)
