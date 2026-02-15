@@ -839,6 +839,21 @@ export default function LeaguePage() {
     }
   }, [needsInit]);
 
+  const cancelClaimMut = useMutation({
+    mutationFn: async (claimId: number) => {
+      const res = await apiRequest("DELETE", `/api/leagues/${leagueId}/waiver-claim/${claimId}?userId=${user?.id}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Waiver claim cancelled" });
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "my-claims"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "waivers"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: err.message || "Failed to cancel claim", variant: "destructive" });
+    },
+  });
+
   const handleSwapSelect = (index: number) => {
     if (selectedSwapIndex === null) {
       const targets = getSwapTargets(rosterEntries, index, rosterSlots);
@@ -1165,9 +1180,6 @@ export default function LeaguePage() {
                   <div className="space-y-2">
                     {myClaimsData.map((claim: any) => (
                       <div key={claim.id} className="flex items-center gap-3 bg-yellow-950/20 rounded-lg p-2.5 border border-yellow-900/30">
-                        <div className="w-7 h-7 rounded-full bg-yellow-600/20 flex items-center justify-center shrink-0">
-                          <Plus className="w-3.5 h-3.5 text-yellow-400" />
-                        </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-white text-xs font-medium truncate">{claim.player?.name || "Unknown"}</p>
                           <div className="flex items-center gap-1.5">
@@ -1181,7 +1193,7 @@ export default function LeaguePage() {
                             )}
                           </div>
                         </div>
-                        <div className="text-right shrink-0">
+                        <div className="text-right shrink-0 mr-2">
                           <p className="text-[10px] text-gray-400">Expires</p>
                           <p className="text-[10px] text-yellow-400 font-medium">
                             {claim.waiver?.waiverExpiresAt
@@ -1189,6 +1201,17 @@ export default function LeaguePage() {
                               : "—"}
                           </p>
                         </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            cancelClaimMut.mutate(claim.id);
+                          }}
+                          disabled={cancelClaimMut.isPending}
+                          className="w-6 h-6 rounded-full bg-red-600/20 hover:bg-red-600/40 flex items-center justify-center shrink-0 transition-colors"
+                          title="Cancel claim"
+                        >
+                          <X className="w-3 h-3 text-red-400" />
+                        </button>
                       </div>
                     ))}
                   </div>

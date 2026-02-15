@@ -1178,6 +1178,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/leagues/:id/waiver-claim/:claimId", async (req, res) => {
+    try {
+      const leagueId = parseInt(req.params.id);
+      const claimId = parseInt(req.params.claimId);
+      const userId = parseInt(req.query.userId as string);
+      if (!userId) return res.status(400).json({ message: "Missing userId" });
+
+      const leagueTeams = await storage.getTeamsByLeagueId(leagueId);
+      const userTeam = leagueTeams.find(t => t.userId === userId);
+      if (!userTeam) return res.status(403).json({ message: "You don't have a team in this league" });
+
+      const claims = await storage.getClaimsByTeam(userTeam.id);
+      const claim = claims.find(c => c.id === claimId);
+      if (!claim) return res.status(404).json({ message: "Claim not found" });
+
+      await storage.deleteWaiverClaim(claimId);
+      res.json({ message: "Waiver claim cancelled" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to cancel waiver claim" });
+    }
+  });
+
   app.post("/api/import-stats", async (req, res) => {
     try {
       const { importSeasonStats } = await import("./import-stats");

@@ -77,6 +77,7 @@ export interface IStorage {
   getExpiredWaivers(): Promise<Waiver[]>;
   getWaiver(id: number): Promise<Waiver | undefined>;
   completeWaiver(waiverId: number, status: string): Promise<void>;
+  deleteWaiverClaim(claimId: number): Promise<void>;
 
   // Active drafts
   getActiveDraftLeagues(): Promise<League[]>;
@@ -634,6 +635,10 @@ export class DatabaseStorage implements IStorage {
 
   async completeWaiver(waiverId: number, status: string): Promise<void> {
     await db.update(waivers).set({ status }).where(eq(waivers.id, waiverId));
+  }
+
+  async deleteWaiverClaim(claimId: number): Promise<void> {
+    await db.delete(waiverClaims).where(eq(waiverClaims.id, claimId));
   }
 }
 
