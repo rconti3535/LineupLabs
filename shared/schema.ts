@@ -92,6 +92,7 @@ export const draftPicks = pgTable("draft_picks", {
   round: integer("round").notNull(),
   pickInRound: integer("pick_in_round").notNull(),
   pickedAt: timestamp("picked_at").defaultNow(),
+  rosterSlot: integer("roster_slot"),
 });
 
 export const playerAdp = pgTable("player_adp", {
