@@ -1231,8 +1231,8 @@ export default function LeaguePage() {
             };
 
             return (
-              <Card className="gradient-card rounded-xl p-4 border-0 overflow-hidden">
-                <div className="flex items-center justify-between mb-3">
+              <div className="overflow-hidden">
+                <div className="flex items-center justify-between mb-3 px-1">
                   <h3 className="text-white font-semibold">{myTeam.name}</h3>
                   {selectedSwapIndex !== null && (
                     <Button
@@ -1246,12 +1246,11 @@ export default function LeaguePage() {
                   )}
                 </div>
                 {selectedSwapIndex !== null && (
-                  <p className="text-blue-400 text-xs mb-3">Tap a highlighted slot to swap players</p>
+                  <p className="text-blue-400 text-xs mb-3 px-1">Tap a highlighted slot to swap players</p>
                 )}
                 <div className="space-y-5">
                   {posEntries.length > 0 && (
                     <div>
-                      <p className="text-gray-400 text-[11px] uppercase font-bold tracking-wider mb-2">Position Players</p>
                       <div className="overflow-x-auto hide-scrollbar -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
                         <table className="w-full" style={{ minWidth: Math.max(300, 200 + leagueHittingCats.length * 52) + "px" }}>
                           <thead>
@@ -1297,7 +1296,6 @@ export default function LeaguePage() {
 
                   {pitchEntries.length > 0 && (
                     <div>
-                      <p className="text-gray-400 text-[11px] uppercase font-bold tracking-wider mb-2">Pitchers</p>
                       <div className="overflow-x-auto hide-scrollbar -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
                         <table className="w-full" style={{ minWidth: Math.max(300, 200 + leaguePitchingCats.length * 52) + "px" }}>
                           <thead>
@@ -1343,7 +1341,6 @@ export default function LeaguePage() {
 
                   {benchEntries.length > 0 && (
                     <div>
-                      <p className="text-gray-400 text-[11px] uppercase font-bold tracking-wider mb-2">Bench / IL <span className="text-gray-500 font-normal normal-case">(no scoring)</span></p>
                       <div className="space-y-1">
                         {benchEntries.map(entry => {
                           const p = entry.player;
@@ -1374,7 +1371,7 @@ export default function LeaguePage() {
                     </div>
                   )}
                 </div>
-              </Card>
+              </div>
             );
           })() : (
             <Card className="gradient-card rounded-xl p-5 border-0">
