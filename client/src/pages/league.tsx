@@ -392,8 +392,31 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
 
   type PlayerWithAdp = Player & { adpValue?: number | null };
 
+  const PROJ_HITTING_MAP: Record<string, keyof Player> = {
+    R: "projR", HR: "projHR", RBI: "projRBI", SB: "projSB",
+    AVG: "projAVG", H: "projH", "2B": "proj2B", "3B": "proj3B",
+    BB: "projBB", K: "projK", OBP: "projOBP",
+    SLG: "projSLG", OPS: "projOPS", TB: "projTB",
+    CS: "projCS", HBP: "projHBP", AB: "projAB", PA: "projPA",
+  };
+
+  const PROJ_PITCHING_MAP: Record<string, keyof Player> = {
+    W: "projW", SV: "projSV", ERA: "projERA",
+    WHIP: "projWHIP", L: "projL", QS: "projQS",
+    HLD: "projHLD", IP: "projIP", SO: "projSO", K: "projSO",
+    CG: "projCG", SHO: "projSHO", BSV: "projBSV",
+  };
+
   const getStatValue = (player: PlayerWithAdp, cat: string): string => {
-    if (statView === "2026proj" || statView === "2026stats") return "-";
+    if (statView === "2026stats") return "-";
+    if (statView === "2026proj") {
+      const projMap = playerType === "batters" ? PROJ_HITTING_MAP : PROJ_PITCHING_MAP;
+      const key = projMap[cat];
+      if (!key) return "-";
+      const raw = player[key];
+      if (raw === null || raw === undefined) return "-";
+      return String(raw);
+    }
     const mapping = statMap[cat];
     if (!mapping) return "-";
     const raw = player[mapping.key];
@@ -565,7 +588,7 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
                     </td>
                     {statView === "adp" ? (
                       <td className="text-center py-1.5">
-                        <span className="text-white text-[11px]">{player.adpValue && player.adpValue < 9999 ? player.adpValue : "-"}</span>
+                        <span className="text-white text-[11px]">{player.externalAdp ? player.externalAdp : (player.adpValue && player.adpValue < 9999 ? player.adpValue : "-")}</span>
                       </td>
                     ) : (
                       activeCats.map(cat => (

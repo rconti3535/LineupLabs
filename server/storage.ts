@@ -549,7 +549,9 @@ export class DatabaseStorage implements IStorage {
     const where = conditions.length > 0 ? and(...conditions) : undefined;
     const [countResult] = await db.select({ count: sql<number>`count(*)` }).from(players).where(where);
     const total = Number(countResult.count);
-    const result = await db.select().from(players).where(where).orderBy(players.name).limit(limit).offset(offset);
+    const result = await db.select().from(players).where(where)
+      .orderBy(sql`COALESCE(${players.externalAdp}, 99999)`, players.name)
+      .limit(limit).offset(offset);
 
     const playerIds = result.map(p => p.id);
     let adpMap: Record<number, number> = {};
