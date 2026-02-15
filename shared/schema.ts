@@ -177,6 +177,31 @@ export const insertPlayerAdpSchema = createInsertSchema(playerAdp).omit({
   id: true,
 });
 
+export const waivers = pgTable("waivers", {
+  id: serial("id").primaryKey(),
+  leagueId: integer("league_id").references(() => leagues.id).notNull(),
+  playerId: integer("player_id").references(() => players.id).notNull(),
+  droppedByTeamId: integer("dropped_by_team_id").references(() => teams.id).notNull(),
+  waiverExpiresAt: text("waiver_expires_at").notNull(),
+  status: text("status").default("active"),
+  createdAt: text("created_at").notNull(),
+});
+
+export const waiverClaims = pgTable("waiver_claims", {
+  id: serial("id").primaryKey(),
+  waiverId: integer("waiver_id").references(() => waivers.id).notNull(),
+  teamId: integer("team_id").references(() => teams.id).notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const insertWaiverSchema = createInsertSchema(waivers).omit({
+  id: true,
+});
+
+export const insertWaiverClaimSchema = createInsertSchema(waiverClaims).omit({
+  id: true,
+});
+
 export const insertActivitySchema = createInsertSchema(activities).omit({
   id: true,
 });
@@ -195,3 +220,7 @@ export type PlayerAdp = typeof playerAdp.$inferSelect;
 export type InsertPlayerAdp = z.infer<typeof insertPlayerAdpSchema>;
 export type Activity = typeof activities.$inferSelect;
 export type InsertActivity = z.infer<typeof insertActivitySchema>;
+export type Waiver = typeof waivers.$inferSelect;
+export type InsertWaiver = z.infer<typeof insertWaiverSchema>;
+export type WaiverClaim = typeof waiverClaims.$inferSelect;
+export type InsertWaiverClaim = z.infer<typeof insertWaiverClaimSchema>;
