@@ -58,7 +58,7 @@ Key API routes:
 
 ### Database Schema (defined in `shared/schema.ts`)
 - **users** — id, username, email, password, name, avatar, leagues count, wins, championships
-- **leagues** — id, name, description, type, numberOfTeams, scoringFormat, isPublic, maxTeams, currentTeams, buyin, prize, status, rosterPositions, draftType, draftDate, secondsPerPick, draftOrder, draftStatus (pending/active/paused/completed), draftPickStartedAt (ISO timestamp for server-side timer), createdBy (FK to users), createdAt
+- **leagues** — id, name, description, type, numberOfTeams, scoringFormat, hittingCategories (text array, default R/HR/RBI/SB/AVG), pitchingCategories (text array, default W/SV/K/ERA/WHIP), isPublic, maxTeams, currentTeams, buyin, prize, status, rosterPositions, draftType, draftDate, secondsPerPick, draftOrder, draftStatus (pending/active/paused/completed), draftPickStartedAt (ISO timestamp for server-side timer), createdBy (FK to users), createdAt
 - **teams** — id, name, leagueId (FK to leagues), userId (FK to users), wins, losses, points, rank, logo, nextOpponent
 - **players** — id, mlbId (unique), name, firstName, lastName, position, team, teamAbbreviation, jerseyNumber, bats, throws, age, height, weight, mlbLevel (MLB/AAA/AA/A+/A/Rookie), avatar, points, status. ~8,200 real players imported from MLB Stats API.
 - **draft_picks** — id, leagueId (FK to leagues), teamId (FK to teams), playerId (FK to players), overallPick, round, pickInRound, pickedAt, rosterSlot (nullable integer for persisted lineup position). Tracks all draft selections per league.
