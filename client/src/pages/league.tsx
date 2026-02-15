@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Users, Trophy, Calendar, TrendingUp, Pencil, Trash2, AlertTriangle, ArrowUpDown, Search, Plus, X, ChevronDown } from "lucide-react";
+import { ArrowLeft, Users, Trophy, Calendar, TrendingUp, Pencil, Trash2, AlertTriangle, ArrowUpDown, Search, Plus, X, ChevronDown, Menu } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -187,6 +187,7 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
   const [playerType, setPlayerType] = useState<"batters" | "pitchers">("batters");
   const [rosterStatus, setRosterStatus] = useState<"free_agents" | "rostered" | "all">("free_agents");
   const [statView, setStatView] = useState<"adp" | "2025stats" | "2026proj" | "2026stats">("adp");
+  const [searchExpanded, setSearchExpanded] = useState(false);
   const [page, setPage] = useState(0);
   const pageSize = 25;
 
@@ -303,53 +304,80 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
     "2026stats": "2026 Stats",
   };
 
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (searchExpanded && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [searchExpanded]);
+
   return (
     <div>
-      <div className="relative mb-3">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
-        <Input
-          placeholder="Search players..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-8 h-9 bg-gray-800/50 border-gray-700 text-sm text-white"
-        />
-      </div>
-      <div className="flex items-center gap-2 mb-3">
-        <div className="flex bg-gray-800/60 rounded-lg p-0.5 shrink-0">
+      {searchExpanded ? (
+        <div className="flex items-center gap-2 mb-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
+            <Input
+              ref={searchInputRef}
+              placeholder="Search players..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8 h-9 bg-gray-800/50 border-gray-700 text-sm text-white"
+            />
+          </div>
           <button
-            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${playerType === "batters" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-gray-300"}`}
-            onClick={() => { setPlayerType("batters"); setPositionFilter("All"); setPage(0); }}
+            className="w-9 h-9 flex items-center justify-center text-gray-400 hover:text-white transition-colors shrink-0"
+            onClick={() => { setSearchExpanded(false); setSearchQuery(""); }}
           >
-            Batters
-          </button>
-          <button
-            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${playerType === "pitchers" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-gray-300"}`}
-            onClick={() => { setPlayerType("pitchers"); setPositionFilter("All"); setPage(0); }}
-          >
-            Pitchers
+            <X className="w-4 h-4" />
           </button>
         </div>
-        <Select value={rosterStatus} onValueChange={(v: "free_agents" | "rostered" | "all") => { setRosterStatus(v); setPage(0); }}>
-          <SelectTrigger className="w-[110px] h-9 bg-gray-800/50 border-gray-700 text-sm text-white">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="free_agents">Free Agents</SelectItem>
-            <SelectItem value="rostered">Rostered</SelectItem>
-            <SelectItem value="all">All</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={positionFilter} onValueChange={(v) => { setPositionFilter(v); setPage(0); }}>
-          <SelectTrigger className="w-[72px] h-9 bg-gray-800/50 border-gray-700 text-sm text-white">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {posOptions.map(pos => (
-              <SelectItem key={pos} value={pos}>{pos}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      ) : (
+        <div className="flex items-center gap-2 mb-3">
+          <div className="flex bg-gray-800/60 rounded-lg p-0.5 shrink-0">
+            <button
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${playerType === "batters" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-gray-300"}`}
+              onClick={() => { setPlayerType("batters"); setPositionFilter("All"); setPage(0); }}
+            >
+              Batters
+            </button>
+            <button
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${playerType === "pitchers" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-gray-300"}`}
+              onClick={() => { setPlayerType("pitchers"); setPositionFilter("All"); setPage(0); }}
+            >
+              Pitchers
+            </button>
+          </div>
+          <Select value={positionFilter} onValueChange={(v) => { setPositionFilter(v); setPage(0); }}>
+            <SelectTrigger className="w-[72px] h-9 bg-gray-800/50 border-gray-700 text-sm text-white">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {posOptions.map(pos => (
+                <SelectItem key={pos} value={pos}>{pos}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="flex-1" />
+          <Select value={rosterStatus} onValueChange={(v: "free_agents" | "rostered" | "all") => { setRosterStatus(v); setPage(0); }}>
+            <SelectTrigger className="w-9 h-9 bg-gray-800/50 border-gray-700 text-white p-0 flex items-center justify-center [&>svg:last-child]:hidden">
+              <Menu className="w-4 h-4" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="free_agents">Free Agents</SelectItem>
+              <SelectItem value="rostered">Rostered</SelectItem>
+              <SelectItem value="all">All Players</SelectItem>
+            </SelectContent>
+          </Select>
+          <button
+            className="w-9 h-9 flex items-center justify-center text-gray-400 hover:text-white bg-gray-800/50 border border-gray-700 rounded-md transition-colors shrink-0"
+            onClick={() => setSearchExpanded(true)}
+          >
+            <Search className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="space-y-2">
