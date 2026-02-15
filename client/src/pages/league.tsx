@@ -186,6 +186,7 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
   const [positionFilter, setPositionFilter] = useState("All");
   const [playerType, setPlayerType] = useState<"batters" | "pitchers">("batters");
   const [rosterStatus, setRosterStatus] = useState<"free_agents" | "rostered" | "all">("free_agents");
+  const [statView, setStatView] = useState<"adp" | "2025stats" | "2026proj" | "2026stats">("adp");
   const [page, setPage] = useState(0);
   const pageSize = 25;
 
@@ -284,12 +285,22 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
   const statMap = playerType === "batters" ? HITTING_STAT_MAP : PITCHING_STAT_MAP;
   const posOptions = playerType === "batters" ? BATTER_POSITIONS : PITCHER_POSITIONS;
 
-  const getStatValue = (player: Player, cat: string): string => {
+  type PlayerWithAdp = Player & { adpValue?: number | null };
+
+  const getStatValue = (player: PlayerWithAdp, cat: string): string => {
+    if (statView === "2026proj" || statView === "2026stats") return "-";
     const mapping = statMap[cat];
     if (!mapping) return "-";
     const raw = player[mapping.key];
     if (raw === null || raw === undefined) return "-";
     return String(raw);
+  };
+
+  const statViewLabel: Record<string, string> = {
+    adp: "ADP",
+    "2025stats": "2025 Stats",
+    "2026proj": "2026 Proj",
+    "2026stats": "2026 Stats",
   };
 
   return (
@@ -350,20 +361,37 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
         <p className="text-gray-400 text-sm text-center py-6">No available players found</p>
       ) : (
         <>
-          <div className="text-[10px] text-gray-500 mb-1">{data.total} players available</div>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] text-gray-500">{data.total} players available</span>
+            <Select value={statView} onValueChange={(v: "adp" | "2025stats" | "2026proj" | "2026stats") => setStatView(v)}>
+              <SelectTrigger className="w-[110px] h-7 bg-gray-800/50 border-gray-700 text-[11px] text-white">
+                <SelectValue>{statViewLabel[statView]}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="adp">ADP</SelectItem>
+                <SelectItem value="2025stats">2025 Stats</SelectItem>
+                <SelectItem value="2026proj">2026 Proj</SelectItem>
+                <SelectItem value="2026stats">2026 Stats</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div className="overflow-x-auto hide-scrollbar" style={{ WebkitOverflowScrolling: "touch" }}>
-            <table className="w-full" style={{ minWidth: (userTeam && rosterStatus === "free_agents" ? 24 : 0) + 120 + activeCats.length * 48 + "px" }}>
+            <table className="w-full" style={{ minWidth: (userTeam && rosterStatus === "free_agents" ? 24 : 0) + 120 + (statView === "adp" ? 56 : activeCats.length * 48) + "px" }}>
               <thead>
                 <tr className="border-b border-gray-700">
                   {userTeam && rosterStatus === "free_agents" && <th className="w-[24px]" />}
                   <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 pl-1 w-[120px]">Player</th>
-                  {activeCats.map(cat => (
-                    <th key={cat} className="text-center text-[10px] text-gray-400 font-semibold uppercase pb-1.5 w-[48px]">{cat}</th>
-                  ))}
+                  {statView === "adp" ? (
+                    <th className="text-center text-[10px] text-gray-400 font-semibold uppercase pb-1.5 w-[56px]">ADP</th>
+                  ) : (
+                    activeCats.map(cat => (
+                      <th key={cat} className="text-center text-[10px] text-gray-400 font-semibold uppercase pb-1.5 w-[48px]">{cat}</th>
+                    ))
+                  )}
                 </tr>
               </thead>
               <tbody>
-                {data.players.map(player => (
+                {(data.players as PlayerWithAdp[]).map(player => (
                   <tr key={player.id} className="border-b border-gray-800/40 hover:bg-white/[0.02]">
                     {userTeam && rosterStatus === "free_agents" && (
                       <td className="py-1.5">
@@ -383,11 +411,17 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
                         <span className="text-[10px] text-gray-500">{player.teamAbbreviation || player.team}</span>
                       </div>
                     </td>
-                    {activeCats.map(cat => (
-                      <td key={cat} className="text-center py-1.5">
-                        <span className="text-white text-[11px]">{getStatValue(player, cat)}</span>
+                    {statView === "adp" ? (
+                      <td className="text-center py-1.5">
+                        <span className="text-white text-[11px]">{player.adpValue && player.adpValue < 9999 ? player.adpValue : "-"}</span>
                       </td>
-                    ))}
+                    ) : (
+                      activeCats.map(cat => (
+                        <td key={cat} className="text-center py-1.5">
+                          <span className="text-white text-[11px]">{getStatValue(player, cat)}</span>
+                        </td>
+                      ))
+                    )}
                   </tr>
                 ))}
               </tbody>
