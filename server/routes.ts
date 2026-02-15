@@ -4,6 +4,32 @@ import { storage } from "./storage";
 import { insertLeagueSchema, insertTeamSchema, insertUserSchema, insertDraftPickSchema, type Player } from "@shared/schema";
 import { computeRotoStandings } from "./roto-scoring";
 
+function getWaiverExpirationPST(): string {
+  const now = new Date();
+  const targetLA = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
+
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Los_Angeles",
+    year: "numeric", month: "2-digit", day: "2-digit",
+  });
+  const parts = formatter.formatToParts(targetLA);
+  const get = (type: string) => parts.find(p => p.type === type)?.value || "0";
+  const year = parseInt(get("year"));
+  const month = parseInt(get("month")) - 1;
+  const day = parseInt(get("day"));
+
+  const guess = new Date(Date.UTC(year, month, day, 8, 0, 0, 0));
+  const checkHour = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Los_Angeles",
+    hour: "2-digit", hour12: false,
+  });
+  const h = parseInt(checkHour.format(guess));
+  if (h !== 0) {
+    guess.setUTCHours(guess.getUTCHours() - h);
+  }
+  return guess.toISOString();
+}
+
 async function recalculateAdpForLeague(league: { type: string | null; scoringFormat: string | null; createdAt: Date | null }) {
   const leagueType = league.type || "Redraft";
   const scoringFormat = league.scoringFormat || "Roto";
@@ -1024,15 +1050,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const droppedPlayerId = dropPick.playerId;
       await storage.dropPlayerFromTeam(dropPickId);
 
-      const now = new Date();
-      const expiresAt = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
       await storage.createWaiver({
         leagueId,
         playerId: droppedPlayerId,
         droppedByTeamId: userTeam.id,
-        waiverExpiresAt: expiresAt.toISOString(),
+        waiverExpiresAt: getWaiverExpirationPST(),
         status: "active",
-        createdAt: now.toISOString(),
+        createdAt: new Date().toISOString(),
       });
 
       const pick = await storage.addPlayerToTeam(leagueId, userTeam.id, addPlayerId, rosterSlot);
@@ -1063,15 +1087,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const droppedPlayerId = pick.playerId;
       await storage.dropPlayerFromTeam(pickId);
 
-      const now = new Date();
-      const expiresAt = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
       await storage.createWaiver({
         leagueId,
         playerId: droppedPlayerId,
         droppedByTeamId: userTeam.id,
-        waiverExpiresAt: expiresAt.toISOString(),
+        waiverExpiresAt: getWaiverExpirationPST(),
         status: "active",
-        createdAt: now.toISOString(),
+        createdAt: new Date().toISOString(),
       });
 
       res.json({ message: "Player dropped successfully — on waivers for 2 days" });
