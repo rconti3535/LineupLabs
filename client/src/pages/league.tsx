@@ -1349,6 +1349,36 @@ export default function LeaguePage() {
                                 </tr>
                               );
                             })}
+                            {benchPosEntries.map(entry => {
+                              const p = entry.player as Record<string, unknown> | null;
+                              return (
+                                <tr key={entry.slotIndex} className={getRowClass(entry.slotIndex)} onClick={() => swapTargets.includes(entry.slotIndex) ? handleSwapSelect(entry.slotIndex) : undefined}>
+                                  <td className="py-1.5 pl-1">
+                                    <button
+                                      onClick={() => handleSwapSelect(entry.slotIndex)}
+                                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors ${
+                                        selectedSwapIndex === entry.slotIndex 
+                                          ? "bg-blue-600 text-white" 
+                                          : swapTargets.includes(entry.slotIndex)
+                                            ? "bg-green-600 text-white animate-pulse"
+                                            : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                                      }`}
+                                    >
+                                      {entry.slotPos}
+                                    </button>
+                                  </td>
+                                  <td className="py-1.5 pr-2">
+                                    <div className="cursor-pointer" onClick={() => isDraftCompleted && p && handleSwapSelect(entry.slotIndex)}>
+                                      <p className="text-white text-xs font-medium truncate max-w-[130px]">{p?.name as string}</p>
+                                      <p className="text-gray-500 text-[10px]">{p?.position as string} — {(p?.teamAbbreviation || p?.team) as string}</p>
+                                    </div>
+                                  </td>
+                                  {leagueHittingCats.map(stat => (
+                                    <td key={stat} className={`${STAT_COL} text-gray-500 opacity-60`}>{p ? (p[`stat${stat}`] as string ?? "-") : "-"}</td>
+                                  ))}
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>
@@ -1405,97 +1435,43 @@ export default function LeaguePage() {
                                 </tr>
                               );
                             })}
+                            {benchPitchEntries.map(entry => {
+                              const p = entry.player as Record<string, unknown> | null;
+                              return (
+                                <tr key={entry.slotIndex} className={getRowClass(entry.slotIndex)} onClick={() => swapTargets.includes(entry.slotIndex) ? handleSwapSelect(entry.slotIndex) : undefined}>
+                                  <td className="py-1.5 pl-1">
+                                    <button
+                                      onClick={() => handleSwapSelect(entry.slotIndex)}
+                                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors ${
+                                        selectedSwapIndex === entry.slotIndex 
+                                          ? "bg-blue-600 text-white" 
+                                          : swapTargets.includes(entry.slotIndex)
+                                            ? "bg-green-600 text-white animate-pulse"
+                                            : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                                      }`}
+                                    >
+                                      {entry.slotPos}
+                                    </button>
+                                  </td>
+                                  <td className="py-1.5 pr-2">
+                                    <div className="cursor-pointer" onClick={() => isDraftCompleted && p && handleSwapSelect(entry.slotIndex)}>
+                                      <p className="text-white text-xs font-medium truncate max-w-[130px]">{p?.name as string}</p>
+                                      <p className="text-gray-500 text-[10px]">{p?.position as string} — {(p?.teamAbbreviation || p?.team) as string}</p>
+                                    </div>
+                                  </td>
+                                  {leaguePitchingCats.map(stat => (
+                                    <td key={stat} className={`${STAT_COL} text-gray-500 opacity-60`}>{p ? (p[`stat${stat}`] as string ?? "-") : "-"}</td>
+                                  ))}
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>
                     </div>
                   )}
 
-                  {(benchPosEntries.length > 0 || benchPitchEntries.length > 0 || emptyBenchEntries.length > 0) && (
-                    <div className="space-y-5">
-                      {benchPosEntries.length > 0 && (
-                        <div>
-                          <div className="overflow-x-auto hide-scrollbar -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
-                            <table className="w-full" style={{ minWidth: Math.max(300, 200 + leagueHittingCats.length * 52) + "px" }}>
-                              <tbody>
-                                {benchPosEntries.map(entry => {
-                                  const p = entry.player as Record<string, unknown> | null;
-                                  return (
-                                    <tr key={entry.slotIndex} className={getRowClass(entry.slotIndex)} onClick={() => swapTargets.includes(entry.slotIndex) ? handleSwapSelect(entry.slotIndex) : undefined}>
-                                      <td className="py-1.5 pl-1">
-                                        <button
-                                          onClick={() => handleSwapSelect(entry.slotIndex)}
-                                          className={`text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors ${
-                                            selectedSwapIndex === entry.slotIndex 
-                                              ? "bg-blue-600 text-white" 
-                                              : swapTargets.includes(entry.slotIndex)
-                                                ? "bg-green-600 text-white animate-pulse"
-                                                : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                                          }`}
-                                        >
-                                          {entry.slotPos}
-                                        </button>
-                                      </td>
-                                      <td className="py-1.5 pr-2">
-                                        <div className="cursor-pointer" onClick={() => isDraftCompleted && p && handleSwapSelect(entry.slotIndex)}>
-                                          <p className="text-white text-xs font-medium truncate max-w-[130px]">{p?.name as string}</p>
-                                          <p className="text-gray-500 text-[10px]">{p?.position as string} — {(p?.teamAbbreviation || p?.team) as string}</p>
-                                        </div>
-                                      </td>
-                                      {leagueHittingCats.map(stat => (
-                                        <td key={stat} className={`${STAT_COL} text-gray-500 opacity-60`}>{p ? (p[`stat${stat}`] as string ?? "-") : "-"}</td>
-                                      ))}
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      )}
-
-                      {benchPitchEntries.length > 0 && (
-                        <div>
-                          <div className="overflow-x-auto hide-scrollbar -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
-                            <table className="w-full" style={{ minWidth: Math.max(300, 200 + leaguePitchingCats.length * 52) + "px" }}>
-                              <tbody>
-                                {benchPitchEntries.map(entry => {
-                                  const p = entry.player as Record<string, unknown> | null;
-                                  return (
-                                    <tr key={entry.slotIndex} className={getRowClass(entry.slotIndex)} onClick={() => swapTargets.includes(entry.slotIndex) ? handleSwapSelect(entry.slotIndex) : undefined}>
-                                      <td className="py-1.5 pl-1">
-                                        <button
-                                          onClick={() => handleSwapSelect(entry.slotIndex)}
-                                          className={`text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors ${
-                                            selectedSwapIndex === entry.slotIndex 
-                                              ? "bg-blue-600 text-white" 
-                                              : swapTargets.includes(entry.slotIndex)
-                                                ? "bg-green-600 text-white animate-pulse"
-                                                : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                                          }`}
-                                        >
-                                          {entry.slotPos}
-                                        </button>
-                                      </td>
-                                      <td className="py-1.5 pr-2">
-                                        <div className="cursor-pointer" onClick={() => isDraftCompleted && p && handleSwapSelect(entry.slotIndex)}>
-                                          <p className="text-white text-xs font-medium truncate max-w-[130px]">{p?.name as string}</p>
-                                          <p className="text-gray-500 text-[10px]">{p?.position as string} — {(p?.teamAbbreviation || p?.team) as string}</p>
-                                        </div>
-                                      </td>
-                                      {leaguePitchingCats.map(stat => (
-                                        <td key={stat} className={`${STAT_COL} text-gray-500 opacity-60`}>{p ? (p[`stat${stat}`] as string ?? "-") : "-"}</td>
-                                      ))}
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      )}
-
-                      {emptyBenchEntries.length > 0 && (
+                  {emptyBenchEntries.length > 0 && (
                         <div className="space-y-1">
                           {emptyBenchEntries.map(entry => {
                             const isTarget = swapTargets.includes(entry.slotIndex);
@@ -1527,8 +1503,6 @@ export default function LeaguePage() {
                             );
                           })}
                         </div>
-                      )}
-                    </div>
                   )}
                 </div>
               </div>
