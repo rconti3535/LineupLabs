@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
@@ -7,13 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Users, Trophy, Calendar, TrendingUp, Pencil, Trash2, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Users, Trophy, Calendar, TrendingUp, Pencil, Trash2, AlertTriangle, ArrowUpDown } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { League, Team, DraftPick, Player } from "@shared/schema";
-import { assignPlayersToRoster } from "@/lib/roster-utils";
+import { assignPlayersToRosterWithPicks, getSwapTargets, type RosterEntry } from "@/lib/roster-utils";
 
 type Tab = "roster" | "standings" | "settings";
 
@@ -37,6 +37,8 @@ export default function LeaguePage() {
   const [editSecondsPerPick, setEditSecondsPerPick] = useState("");
   const [editDraftOrder, setEditDraftOrder] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [selectedSwapIndex, setSelectedSwapIndex] = useState<number | null>(null);
+  const [swapTargets, setSwapTargets] = useState<number[]>([]);
   const { toast } = useToast();
 
   const { data: league, isLoading: leagueLoading } = useQuery<League>({
@@ -91,6 +93,73 @@ export default function LeaguePage() {
       return results.filter(Boolean) as Player[];
     },
     enabled: myPickPlayerIds.length > 0,
+  });
+
+  const initRosterMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", `/api/leagues/${leagueId}/init-roster-slots`, { userId: user?.id });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "draft-picks"] });
+    },
+  });
+
+  const rosterSlots = league?.rosterPositions || [];
+  const rosterEntries = assignPlayersToRosterWithPicks(rosterSlots, myRosteredPlayers, myPicks);
+
+  const needsInit = league?.draftStatus === "completed" && myPicks.length > 0 && !myPicks.some(p => p.rosterSlot !== null && p.rosterSlot !== undefined);
+
+  useEffect(() => {
+    if (needsInit && !initRosterMutation.isPending) {
+      initRosterMutation.mutate();
+    }
+  }, [needsInit]);
+
+  const handleSwapSelect = (index: number) => {
+    if (selectedSwapIndex === null) {
+      const targets = getSwapTargets(rosterEntries, index, rosterSlots);
+      if (targets.length === 0) {
+        toast({ title: "No valid swap targets", description: "This player cannot be moved to any other slot.", variant: "destructive" });
+        return;
+      }
+      setSelectedSwapIndex(index);
+      setSwapTargets(targets);
+    } else if (selectedSwapIndex === index) {
+      setSelectedSwapIndex(null);
+      setSwapTargets([]);
+    } else if (swapTargets.includes(index)) {
+      const entryA = rosterEntries[selectedSwapIndex];
+      const entryB = rosterEntries[index];
+      swapMutation.mutate({
+        pickIdA: entryA.pickId!,
+        slotA: selectedSwapIndex,
+        pickIdB: entryB.pickId,
+        slotB: index,
+      });
+    } else {
+      setSelectedSwapIndex(null);
+      setSwapTargets([]);
+    }
+  };
+
+  const swapMutation = useMutation({
+    mutationFn: async (data: { pickIdA: number; slotA: number; pickIdB: number | null; slotB: number }) => {
+      await apiRequest("POST", `/api/leagues/${leagueId}/roster-swap`, {
+        userId: user?.id,
+        ...data,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "draft-picks"] });
+      setSelectedSwapIndex(null);
+      setSwapTargets([]);
+      toast({ title: "Roster updated" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Swap failed", description: error.message, variant: "destructive" });
+      setSelectedSwapIndex(null);
+      setSwapTargets([]);
+    },
   });
 
   const deleteMutation = useMutation({
@@ -311,31 +380,65 @@ export default function LeaguePage() {
           ) : null}
 
           {myTeam ? (() => {
-            const rosterSlots = league.rosterPositions || [];
-            const assignment = assignPlayersToRoster(rosterSlots, myRosteredPlayers);
             const isPitcherSlot = (s: string) => s === "SP" || s === "RP";
-            const posSlots: { pos: string; index: number }[] = [];
-            const pitchSlots: { pos: string; index: number }[] = [];
-            const benchSlots: { pos: string; index: number }[] = [];
-            rosterSlots.forEach((pos, index) => {
-              if (pos === "BN" || pos === "IL") benchSlots.push({ pos, index });
-              else if (isPitcherSlot(pos)) pitchSlots.push({ pos, index });
-              else posSlots.push({ pos, index });
-            });
+            const posEntries = rosterEntries.filter(e => !isPitcherSlot(e.slotPos) && e.slotPos !== "BN" && e.slotPos !== "IL");
+            const pitchEntries = rosterEntries.filter(e => isPitcherSlot(e.slotPos));
+            const benchEntries = rosterEntries.filter(e => e.slotPos === "BN" || e.slotPos === "IL");
+            const isDraftCompleted = league.draftStatus === "completed";
 
             const STAT_COL = "w-[42px] text-center text-[11px] shrink-0";
 
+            const getRowClass = (idx: number) => {
+              if (selectedSwapIndex === idx) return "border-b border-blue-500/50 bg-blue-900/30";
+              if (swapTargets.includes(idx)) return "border-b border-green-500/30 bg-green-900/20 cursor-pointer";
+              return "border-b border-gray-800/50";
+            };
+
+            const renderSwapButton = (entry: RosterEntry) => {
+              if (!isDraftCompleted || !entry.player) return null;
+              const idx = entry.slotIndex;
+              const isSelected = selectedSwapIndex === idx;
+              const isTarget = swapTargets.includes(idx);
+              return (
+                <button
+                  onClick={() => handleSwapSelect(idx)}
+                  className={`w-5 h-5 rounded flex items-center justify-center shrink-0 transition-colors ${
+                    isSelected ? "bg-blue-600 text-white" : isTarget ? "bg-green-600 text-white animate-pulse" : "bg-gray-700/50 text-gray-400 hover:bg-gray-600 hover:text-gray-200"
+                  }`}
+                  title={isSelected ? "Cancel swap" : isTarget ? "Swap here" : "Swap player"}
+                >
+                  <ArrowUpDown className="w-3 h-3" />
+                </button>
+              );
+            };
+
             return (
               <Card className="gradient-card rounded-xl p-4 border-0 overflow-hidden">
-                <h3 className="text-white font-semibold mb-3">{myTeam.name}</h3>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-white font-semibold">{myTeam.name}</h3>
+                  {selectedSwapIndex !== null && (
+                    <Button
+                      onClick={() => { setSelectedSwapIndex(null); setSwapTargets([]); }}
+                      variant="ghost"
+                      size="sm"
+                      className="text-gray-400 hover:text-white h-7 px-2 text-xs"
+                    >
+                      Cancel Swap
+                    </Button>
+                  )}
+                </div>
+                {selectedSwapIndex !== null && (
+                  <p className="text-blue-400 text-xs mb-3">Tap a highlighted slot to swap players</p>
+                )}
                 <div className="space-y-5">
-                  {posSlots.length > 0 && (
+                  {posEntries.length > 0 && (
                     <div>
                       <p className="text-gray-400 text-[11px] uppercase font-bold tracking-wider mb-2">Position Players</p>
                       <div className="overflow-x-auto hide-scrollbar -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
                         <table className="w-full" style={{ minWidth: "460px" }}>
                           <thead>
                             <tr className="border-b border-gray-700">
+                              {isDraftCompleted && <th className="w-6 pb-1.5"></th>}
                               <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-9 pl-1">Pos</th>
                               <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[140px]">Player</th>
                               <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>R</th>
@@ -346,12 +449,13 @@ export default function LeaguePage() {
                             </tr>
                           </thead>
                           <tbody>
-                            {posSlots.map(slot => {
-                              const p = assignment[slot.index] || null;
+                            {posEntries.map(entry => {
+                              const p = entry.player;
                               return (
-                                <tr key={slot.index} className="border-b border-gray-800/50">
+                                <tr key={entry.slotIndex} className={getRowClass(entry.slotIndex)} onClick={() => swapTargets.includes(entry.slotIndex) ? handleSwapSelect(entry.slotIndex) : undefined}>
+                                  {isDraftCompleted && <td className="py-1.5 pl-1">{renderSwapButton(entry)}</td>}
                                   <td className="py-1.5 pl-1">
-                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-700 text-gray-300">{slot.pos}</span>
+                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-700 text-gray-300">{entry.slotPos}</span>
                                   </td>
                                   <td className="py-1.5 pr-2">
                                     {p ? (
@@ -377,13 +481,14 @@ export default function LeaguePage() {
                     </div>
                   )}
 
-                  {pitchSlots.length > 0 && (
+                  {pitchEntries.length > 0 && (
                     <div>
                       <p className="text-gray-400 text-[11px] uppercase font-bold tracking-wider mb-2">Pitchers</p>
                       <div className="overflow-x-auto hide-scrollbar -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
                         <table className="w-full" style={{ minWidth: "460px" }}>
                           <thead>
                             <tr className="border-b border-gray-700">
+                              {isDraftCompleted && <th className="w-6 pb-1.5"></th>}
                               <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-9 pl-1">Pos</th>
                               <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[140px]">Player</th>
                               <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>W</th>
@@ -394,12 +499,13 @@ export default function LeaguePage() {
                             </tr>
                           </thead>
                           <tbody>
-                            {pitchSlots.map(slot => {
-                              const p = assignment[slot.index] || null;
+                            {pitchEntries.map(entry => {
+                              const p = entry.player;
                               return (
-                                <tr key={slot.index} className="border-b border-gray-800/50">
+                                <tr key={entry.slotIndex} className={getRowClass(entry.slotIndex)} onClick={() => swapTargets.includes(entry.slotIndex) ? handleSwapSelect(entry.slotIndex) : undefined}>
+                                  {isDraftCompleted && <td className="py-1.5 pl-1">{renderSwapButton(entry)}</td>}
                                   <td className="py-1.5 pl-1">
-                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-700 text-gray-300">{slot.pos}</span>
+                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-700 text-gray-300">{entry.slotPos}</span>
                                   </td>
                                   <td className="py-1.5 pr-2">
                                     {p ? (
@@ -425,15 +531,24 @@ export default function LeaguePage() {
                     </div>
                   )}
 
-                  {benchSlots.length > 0 && (
+                  {benchEntries.length > 0 && (
                     <div>
-                      <p className="text-gray-400 text-[11px] uppercase font-bold tracking-wider mb-2">Bench / IL</p>
+                      <p className="text-gray-400 text-[11px] uppercase font-bold tracking-wider mb-2">Bench / IL <span className="text-gray-500 font-normal normal-case">(no scoring)</span></p>
                       <div className="space-y-1">
-                        {benchSlots.map(slot => {
-                          const p = assignment[slot.index] || null;
+                        {benchEntries.map(entry => {
+                          const p = entry.player;
+                          const isTarget = swapTargets.includes(entry.slotIndex);
+                          const isSelected = selectedSwapIndex === entry.slotIndex;
                           return (
-                            <div key={slot.index} className="flex items-center gap-2 py-1.5">
-                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-700 text-gray-300 shrink-0">{slot.pos}</span>
+                            <div
+                              key={entry.slotIndex}
+                              className={`flex items-center gap-2 py-1.5 rounded px-1 transition-colors ${
+                                isSelected ? "bg-blue-900/30 ring-1 ring-blue-500/50" : isTarget ? "bg-green-900/20 ring-1 ring-green-500/30 cursor-pointer" : ""
+                              }`}
+                              onClick={() => isTarget ? handleSwapSelect(entry.slotIndex) : undefined}
+                            >
+                              {isDraftCompleted && renderSwapButton(entry)}
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-700 text-gray-300 shrink-0">{entry.slotPos}</span>
                               {p ? (
                                 <div className="min-w-0">
                                   <p className="text-white text-xs font-medium truncate">{p.name}</p>

@@ -53,6 +53,11 @@ export interface IStorage {
   getPlayerAdp(playerId: number, leagueType: string, scoringFormat: string, season: number): Promise<PlayerAdp | undefined>;
   getCompletedLeaguesByType(leagueType: string, scoringFormat: string, season: number): Promise<League[]>;
 
+  // Roster management
+  swapRosterSlots(leagueId: number, teamId: number, pickIdA: number, slotA: number, pickIdB: number | null, slotB: number): Promise<void>;
+  setRosterSlot(pickId: number, slot: number): Promise<void>;
+  getDraftPickById(id: number): Promise<DraftPick | undefined>;
+
   // Active drafts
   getActiveDraftLeagues(): Promise<League[]>;
 
@@ -438,6 +443,22 @@ export class DatabaseStorage implements IStorage {
       )
     );
     return record || undefined;
+  }
+
+  async getDraftPickById(id: number): Promise<DraftPick | undefined> {
+    const [pick] = await db.select().from(draftPicks).where(eq(draftPicks.id, id));
+    return pick || undefined;
+  }
+
+  async setRosterSlot(pickId: number, slot: number): Promise<void> {
+    await db.update(draftPicks).set({ rosterSlot: slot }).where(eq(draftPicks.id, pickId));
+  }
+
+  async swapRosterSlots(leagueId: number, teamId: number, pickIdA: number, slotA: number, pickIdB: number | null, slotB: number): Promise<void> {
+    await db.update(draftPicks).set({ rosterSlot: slotB }).where(eq(draftPicks.id, pickIdA));
+    if (pickIdB !== null) {
+      await db.update(draftPicks).set({ rosterSlot: slotA }).where(eq(draftPicks.id, pickIdB));
+    }
   }
 
   async getActiveDraftLeagues(): Promise<League[]> {

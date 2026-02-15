@@ -1,4 +1,4 @@
-import type { Player } from "@shared/schema";
+import type { Player, DraftPick } from "@shared/schema";
 
 function canFitSlot(playerPosition: string, slotPosition: string): boolean {
   if (slotPosition === "BN" || slotPosition === "IL") return true;
@@ -67,4 +67,107 @@ export function assignPlayersToRoster(
   }
 
   return assigned;
+}
+
+export interface RosterEntry {
+  player: Player | null;
+  pickId: number | null;
+  slotIndex: number;
+  slotPos: string;
+}
+
+export function assignPlayersToRosterWithPicks(
+  rosterPositions: string[],
+  players: Player[],
+  picks: DraftPick[]
+): RosterEntry[] {
+  const result: RosterEntry[] = rosterPositions.map((pos, i) => ({
+    player: null,
+    pickId: null,
+    slotIndex: i,
+    slotPos: pos,
+  }));
+
+  const playerMap = new Map<number, Player>();
+  players.forEach(p => playerMap.set(p.id, p));
+
+  const picksByPlayerId = new Map<number, DraftPick>();
+  picks.forEach(p => picksByPlayerId.set(p.playerId, p));
+
+  const hasPersistedSlots = picks.some(p => p.rosterSlot !== null && p.rosterSlot !== undefined);
+
+  if (hasPersistedSlots) {
+    const usedSlots = new Set<number>();
+    const unassignedPicks: DraftPick[] = [];
+
+    for (const pick of picks) {
+      if (pick.rosterSlot !== null && pick.rosterSlot !== undefined && pick.rosterSlot < rosterPositions.length) {
+        const player = playerMap.get(pick.playerId);
+        if (player && !usedSlots.has(pick.rosterSlot)) {
+          result[pick.rosterSlot].player = player;
+          result[pick.rosterSlot].pickId = pick.id;
+          usedSlots.add(pick.rosterSlot);
+        } else {
+          unassignedPicks.push(pick);
+        }
+      } else {
+        unassignedPicks.push(pick);
+      }
+    }
+
+    for (const pick of unassignedPicks) {
+      const player = playerMap.get(pick.playerId);
+      if (!player) continue;
+      for (let i = 0; i < rosterPositions.length; i++) {
+        if (usedSlots.has(i)) continue;
+        if (canFitSlot(player.position, rosterPositions[i])) {
+          result[i].player = player;
+          result[i].pickId = pick.id;
+          usedSlots.add(i);
+          break;
+        }
+      }
+    }
+  } else {
+    const assigned = assignPlayersToRoster(rosterPositions, players);
+    for (let i = 0; i < assigned.length; i++) {
+      const player = assigned[i];
+      if (player) {
+        result[i].player = player;
+        const pick = picksByPlayerId.get(player.id);
+        result[i].pickId = pick ? pick.id : null;
+      }
+    }
+  }
+
+  return result;
+}
+
+export function getSwapTargets(
+  rosterEntries: RosterEntry[],
+  fromIndex: number,
+  rosterPositions: string[]
+): number[] {
+  const entry = rosterEntries[fromIndex];
+  if (!entry || !entry.player) return [];
+
+  const sourcePlayer = entry.player;
+  const targets: number[] = [];
+
+  for (let i = 0; i < rosterEntries.length; i++) {
+    if (i === fromIndex) continue;
+    const targetSlotPos = rosterPositions[i];
+    const targetPlayer = rosterEntries[i].player;
+
+    if (!canFitSlot(sourcePlayer.position, targetSlotPos)) continue;
+
+    if (targetPlayer) {
+      const sourceSlotPos = rosterPositions[fromIndex];
+      if (!canFitSlot(targetPlayer.position, sourceSlotPos)) continue;
+    }
+
+    targets.push(i);
+  }
+
+  return targets;
 }

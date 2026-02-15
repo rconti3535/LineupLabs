@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertLeagueSchema, insertTeamSchema, insertUserSchema, insertDraftPickSchema } from "@shared/schema";
+import { insertLeagueSchema, insertTeamSchema, insertUserSchema, insertDraftPickSchema, type Player } from "@shared/schema";
 
 async function recalculateAdpForLeague(league: { type: string | null; scoringFormat: string | null; createdAt: Date | null }) {
   const leagueType = league.type || "Redraft";
@@ -674,6 +674,161 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json({ pick, player: selectedPlayer });
     } catch (error) {
       res.status(500).json({ message: "Failed to auto-pick" });
+    }
+  });
+
+  // Swap roster slots (substitute players)
+  app.post("/api/leagues/:id/roster-swap", async (req, res) => {
+    try {
+      const leagueId = parseInt(req.params.id);
+      const { userId, pickIdA, slotA, pickIdB, slotB } = req.body;
+      if (!userId || pickIdA === undefined || slotA === undefined || slotB === undefined) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      const league = await storage.getLeague(leagueId);
+      if (!league) return res.status(404).json({ message: "League not found" });
+
+      const leagueTeams = await storage.getTeamsByLeagueId(leagueId);
+      const userTeam = leagueTeams.find(t => t.userId === userId);
+      if (!userTeam) return res.status(403).json({ message: "You don't have a team in this league" });
+
+      const rosterPositions = league.rosterPositions || [];
+      if (slotA < 0 || slotA >= rosterPositions.length || slotB < 0 || slotB >= rosterPositions.length) {
+        return res.status(400).json({ message: "Invalid roster slot index" });
+      }
+
+      const pickA = await storage.getDraftPickById(pickIdA);
+      if (!pickA || pickA.teamId !== userTeam.id || pickA.leagueId !== leagueId) {
+        return res.status(403).json({ message: "Invalid pick" });
+      }
+
+      const playerA = await storage.getPlayer(pickA.playerId);
+      if (!playerA) return res.status(404).json({ message: "Player not found" });
+
+      const targetSlotPos = rosterPositions[slotB];
+      const sourceSlotPos = rosterPositions[slotA];
+
+      const canFit = (playerPos: string, slotPos: string): boolean => {
+        if (slotPos === "BN" || slotPos === "IL") return true;
+        if (slotPos === "UTIL") return !["SP", "RP"].includes(playerPos);
+        if (slotPos === "OF") return ["OF", "LF", "CF", "RF"].includes(playerPos);
+        return playerPos === slotPos;
+      };
+
+      if (!canFit(playerA.position, targetSlotPos)) {
+        return res.status(400).json({ message: `${playerA.name} (${playerA.position}) cannot play ${targetSlotPos}` });
+      }
+
+      if (pickIdB !== null && pickIdB !== undefined) {
+        const pickB = await storage.getDraftPickById(pickIdB);
+        if (!pickB || pickB.teamId !== userTeam.id || pickB.leagueId !== leagueId) {
+          return res.status(403).json({ message: "Invalid target pick" });
+        }
+        const playerB = await storage.getPlayer(pickB.playerId);
+        if (!playerB) return res.status(404).json({ message: "Target player not found" });
+
+        if (!canFit(playerB.position, sourceSlotPos)) {
+          return res.status(400).json({ message: `${playerB.name} (${playerB.position}) cannot play ${sourceSlotPos}` });
+        }
+
+        await storage.swapRosterSlots(leagueId, userTeam.id, pickIdA, slotA, pickIdB, slotB);
+      } else {
+        await storage.swapRosterSlots(leagueId, userTeam.id, pickIdA, slotA, null, slotB);
+      }
+
+      res.json({ message: "Roster swap successful" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to swap roster slots" });
+    }
+  });
+
+  // Initialize roster slots after draft completes
+  app.post("/api/leagues/:id/init-roster-slots", async (req, res) => {
+    try {
+      const leagueId = parseInt(req.params.id);
+      const { userId } = req.body;
+      if (!userId) return res.status(400).json({ message: "userId is required" });
+
+      const league = await storage.getLeague(leagueId);
+      if (!league) return res.status(404).json({ message: "League not found" });
+
+      const leagueTeams = await storage.getTeamsByLeagueId(leagueId);
+      const userTeam = leagueTeams.find(t => t.userId === userId);
+      if (!userTeam) return res.status(403).json({ message: "No team in this league" });
+
+      const picks = await storage.getDraftPicksByLeague(leagueId);
+      const myPicks = picks.filter(p => p.teamId === userTeam.id);
+
+      const alreadyInitialized = myPicks.some(p => p.rosterSlot !== null);
+      if (alreadyInitialized) {
+        return res.json({ message: "Already initialized" });
+      }
+
+      const rosterPositions = league.rosterPositions || [];
+      const playerObjects: (Player | undefined)[] = await Promise.all(
+        myPicks.map(p => storage.getPlayer(p.playerId))
+      );
+
+      const canFitSlot = (playerPos: string, slotPos: string): boolean => {
+        if (slotPos === "BN" || slotPos === "IL") return true;
+        if (slotPos === "UTIL") return !["SP", "RP"].includes(playerPos);
+        if (slotPos === "OF") return ["OF", "LF", "CF", "RF"].includes(playerPos);
+        return playerPos === slotPos;
+      };
+
+      const assigned = new Array<number | null>(rosterPositions.length).fill(null);
+      const usedPickIndices = new Set<number>();
+
+      for (let pass = 0; pass < 4; pass++) {
+        for (let pi = 0; pi < myPicks.length; pi++) {
+          if (usedPickIndices.has(pi)) continue;
+          const player = playerObjects[pi];
+          if (!player) continue;
+
+          for (let si = 0; si < rosterPositions.length; si++) {
+            if (assigned[si] !== null) continue;
+            const slot = rosterPositions[si];
+
+            if (pass === 0) {
+              if (slot === player.position || (slot === "OF" && ["OF", "LF", "CF", "RF"].includes(player.position))) {
+                assigned[si] = pi;
+                usedPickIndices.add(pi);
+                break;
+              }
+            } else if (pass === 1) {
+              if (slot === "UTIL" && !["SP", "RP"].includes(player.position)) {
+                assigned[si] = pi;
+                usedPickIndices.add(pi);
+                break;
+              }
+            } else if (pass === 2) {
+              if (slot === "BN") {
+                assigned[si] = pi;
+                usedPickIndices.add(pi);
+                break;
+              }
+            } else if (pass === 3) {
+              if (slot === "IL") {
+                assigned[si] = pi;
+                usedPickIndices.add(pi);
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      for (let si = 0; si < rosterPositions.length; si++) {
+        const pi = assigned[si];
+        if (pi !== null) {
+          await storage.setRosterSlot(myPicks[pi].id, si);
+        }
+      }
+
+      res.json({ message: "Roster slots initialized" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to initialize roster slots" });
     }
   });
 
