@@ -1151,43 +1151,51 @@ export default function LeaguePage() {
           ) : null}
 
           {myClaimsData && myClaimsData.length > 0 && (
-            <Card className="gradient-card rounded-xl p-4 border-0 mb-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Clock className="w-4 h-4 text-yellow-400" />
-                <h3 className="text-yellow-400 font-semibold text-sm">Pending Waiver Claims</h3>
-                <span className="text-[10px] bg-yellow-400/20 text-yellow-400 px-1.5 py-0.5 rounded-full font-semibold">{myClaimsData.length}</span>
-              </div>
-              <div className="space-y-2">
-                {myClaimsData.map((claim: any) => (
-                  <div key={claim.id} className="flex items-center gap-3 bg-yellow-950/20 rounded-lg p-2.5 border border-yellow-900/30">
-                    <div className="w-7 h-7 rounded-full bg-yellow-600/20 flex items-center justify-center shrink-0">
-                      <Plus className="w-3.5 h-3.5 text-yellow-400" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white text-xs font-medium truncate">{claim.player?.name || "Unknown"}</p>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] text-blue-400">{claim.player?.position}</span>
-                        <span className="text-[10px] text-gray-500">{claim.player?.teamAbbreviation}</span>
-                        {claim.dropPlayer && (
-                          <>
-                            <span className="text-[10px] text-gray-600">•</span>
-                            <span className="text-[10px] text-red-400">Drop: {claim.dropPlayer.name}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-[10px] text-gray-400">Expires</p>
-                      <p className="text-[10px] text-yellow-400 font-medium">
-                        {claim.waiver?.waiverExpiresAt
-                          ? new Date(claim.waiver.waiverExpiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })
-                          : "—"}
-                      </p>
-                    </div>
+            <div className="mb-4">
+              <Select>
+                <SelectTrigger className="w-full bg-yellow-950/20 border-yellow-900/30 text-yellow-400 hover:bg-yellow-950/30 transition-colors h-10 px-4 rounded-xl">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4" />
+                    <span className="text-sm font-semibold">Pending Waiver Claims</span>
+                    <Badge variant="outline" className="ml-auto bg-yellow-400/20 text-yellow-400 border-yellow-400/30 text-[10px] h-5 px-1.5">
+                      {myClaimsData.length}
+                    </Badge>
                   </div>
-                ))}
-              </div>
-            </Card>
+                </SelectTrigger>
+                <SelectContent className="bg-gray-900 border-gray-800 p-2 max-h-[300px] overflow-y-auto">
+                  <div className="space-y-2">
+                    {myClaimsData.map((claim: any) => (
+                      <div key={claim.id} className="flex items-center gap-3 bg-yellow-950/20 rounded-lg p-2.5 border border-yellow-900/30">
+                        <div className="w-7 h-7 rounded-full bg-yellow-600/20 flex items-center justify-center shrink-0">
+                          <Plus className="w-3.5 h-3.5 text-yellow-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white text-xs font-medium truncate">{claim.player?.name || "Unknown"}</p>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-blue-400">{claim.player?.position}</span>
+                            <span className="text-[10px] text-gray-500">{claim.player?.teamAbbreviation}</span>
+                            {claim.dropPlayer && (
+                              <>
+                                <span className="text-[10px] text-gray-600">•</span>
+                                <span className="text-[10px] text-red-400">Drop: {claim.dropPlayer.name}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-[10px] text-gray-400">Expires</p>
+                          <p className="text-[10px] text-yellow-400 font-medium">
+                            {claim.waiver?.waiverExpiresAt
+                              ? new Date(claim.waiver.waiverExpiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                              : "—"}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </SelectContent>
+              </Select>
+            </div>
           )}
 
           {myTeam ? (() => {
