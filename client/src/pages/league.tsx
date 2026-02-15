@@ -66,6 +66,8 @@ export default function LeaguePage() {
 
   const myTeam = teams?.find((t) => t.userId === user?.id);
   const isCommissioner = league?.createdBy === user?.id;
+  const leagueHittingCats = league?.hittingCategories || ["R", "HR", "RBI", "SB", "AVG"];
+  const leaguePitchingCats = league?.pitchingCategories || ["W", "SV", "K", "ERA", "WHIP"];
 
   const { data: draftPicks = [] } = useQuery<DraftPick[]>({
     queryKey: ["/api/leagues", leagueId, "draft-picks"],
@@ -479,22 +481,20 @@ export default function LeaguePage() {
                     <div>
                       <p className="text-gray-400 text-[11px] uppercase font-bold tracking-wider mb-2">Position Players</p>
                       <div className="overflow-x-auto hide-scrollbar -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
-                        <table className="w-full" style={{ minWidth: "460px" }}>
+                        <table className="w-full" style={{ minWidth: Math.max(300, 200 + leagueHittingCats.length * 52) + "px" }}>
                           <thead>
                             <tr className="border-b border-gray-700">
                               {isDraftCompleted && <th className="w-6 pb-1.5"></th>}
                               <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-9 pl-1">Pos</th>
                               <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[140px]">Player</th>
-                              <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>R</th>
-                              <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>HR</th>
-                              <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>RBI</th>
-                              <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>SB</th>
-                              <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>AVG</th>
+                              {leagueHittingCats.map(stat => (
+                                <th key={stat} className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>{stat}</th>
+                              ))}
                             </tr>
                           </thead>
                           <tbody>
                             {posEntries.map(entry => {
-                              const p = entry.player;
+                              const p = entry.player as Record<string, unknown> | null;
                               return (
                                 <tr key={entry.slotIndex} className={getRowClass(entry.slotIndex)} onClick={() => swapTargets.includes(entry.slotIndex) ? handleSwapSelect(entry.slotIndex) : undefined}>
                                   {isDraftCompleted && <td className="py-1.5 pl-1">{renderSwapButton(entry)}</td>}
@@ -504,18 +504,16 @@ export default function LeaguePage() {
                                   <td className="py-1.5 pr-2">
                                     {p ? (
                                       <div>
-                                        <p className="text-white text-xs font-medium truncate max-w-[130px]">{p.name}</p>
-                                        <p className="text-gray-500 text-[10px]">{p.position} — {p.teamAbbreviation || p.team}</p>
+                                        <p className="text-white text-xs font-medium truncate max-w-[130px]">{p.name as string}</p>
+                                        <p className="text-gray-500 text-[10px]">{p.position as string} — {(p.teamAbbreviation || p.team) as string}</p>
                                       </div>
                                     ) : (
                                       <p className="text-gray-600 text-xs italic">Empty</p>
                                     )}
                                   </td>
-                                  <td className={`${STAT_COL} text-gray-300`}>{p ? p.statR : "-"}</td>
-                                  <td className={`${STAT_COL} text-gray-300`}>{p ? p.statHR : "-"}</td>
-                                  <td className={`${STAT_COL} text-gray-300`}>{p ? p.statRBI : "-"}</td>
-                                  <td className={`${STAT_COL} text-gray-300`}>{p ? p.statSB : "-"}</td>
-                                  <td className={`${STAT_COL} text-gray-300`}>{p ? p.statAVG : "-"}</td>
+                                  {leagueHittingCats.map(stat => (
+                                    <td key={stat} className={`${STAT_COL} text-gray-300`}>{p ? (p[`stat${stat}`] as string ?? "-") : "-"}</td>
+                                  ))}
                                 </tr>
                               );
                             })}
@@ -529,22 +527,20 @@ export default function LeaguePage() {
                     <div>
                       <p className="text-gray-400 text-[11px] uppercase font-bold tracking-wider mb-2">Pitchers</p>
                       <div className="overflow-x-auto hide-scrollbar -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
-                        <table className="w-full" style={{ minWidth: "460px" }}>
+                        <table className="w-full" style={{ minWidth: Math.max(300, 200 + leaguePitchingCats.length * 52) + "px" }}>
                           <thead>
                             <tr className="border-b border-gray-700">
                               {isDraftCompleted && <th className="w-6 pb-1.5"></th>}
                               <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-9 pl-1">Pos</th>
                               <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[140px]">Player</th>
-                              <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>W</th>
-                              <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>SV</th>
-                              <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>K</th>
-                              <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>ERA</th>
-                              <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>WHIP</th>
+                              {leaguePitchingCats.map(stat => (
+                                <th key={stat} className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>{stat}</th>
+                              ))}
                             </tr>
                           </thead>
                           <tbody>
                             {pitchEntries.map(entry => {
-                              const p = entry.player;
+                              const p = entry.player as Record<string, unknown> | null;
                               return (
                                 <tr key={entry.slotIndex} className={getRowClass(entry.slotIndex)} onClick={() => swapTargets.includes(entry.slotIndex) ? handleSwapSelect(entry.slotIndex) : undefined}>
                                   {isDraftCompleted && <td className="py-1.5 pl-1">{renderSwapButton(entry)}</td>}
@@ -554,18 +550,16 @@ export default function LeaguePage() {
                                   <td className="py-1.5 pr-2">
                                     {p ? (
                                       <div>
-                                        <p className="text-white text-xs font-medium truncate max-w-[130px]">{p.name}</p>
-                                        <p className="text-gray-500 text-[10px]">{p.position} — {p.teamAbbreviation || p.team}</p>
+                                        <p className="text-white text-xs font-medium truncate max-w-[130px]">{p.name as string}</p>
+                                        <p className="text-gray-500 text-[10px]">{p.position as string} — {(p.teamAbbreviation || p.team) as string}</p>
                                       </div>
                                     ) : (
                                       <p className="text-gray-600 text-xs italic">Empty</p>
                                     )}
                                   </td>
-                                  <td className={`${STAT_COL} text-gray-300`}>{p ? p.statW : "-"}</td>
-                                  <td className={`${STAT_COL} text-gray-300`}>{p ? p.statSV : "-"}</td>
-                                  <td className={`${STAT_COL} text-gray-300`}>{p ? p.statK : "-"}</td>
-                                  <td className={`${STAT_COL} text-gray-300`}>{p ? p.statERA : "-"}</td>
-                                  <td className={`${STAT_COL} text-gray-300`}>{p ? p.statWHIP : "-"}</td>
+                                  {leaguePitchingCats.map(stat => (
+                                    <td key={stat} className={`${STAT_COL} text-gray-300`}>{p ? (p[`stat${stat}`] as string ?? "-") : "-"}</td>
+                                  ))}
                                 </tr>
                               );
                             })}
