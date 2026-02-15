@@ -433,13 +433,13 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
       ) : (
         <div className="flex items-center gap-2 mb-3">
           <button
-            className="w-9 h-9 flex items-center justify-center text-gray-400 hover:text-white bg-gray-800/50 border border-gray-700 rounded-md transition-colors shrink-0"
+            className="h-[34px] w-10 flex items-center justify-center text-gray-400 hover:text-white bg-gray-800/50 border border-gray-700 rounded-lg transition-colors shrink-0"
             onClick={() => setSearchExpanded(true)}
           >
             <Search className="w-4 h-4" />
           </button>
           <Select value={rosterStatus} onValueChange={(v: "free_agents" | "rostered" | "all") => setRosterStatus(v)}>
-            <SelectTrigger className="w-9 h-9 bg-gray-800/50 border-gray-700 text-white p-0 flex items-center justify-center [&>svg:last-child]:hidden">
+            <SelectTrigger className="w-10 h-[34px] bg-gray-800/50 border-gray-700 text-white p-0 flex items-center justify-center rounded-lg [&>svg:last-child]:hidden">
               <Menu className="w-4 h-4" />
             </SelectTrigger>
             <SelectContent>
@@ -448,22 +448,22 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
               <SelectItem value="all">All Players</SelectItem>
             </SelectContent>
           </Select>
-          <div className="flex bg-gray-800/60 rounded-lg p-0.5 shrink-0">
+          <div className="flex bg-gray-800/60 rounded-lg p-0.5 shrink-0 h-[34px] items-center">
             <button
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${playerType === "batters" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-gray-300"}`}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors h-full flex items-center ${playerType === "batters" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-gray-300"}`}
               onClick={() => { setPlayerType("batters"); setPositionFilter("All"); }}
             >
               Batters
             </button>
             <button
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${playerType === "pitchers" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-gray-300"}`}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors h-full flex items-center ${playerType === "pitchers" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-gray-300"}`}
               onClick={() => { setPlayerType("pitchers"); setPositionFilter("All"); }}
             >
               Pitchers
             </button>
           </div>
           <Select value={positionFilter} onValueChange={(v) => setPositionFilter(v)}>
-            <SelectTrigger className="w-[72px] h-9 bg-gray-800/50 border-gray-700 text-sm text-white">
+            <SelectTrigger className="w-[72px] h-[34px] bg-gray-800/50 border-gray-700 text-sm text-white rounded-lg">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
