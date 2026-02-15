@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Users, Trophy, Calendar, TrendingUp, Pencil, Trash2, AlertTriangle, ArrowUpDown } from "lucide-react";
+import { ArrowLeft, Users, Trophy, Calendar, TrendingUp, Pencil, Trash2, AlertTriangle, ArrowUpDown, Search, Plus, X, ChevronDown } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { League, Team, DraftPick, Player } from "@shared/schema";
 import { assignPlayersToRosterWithPicks, getSwapTargets, type RosterEntry } from "@/lib/roster-utils";
 
-type Tab = "roster" | "standings" | "settings";
+type Tab = "roster" | "players" | "standings" | "settings";
 
 interface StandingsData {
   standings: {
@@ -158,6 +158,271 @@ function StandingsTab({ leagueId, league, teamsLoading, teams }: { leagueId: num
         <span className="text-[9px] text-emerald-400 uppercase tracking-wider font-semibold">Pitching</span>
       </div>
     </Card>
+  );
+}
+
+const POSITIONS = ["All", "C", "1B", "2B", "3B", "SS", "OF", "SP", "RP", "UTIL"];
+
+function PlayersTab({ leagueId, league, user }: { leagueId: number; league: League; user: { id: number } | null }) {
+  const { toast } = useToast();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [positionFilter, setPositionFilter] = useState("All");
+  const [page, setPage] = useState(0);
+  const pageSize = 25;
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(searchQuery);
+      setPage(0);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const { data, isLoading } = useQuery<{ players: Player[]; total: number }>({
+    queryKey: ["/api/leagues", leagueId, "available-players", debouncedQuery, positionFilter, page],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (debouncedQuery) params.set("q", debouncedQuery);
+      if (positionFilter !== "All") params.set("position", positionFilter);
+      params.set("limit", String(pageSize));
+      params.set("offset", String(page * pageSize));
+      const res = await fetch(`/api/leagues/${leagueId}/available-players?${params}`);
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+  });
+
+  const { data: myPicks } = useQuery<DraftPick[]>({
+    queryKey: ["/api/leagues", leagueId, "draft-picks"],
+    queryFn: async () => {
+      const res = await fetch(`/api/leagues/${leagueId}/draft-picks`);
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+  });
+
+  const { data: leagueTeams } = useQuery<Team[]>({
+    queryKey: ["/api/teams/league", leagueId],
+    queryFn: async () => {
+      const res = await fetch(`/api/teams/league/${leagueId}`);
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+  });
+
+  const userTeam = leagueTeams?.find(t => t.userId === user?.id);
+  const myTeamPicks = myPicks?.filter(p => p.teamId === userTeam?.id) || [];
+  const rosterPositions = league.rosterPositions || [];
+  const hasOpenSlot = myTeamPicks.length < rosterPositions.length;
+
+  const addMutation = useMutation({
+    mutationFn: async (playerId: number) => {
+      const res = await apiRequest("POST", `/api/leagues/${leagueId}/add-player`, {
+        userId: user?.id,
+        playerId,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Player added to your roster" });
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "available-players"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "draft-picks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "standings"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: err.message || "Failed to add player", variant: "destructive" });
+    },
+  });
+
+  const dropMutation = useMutation({
+    mutationFn: async (pickId: number) => {
+      const res = await apiRequest("POST", `/api/leagues/${leagueId}/drop-player`, {
+        userId: user?.id,
+        pickId,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Player dropped from your roster" });
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "available-players"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "draft-picks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "standings"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: err.message || "Failed to drop player", variant: "destructive" });
+    },
+  });
+
+  const [dropConfirm, setDropConfirm] = useState<{ pickId: number; playerName: string } | null>(null);
+
+  const totalPages = data ? Math.ceil(data.total / pageSize) : 0;
+
+  return (
+    <div className="space-y-3">
+      {userTeam && myTeamPicks.length > 0 && (
+        <Card className="gradient-card rounded-xl p-4 border-0">
+          <h3 className="text-white font-semibold text-sm mb-3">My Roster</h3>
+          <div className="space-y-1.5">
+            {myTeamPicks.map(pick => {
+              const slotLabel = pick.rosterSlot !== null && pick.rosterSlot < rosterPositions.length
+                ? rosterPositions[pick.rosterSlot]
+                : "BN";
+              return (
+                <div key={pick.id} className="flex items-center justify-between py-1.5 px-2 rounded-lg sleeper-card-bg">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-[10px] font-bold text-gray-400 w-8 shrink-0">{slotLabel}</span>
+                    <PlayerName playerId={pick.playerId} />
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 text-xs shrink-0"
+                    onClick={() => {
+                      setDropConfirm({ pickId: pick.id, playerName: `Player #${pick.playerId}` });
+                    }}
+                    disabled={dropMutation.isPending}
+                  >
+                    <X className="w-3 h-3 mr-1" />
+                    Drop
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
+      <Card className="gradient-card rounded-xl p-4 border-0">
+        <h3 className="text-white font-semibold text-sm mb-3">Available Players</h3>
+        <div className="flex gap-2 mb-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
+            <Input
+              placeholder="Search players..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8 h-9 bg-gray-800/50 border-gray-700 text-sm text-white"
+            />
+          </div>
+          <Select value={positionFilter} onValueChange={(v) => { setPositionFilter(v); setPage(0); }}>
+            <SelectTrigger className="w-[80px] h-9 bg-gray-800/50 border-gray-700 text-sm text-white">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {POSITIONS.map(pos => (
+                <SelectItem key={pos} value={pos}>{pos}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {isLoading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-12 w-full rounded-lg" />
+            ))}
+          </div>
+        ) : !data || data.players.length === 0 ? (
+          <p className="text-gray-400 text-sm text-center py-6">No available players found</p>
+        ) : (
+          <>
+            <div className="text-[10px] text-gray-500 mb-2">{data.total} players available</div>
+            <div className="space-y-1">
+              {data.players.map(player => (
+                <div key={player.id} className="flex items-center justify-between py-2 px-2.5 rounded-lg sleeper-card-bg">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="min-w-0">
+                      <p className="text-white text-sm font-medium truncate">{player.name}</p>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-blue-400 font-medium">{player.position}</span>
+                        <span className="text-[10px] text-gray-500">{player.teamAbbreviation || player.team}</span>
+                      </div>
+                    </div>
+                  </div>
+                  {userTeam && (
+                    <Button
+                      size="sm"
+                      className="h-7 px-2.5 text-xs bg-green-600/20 text-green-400 hover:bg-green-600/30 border-0"
+                      onClick={() => addMutation.mutate(player.id)}
+                      disabled={addMutation.isPending || !hasOpenSlot}
+                    >
+                      <Plus className="w-3 h-3 mr-1" />
+                      Add
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-800">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-xs text-gray-400"
+                  onClick={() => setPage(p => Math.max(0, p - 1))}
+                  disabled={page === 0}
+                >
+                  Previous
+                </Button>
+                <span className="text-xs text-gray-500">{page + 1} / {totalPages}</span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-xs text-gray-400"
+                  onClick={() => setPage(p => p + 1)}
+                  disabled={page >= totalPages - 1}
+                >
+                  Next
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+      </Card>
+
+      <Dialog open={!!dropConfirm} onOpenChange={() => setDropConfirm(null)}>
+        <DialogContent className="bg-gray-900 border-gray-700">
+          <DialogHeader>
+            <DialogTitle className="text-white">Drop Player</DialogTitle>
+            <DialogDescription>Are you sure you want to drop this player? They will become available for other teams.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDropConfirm(null)} className="text-gray-400">Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (dropConfirm) {
+                  dropMutation.mutate(dropConfirm.pickId);
+                  setDropConfirm(null);
+                }
+              }}
+            >
+              Drop Player
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function PlayerName({ playerId }: { playerId: number }) {
+  const { data: player } = useQuery<Player>({
+    queryKey: ["/api/players", playerId],
+    queryFn: async () => {
+      const res = await fetch(`/api/players/${playerId}`);
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+  });
+  if (!player) return <span className="text-gray-400 text-xs">Loading...</span>;
+  return (
+    <div className="min-w-0">
+      <p className="text-white text-xs font-medium truncate">{player.name}</p>
+      <span className="text-[10px] text-blue-400">{player.position}</span>
+    </div>
   );
 }
 
@@ -496,6 +761,7 @@ export default function LeaguePage() {
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "roster", label: "Roster" },
+    { key: "players", label: "Players" },
     { key: "standings", label: "Standings" },
     { key: "settings", label: "Settings" },
   ];
@@ -761,6 +1027,8 @@ export default function LeaguePage() {
           )}
         </div>
       )}
+
+      {activeTab === "players" && <PlayersTab leagueId={leagueId!} league={league!} user={user} />}
 
       {activeTab === "standings" && <StandingsTab leagueId={leagueId!} league={league!} teamsLoading={teamsLoading} teams={teams} />}
 

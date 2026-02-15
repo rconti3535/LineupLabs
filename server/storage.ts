@@ -59,6 +59,11 @@ export interface IStorage {
   setRosterSlot(pickId: number, slot: number): Promise<void>;
   getDraftPickById(id: number): Promise<DraftPick | undefined>;
 
+  // Add/Drop
+  addPlayerToTeam(leagueId: number, teamId: number, playerId: number, rosterSlot: number): Promise<DraftPick>;
+  dropPlayerFromTeam(pickId: number): Promise<void>;
+  searchAvailablePlayers(leagueId: number, query?: string, position?: string, limit?: number, offset?: number): Promise<{ players: Player[]; total: number }>;
+
   // Active drafts
   getActiveDraftLeagues(): Promise<League[]>;
 
@@ -466,6 +471,55 @@ export class DatabaseStorage implements IStorage {
     if (pickIdB !== null) {
       await db.update(draftPicks).set({ rosterSlot: slotA }).where(eq(draftPicks.id, pickIdB));
     }
+  }
+
+  async addPlayerToTeam(leagueId: number, teamId: number, playerId: number, rosterSlot: number): Promise<DraftPick> {
+    const picks = await db.select().from(draftPicks).where(eq(draftPicks.leagueId, leagueId));
+    const maxOverall = picks.reduce((max, p) => Math.max(max, p.overallPick), 0);
+    const teamPicks = picks.filter(p => p.teamId === teamId);
+    const maxRound = teamPicks.reduce((max, p) => Math.max(max, p.round), 0);
+
+    const [pick] = await db.insert(draftPicks).values({
+      leagueId,
+      teamId,
+      playerId,
+      overallPick: maxOverall + 1,
+      round: maxRound + 1,
+      pickInRound: 1,
+      rosterSlot,
+      pickedAt: new Date(),
+    }).returning();
+    return pick;
+  }
+
+  async dropPlayerFromTeam(pickId: number): Promise<void> {
+    await db.delete(draftPicks).where(eq(draftPicks.id, pickId));
+  }
+
+  async searchAvailablePlayers(leagueId: number, query?: string, position?: string, limit = 50, offset = 0): Promise<{ players: Player[]; total: number }> {
+    const draftedIds = await this.getDraftedPlayerIds(leagueId);
+
+    const conditions: ReturnType<typeof eq>[] = [];
+    conditions.push(eq(players.mlbLevel, "MLB"));
+    if (draftedIds.length > 0) {
+      conditions.push(notInArray(players.id, draftedIds));
+    }
+    if (query) {
+      conditions.push(ilike(players.name, `%${query}%`));
+    }
+    if (position) {
+      if (position === "OF") {
+        conditions.push(inArray(players.position, ["OF", "LF", "CF", "RF"]));
+      } else {
+        conditions.push(eq(players.position, position));
+      }
+    }
+
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+    const [countResult] = await db.select({ count: sql<number>`count(*)` }).from(players).where(where);
+    const total = Number(countResult.count);
+    const result = await db.select().from(players).where(where).orderBy(players.name).limit(limit).offset(offset);
+    return { players: result, total };
   }
 
   async getActiveDraftLeagues(): Promise<League[]> {

@@ -913,6 +913,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/leagues/:id/available-players", async (req, res) => {
+    try {
+      const leagueId = parseInt(req.params.id);
+      const query = req.query.q as string | undefined;
+      const position = req.query.position as string | undefined;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
+      const result = await storage.searchAvailablePlayers(leagueId, query, position, limit, offset);
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch available players" });
+    }
+  });
+
+  app.post("/api/leagues/:id/add-player", async (req, res) => {
+    try {
+      const leagueId = parseInt(req.params.id);
+      const { userId, playerId } = req.body;
+      if (!userId || !playerId) return res.status(400).json({ message: "Missing required fields" });
+
+      const league = await storage.getLeague(leagueId);
+      if (!league) return res.status(404).json({ message: "League not found" });
+
+      const leagueTeams = await storage.getTeamsByLeagueId(leagueId);
+      const userTeam = leagueTeams.find(t => t.userId === userId);
+      if (!userTeam) return res.status(403).json({ message: "You don't have a team in this league" });
+
+      const draftedIds = await storage.getDraftedPlayerIds(leagueId);
+      if (draftedIds.includes(playerId)) return res.status(400).json({ message: "Player is already on a roster" });
+
+      const player = await storage.getPlayer(playerId);
+      if (!player) return res.status(404).json({ message: "Player not found" });
+
+      const rosterPositions = league.rosterPositions || [];
+      const picks = await storage.getDraftPicksByLeague(leagueId);
+      const teamPicks = picks.filter(p => p.teamId === userTeam.id);
+      const occupiedSlots = new Set(teamPicks.map(p => p.rosterSlot).filter(s => s !== null));
+
+      let assignedSlot: number | null = null;
+      for (let i = 0; i < rosterPositions.length; i++) {
+        if (occupiedSlots.has(i)) continue;
+        const slotPos = rosterPositions[i];
+        if (slotPos === "BN" || slotPos === "IL") {
+          assignedSlot = i;
+          break;
+        }
+      }
+
+      if (assignedSlot === null) {
+        return res.status(400).json({ message: "No open roster slots available. Drop a player first." });
+      }
+
+      const pick = await storage.addPlayerToTeam(leagueId, userTeam.id, playerId, assignedSlot);
+      res.json({ pick, player });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to add player" });
+    }
+  });
+
+  app.post("/api/leagues/:id/drop-player", async (req, res) => {
+    try {
+      const leagueId = parseInt(req.params.id);
+      const { userId, pickId } = req.body;
+      if (!userId || !pickId) return res.status(400).json({ message: "Missing required fields" });
+
+      const league = await storage.getLeague(leagueId);
+      if (!league) return res.status(404).json({ message: "League not found" });
+
+      const leagueTeams = await storage.getTeamsByLeagueId(leagueId);
+      const userTeam = leagueTeams.find(t => t.userId === userId);
+      if (!userTeam) return res.status(403).json({ message: "You don't have a team in this league" });
+
+      const pick = await storage.getDraftPickById(pickId);
+      if (!pick || pick.teamId !== userTeam.id || pick.leagueId !== leagueId) {
+        return res.status(403).json({ message: "Invalid pick" });
+      }
+
+      await storage.dropPlayerFromTeam(pickId);
+      res.json({ message: "Player dropped successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to drop player" });
+    }
+  });
+
   app.post("/api/import-stats", async (req, res) => {
     try {
       const { importSeasonStats } = await import("./import-stats");
