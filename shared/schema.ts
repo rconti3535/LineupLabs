@@ -191,6 +191,7 @@ export const waiverClaims = pgTable("waiver_claims", {
   id: serial("id").primaryKey(),
   waiverId: integer("waiver_id").references(() => waivers.id).notNull(),
   teamId: integer("team_id").references(() => teams.id).notNull(),
+  dropPickId: integer("drop_pick_id"),
   createdAt: text("created_at").notNull(),
 });
 

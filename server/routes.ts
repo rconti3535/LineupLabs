@@ -1076,10 +1076,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/leagues/:id/my-claims", async (req, res) => {
+    try {
+      const leagueId = parseInt(req.params.id);
+      const userId = parseInt(req.query.userId as string);
+      if (!userId) return res.status(400).json({ message: "Missing userId" });
+
+      const leagueTeams = await storage.getTeamsByLeagueId(leagueId);
+      const userTeam = leagueTeams.find(t => t.userId === userId);
+      if (!userTeam) return res.json([]);
+
+      const claims = await storage.getClaimsByTeam(userTeam.id);
+      const activeClaims = [];
+      for (const claim of claims) {
+        const waiver = await storage.getWaiver(claim.waiverId);
+        if (waiver && waiver.status === "active" && waiver.leagueId === leagueId) {
+          const player = await storage.getPlayer(waiver.playerId);
+          let dropPlayer = null;
+          if (claim.dropPickId) {
+            const dropPick = await storage.getDraftPickById(claim.dropPickId);
+            if (dropPick) dropPlayer = await storage.getPlayer(dropPick.playerId);
+          }
+          activeClaims.push({
+            ...claim,
+            waiver,
+            player,
+            dropPlayer,
+          });
+        }
+      }
+      res.json(activeClaims);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch claims" });
+    }
+  });
+
   app.post("/api/leagues/:id/waiver-claim", async (req, res) => {
     try {
       const leagueId = parseInt(req.params.id);
-      const { userId, playerId } = req.body;
+      const { userId, playerId, dropPickId } = req.body;
       if (!userId || !playerId) return res.status(400).json({ message: "Missing required fields" });
 
       const league = await storage.getLeague(leagueId);
@@ -1096,9 +1131,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const alreadyClaimed = existingClaims.find(c => c.teamId === userTeam.id);
       if (alreadyClaimed) return res.status(400).json({ message: "You already have a claim on this player" });
 
+      const teamPicks = await storage.getDraftPicksByLeague(leagueId);
+      const myPicks = teamPicks.filter(p => p.teamId === userTeam.id);
+      const rosterPositions = league.rosterPositions || [];
+      const hasOpenSlot = myPicks.length < rosterPositions.length;
+
+      if (!hasOpenSlot && !dropPickId) {
+        return res.status(400).json({ message: "Roster is full — select a player to drop" });
+      }
+
+      if (dropPickId) {
+        const dropPick = await storage.getDraftPickById(dropPickId);
+        if (!dropPick || dropPick.teamId !== userTeam.id || dropPick.leagueId !== leagueId) {
+          return res.status(403).json({ message: "Invalid player to drop" });
+        }
+      }
+
       const claim = await storage.createWaiverClaim({
         waiverId: waiver.id,
         teamId: userTeam.id,
+        dropPickId: dropPickId || null,
         createdAt: new Date().toISOString(),
       });
       res.json({ claim, message: "Waiver claim submitted" });
@@ -1249,10 +1301,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const claims = await storage.getClaimsForWaiver(waiver.id);
         if (claims.length > 0) {
           const winningClaim = claims[0];
-          const rosterPositions = (await storage.getLeague(waiver.leagueId))?.rosterPositions || [];
-          const benchIndex = rosterPositions.findIndex(s => s === "BN");
-          const rosterSlot = benchIndex !== -1 ? benchIndex : rosterPositions.length - 1;
-          await storage.addPlayerToTeam(waiver.leagueId, winningClaim.teamId, waiver.playerId, rosterSlot);
+          if (winningClaim.dropPickId) {
+            const dropPick = await storage.getDraftPickById(winningClaim.dropPickId);
+            if (dropPick) {
+              const rosterSlot = dropPick.rosterSlot ?? 0;
+              await storage.dropPlayerFromTeam(winningClaim.dropPickId);
+              await storage.addPlayerToTeam(waiver.leagueId, winningClaim.teamId, waiver.playerId, rosterSlot);
+            }
+          } else {
+            const rosterPositions = (await storage.getLeague(waiver.leagueId))?.rosterPositions || [];
+            const benchIndex = rosterPositions.findIndex(s => s === "BN");
+            const rosterSlot = benchIndex !== -1 ? benchIndex : rosterPositions.length - 1;
+            await storage.addPlayerToTeam(waiver.leagueId, winningClaim.teamId, waiver.playerId, rosterSlot);
+          }
           await storage.completeWaiver(waiver.id, "claimed");
         } else {
           await storage.completeWaiver(waiver.id, "cleared");

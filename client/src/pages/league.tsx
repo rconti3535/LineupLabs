@@ -290,17 +290,22 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
   const hasOpenSlot = myTeamPicks.length < rosterPositions.length;
   const rosteredPlayerIds = new Set((myPicks || []).map(p => p.playerId));
 
+  const [waiverClaimPlayer, setWaiverClaimPlayer] = useState<Player | null>(null);
+
   const claimMutation = useMutation({
-    mutationFn: async (playerId: number) => {
+    mutationFn: async ({ playerId, dropPickId }: { playerId: number; dropPickId?: number }) => {
       const res = await apiRequest("POST", `/api/leagues/${leagueId}/waiver-claim`, {
         userId: user?.id,
         playerId,
+        dropPickId,
       });
       return res.json();
     },
     onSuccess: () => {
       toast({ title: "Waiver claim submitted" });
+      setWaiverClaimPlayer(null);
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "waivers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "my-claims"] });
     },
     onError: (err: Error) => {
       toast({ title: err.message || "Failed to submit claim", variant: "destructive" });
@@ -527,7 +532,12 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
                         onClick={() => {
                           if (isRostered) return;
                           if (isOnWaivers) {
-                            claimMutation.mutate(player.id);
+                            if (hasOpenSlot) {
+                              claimMutation.mutate({ playerId: player.id });
+                            } else {
+                              setWaiverClaimPlayer(player);
+                            }
+                            return;
                           } else if (hasOpenSlot) {
                             addMutation.mutate(player.id);
                           } else {
@@ -636,6 +646,58 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
                 isPending={addDropMutation.isPending}
                 onSelect={(pickId) => {
                   addDropMutation.mutate({ addPlayerId: addDropPlayer.id, dropPickId: pickId });
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {waiverClaimPlayer && (
+        <div className="fixed inset-0 z-50 bg-gray-950 flex flex-col">
+          <div className="flex items-center gap-3 p-4 border-b border-gray-800">
+            <button onClick={() => setWaiverClaimPlayer(null)} className="text-gray-400 hover:text-white">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div className="flex-1">
+              <h2 className="text-white font-semibold text-sm">Waiver Claim</h2>
+              <p className="text-gray-400 text-xs">Select a player to drop</p>
+            </div>
+          </div>
+
+          <div className="p-4 border-b border-gray-800 bg-yellow-950/30">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[10px] text-yellow-400 font-semibold uppercase tracking-wider">Claiming (Waiver)</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-yellow-600/20 flex items-center justify-center shrink-0">
+                <Plus className="w-4 h-4 text-yellow-400" />
+              </div>
+              <div>
+                <p className="text-white text-sm font-medium">{waiverClaimPlayer.name}</p>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] text-blue-400 font-medium">{waiverClaimPlayer.position}</span>
+                  <span className="text-[11px] text-gray-500">{waiverClaimPlayer.teamAbbreviation || waiverClaimPlayer.team}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-4 pb-2">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[10px] text-red-400 font-semibold uppercase tracking-wider">Select a player to drop</span>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto hide-scrollbar px-4 pb-20">
+            {myTeamPicks.map((pick) => (
+              <AddDropRosterRow
+                key={pick.id}
+                pick={pick}
+                rosterPositions={rosterPositions}
+                isPending={claimMutation.isPending}
+                onSelect={(pickId) => {
+                  claimMutation.mutate({ playerId: waiverClaimPlayer.id, dropPickId: pickId });
                 }}
               />
             ))}

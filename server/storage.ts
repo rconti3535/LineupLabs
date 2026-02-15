@@ -73,7 +73,9 @@ export interface IStorage {
   getWaiverPlayerIds(leagueId: number): Promise<number[]>;
   createWaiverClaim(claim: InsertWaiverClaim): Promise<WaiverClaim>;
   getClaimsForWaiver(waiverId: number): Promise<WaiverClaim[]>;
+  getClaimsByTeam(teamId: number): Promise<WaiverClaim[]>;
   getExpiredWaivers(): Promise<Waiver[]>;
+  getWaiver(id: number): Promise<Waiver | undefined>;
   completeWaiver(waiverId: number, status: string): Promise<void>;
 
   // Active drafts
@@ -612,6 +614,15 @@ export class DatabaseStorage implements IStorage {
 
   async getClaimsForWaiver(waiverId: number): Promise<WaiverClaim[]> {
     return await db.select().from(waiverClaims).where(eq(waiverClaims.waiverId, waiverId));
+  }
+
+  async getClaimsByTeam(teamId: number): Promise<WaiverClaim[]> {
+    return await db.select().from(waiverClaims).where(eq(waiverClaims.teamId, teamId));
+  }
+
+  async getWaiver(id: number): Promise<Waiver | undefined> {
+    const [w] = await db.select().from(waivers).where(eq(waivers.id, id));
+    return w || undefined;
   }
 
   async getExpiredWaivers(): Promise<Waiver[]> {
