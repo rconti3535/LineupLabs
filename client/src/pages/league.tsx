@@ -232,27 +232,23 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
   const [rosterStatus, setRosterStatus] = useState<"free_agents" | "rostered" | "all">("free_agents");
   const [statView, setStatView] = useState<"adp" | "2025stats" | "2026proj" | "2026stats">("adp");
   const [searchExpanded, setSearchExpanded] = useState(false);
-  const [page, setPage] = useState(0);
-  const pageSize = 25;
 
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedQuery(searchQuery);
-      setPage(0);
     }, 300);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
   const { data, isLoading } = useQuery<{ players: Player[]; total: number }>({
-    queryKey: ["/api/leagues", leagueId, "available-players", debouncedQuery, positionFilter, playerType, rosterStatus, page],
+    queryKey: ["/api/leagues", leagueId, "available-players", debouncedQuery, positionFilter, playerType, rosterStatus],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (debouncedQuery) params.set("q", debouncedQuery);
       if (positionFilter !== "All") params.set("position", positionFilter);
       params.set("type", playerType);
       if (rosterStatus !== "all") params.set("status", rosterStatus);
-      params.set("limit", String(pageSize));
-      params.set("offset", String(page * pageSize));
+      params.set("limit", "5000");
       const res = await fetch(`/api/leagues/${leagueId}/available-players?${params}`);
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
@@ -344,7 +340,6 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
   const [dropConfirm, setDropConfirm] = useState<{ pickId: number; playerName: string } | null>(null);
   const [addDropPlayer, setAddDropPlayer] = useState<Player | null>(null);
 
-  const totalPages = data ? Math.ceil(data.total / pageSize) : 0;
 
   const hittingCats = league.hittingCategories || ["R", "HR", "RBI", "SB", "AVG"];
   const pitchingCats = league.pitchingCategories || ["W", "SV", "K", "ERA", "WHIP"];
@@ -404,18 +399,18 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
           <div className="flex bg-gray-800/60 rounded-lg p-0.5 shrink-0">
             <button
               className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${playerType === "batters" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-gray-300"}`}
-              onClick={() => { setPlayerType("batters"); setPositionFilter("All"); setPage(0); }}
+              onClick={() => { setPlayerType("batters"); setPositionFilter("All"); }}
             >
               Batters
             </button>
             <button
               className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${playerType === "pitchers" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-gray-300"}`}
-              onClick={() => { setPlayerType("pitchers"); setPositionFilter("All"); setPage(0); }}
+              onClick={() => { setPlayerType("pitchers"); setPositionFilter("All"); }}
             >
               Pitchers
             </button>
           </div>
-          <Select value={positionFilter} onValueChange={(v) => { setPositionFilter(v); setPage(0); }}>
+          <Select value={positionFilter} onValueChange={(v) => setPositionFilter(v)}>
             <SelectTrigger className="w-[72px] h-9 bg-gray-800/50 border-gray-700 text-sm text-white">
               <SelectValue />
             </SelectTrigger>
@@ -426,7 +421,7 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
             </SelectContent>
           </Select>
           <div className="flex-1" />
-          <Select value={rosterStatus} onValueChange={(v: "free_agents" | "rostered" | "all") => { setRosterStatus(v); setPage(0); }}>
+          <Select value={rosterStatus} onValueChange={(v: "free_agents" | "rostered" | "all") => setRosterStatus(v)}>
             <SelectTrigger className="w-9 h-9 bg-gray-800/50 border-gray-700 text-white p-0 flex items-center justify-center [&>svg:last-child]:hidden">
               <Menu className="w-4 h-4" />
             </SelectTrigger>
@@ -528,29 +523,6 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
             </table>
           </div>
 
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-800">
-              <Button
-                size="sm"
-                variant="ghost"
-                className="text-xs text-gray-400"
-                onClick={() => setPage(p => Math.max(0, p - 1))}
-                disabled={page === 0}
-              >
-                Previous
-              </Button>
-              <span className="text-xs text-gray-500">{page + 1} / {totalPages}</span>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="text-xs text-gray-400"
-                onClick={() => setPage(p => p + 1)}
-                disabled={page >= totalPages - 1}
-              >
-                Next
-              </Button>
-            </div>
-          )}
         </>
       )}
 
