@@ -161,13 +161,30 @@ function StandingsTab({ leagueId, league, teamsLoading, teams }: { leagueId: num
   );
 }
 
-const POSITIONS = ["All", "C", "1B", "2B", "3B", "SS", "OF", "SP", "RP", "UTIL"];
+const BATTER_POSITIONS = ["All", "C", "1B", "2B", "3B", "SS", "OF", "UTIL"];
+const PITCHER_POSITIONS = ["All", "SP", "RP"];
+
+const HITTING_STAT_MAP: Record<string, { key: keyof Player; isRate?: boolean }> = {
+  R: { key: "statR" }, HR: { key: "statHR" }, RBI: { key: "statRBI" }, SB: { key: "statSB" },
+  AVG: { key: "statAVG", isRate: true }, H: { key: "statH" }, "2B": { key: "stat2B" }, "3B": { key: "stat3B" },
+  BB: { key: "statBB" }, K: { key: "statK" }, OBP: { key: "statOBP", isRate: true },
+  SLG: { key: "statSLG", isRate: true }, OPS: { key: "statOPS", isRate: true }, TB: { key: "statTB" },
+  CS: { key: "statCS" }, HBP: { key: "statHBP" }, AB: { key: "statAB" }, PA: { key: "statPA" },
+};
+
+const PITCHING_STAT_MAP: Record<string, { key: keyof Player; isRate?: boolean }> = {
+  W: { key: "statW" }, SV: { key: "statSV" }, ERA: { key: "statERA", isRate: true },
+  WHIP: { key: "statWHIP", isRate: true }, L: { key: "statL" }, QS: { key: "statQS" },
+  HLD: { key: "statHLD" }, IP: { key: "statIP", isRate: true }, SO: { key: "statSO" },
+  K: { key: "statSO" }, CG: { key: "statCG" }, SHO: { key: "statSHO" }, BSV: { key: "statBSV" },
+};
 
 function PlayersTab({ leagueId, league, user }: { leagueId: number; league: League; user: { id: number } | null }) {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [positionFilter, setPositionFilter] = useState("All");
+  const [playerType, setPlayerType] = useState<"batters" | "pitchers">("batters");
   const [page, setPage] = useState(0);
   const pageSize = 25;
 
@@ -180,11 +197,12 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
   }, [searchQuery]);
 
   const { data, isLoading } = useQuery<{ players: Player[]; total: number }>({
-    queryKey: ["/api/leagues", leagueId, "available-players", debouncedQuery, positionFilter, page],
+    queryKey: ["/api/leagues", leagueId, "available-players", debouncedQuery, positionFilter, playerType, page],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (debouncedQuery) params.set("q", debouncedQuery);
       if (positionFilter !== "All") params.set("position", positionFilter);
+      params.set("type", playerType);
       params.set("limit", String(pageSize));
       params.set("offset", String(page * pageSize));
       const res = await fetch(`/api/leagues/${leagueId}/available-players?${params}`);
@@ -258,9 +276,37 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
 
   const totalPages = data ? Math.ceil(data.total / pageSize) : 0;
 
+  const hittingCats = league.hittingCategories || ["R", "HR", "RBI", "SB", "AVG"];
+  const pitchingCats = league.pitchingCategories || ["W", "SV", "K", "ERA", "WHIP"];
+  const activeCats = playerType === "batters" ? hittingCats : pitchingCats;
+  const statMap = playerType === "batters" ? HITTING_STAT_MAP : PITCHING_STAT_MAP;
+  const posOptions = playerType === "batters" ? BATTER_POSITIONS : PITCHER_POSITIONS;
+
+  const getStatValue = (player: Player, cat: string): string => {
+    const mapping = statMap[cat];
+    if (!mapping) return "-";
+    const raw = player[mapping.key];
+    if (raw === null || raw === undefined) return "-";
+    return String(raw);
+  };
+
   return (
     <div>
       <div className="flex gap-2 mb-3">
+        <div className="flex bg-gray-800/60 rounded-lg p-0.5 shrink-0">
+          <button
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${playerType === "batters" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-gray-300"}`}
+            onClick={() => { setPlayerType("batters"); setPositionFilter("All"); setPage(0); }}
+          >
+            Batters
+          </button>
+          <button
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${playerType === "pitchers" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-gray-300"}`}
+            onClick={() => { setPlayerType("pitchers"); setPositionFilter("All"); setPage(0); }}
+          >
+            Pitchers
+          </button>
+        </div>
         <div className="relative flex-1">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
           <Input
@@ -271,11 +317,11 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
           />
         </div>
         <Select value={positionFilter} onValueChange={(v) => { setPositionFilter(v); setPage(0); }}>
-          <SelectTrigger className="w-[80px] h-9 bg-gray-800/50 border-gray-700 text-sm text-white">
+          <SelectTrigger className="w-[72px] h-9 bg-gray-800/50 border-gray-700 text-sm text-white">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {POSITIONS.map(pos => (
+            {posOptions.map(pos => (
               <SelectItem key={pos} value={pos}>{pos}</SelectItem>
             ))}
           </SelectContent>
@@ -285,35 +331,55 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
       {isLoading ? (
         <div className="space-y-2">
           {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-10 w-full rounded" />
+            <Skeleton key={i} className="h-12 w-full rounded" />
           ))}
         </div>
       ) : !data || data.players.length === 0 ? (
         <p className="text-gray-400 text-sm text-center py-6">No available players found</p>
       ) : (
         <>
-          <div className="text-[10px] text-gray-500 mb-1.5">{data.total} players available</div>
-          <div className="divide-y divide-gray-800/60">
-            {data.players.map(player => (
-              <div key={player.id} className="flex items-center gap-2 py-2">
-                {userTeam && (
-                  <button
-                    className="w-5 h-5 rounded-full flex items-center justify-center text-green-400 hover:bg-green-500/20 transition-colors shrink-0 disabled:opacity-30"
-                    onClick={() => addMutation.mutate(player.id)}
-                    disabled={addMutation.isPending || !hasOpenSlot}
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                  </button>
-                )}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <p className="text-white text-sm font-medium truncate">{player.name}</p>
-                    <span className="text-[10px] text-blue-400 font-medium shrink-0">{player.position}</span>
-                    <span className="text-[10px] text-gray-500 shrink-0">{player.teamAbbreviation || player.team}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
+          <div className="text-[10px] text-gray-500 mb-1">{data.total} players available</div>
+          <div className="overflow-x-auto hide-scrollbar" style={{ WebkitOverflowScrolling: "touch" }}>
+            <table className="w-full" style={{ minWidth: (userTeam ? 24 : 0) + 120 + activeCats.length * 48 + "px" }}>
+              <thead>
+                <tr className="border-b border-gray-700">
+                  {userTeam && <th className="w-[24px]" />}
+                  <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 pl-1 w-[120px]">Player</th>
+                  {activeCats.map(cat => (
+                    <th key={cat} className="text-center text-[10px] text-gray-400 font-semibold uppercase pb-1.5 w-[48px]">{cat}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {data.players.map(player => (
+                  <tr key={player.id} className="border-b border-gray-800/40 hover:bg-white/[0.02]">
+                    {userTeam && (
+                      <td className="py-1.5">
+                        <button
+                          className="w-5 h-5 rounded-full flex items-center justify-center text-green-400 hover:bg-green-500/20 transition-colors disabled:opacity-30"
+                          onClick={() => addMutation.mutate(player.id)}
+                          disabled={addMutation.isPending || !hasOpenSlot}
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    )}
+                    <td className="py-1.5 pl-1">
+                      <p className="text-white text-xs font-medium truncate max-w-[110px]">{player.name}</p>
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px] text-blue-400 font-medium">{player.position}</span>
+                        <span className="text-[10px] text-gray-500">{player.teamAbbreviation || player.team}</span>
+                      </div>
+                    </td>
+                    {activeCats.map(cat => (
+                      <td key={cat} className="text-center py-1.5">
+                        <span className="text-white text-[11px]">{getStatValue(player, cat)}</span>
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
 
           {totalPages > 1 && (

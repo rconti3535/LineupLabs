@@ -920,7 +920,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const position = req.query.position as string | undefined;
       const limit = parseInt(req.query.limit as string) || 50;
       const offset = parseInt(req.query.offset as string) || 0;
-      const result = await storage.searchAvailablePlayers(leagueId, query, position, limit, offset);
+      const playerType = req.query.type as string | undefined;
+      const result = await storage.searchAvailablePlayers(leagueId, query, position, limit, offset, playerType);
       res.json(result);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch available players" });
