@@ -256,7 +256,7 @@ export default function DraftRoom() {
       params.set("limit", String(PAGE_SIZE));
       params.set("offset", String(pageParam));
       params.set("adpType", league?.type || "Redraft");
-      params.set("adpScoring", league?.scoringFormat || "5x5 Roto");
+      params.set("adpScoring", league?.scoringFormat || "Roto");
       params.set("adpSeason", String(new Date().getFullYear()));
       const res = await fetch(`/api/players?${params}`);
       if (!res.ok) throw new Error("Failed to fetch players");
@@ -274,11 +274,11 @@ export default function DraftRoom() {
   const playersTotal = playersInfinite?.pages[0]?.total ?? 0;
 
   const { data: adpData } = useQuery<{ adpRecords: PlayerAdp[]; total: number }>({
-    queryKey: ["/api/adp", league?.type || "Redraft", league?.scoringFormat || "5x5 Roto"],
+    queryKey: ["/api/adp", league?.type || "Redraft", league?.scoringFormat || "Roto"],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.set("type", league?.type || "Redraft");
-      params.set("scoring", league?.scoringFormat || "5x5 Roto");
+      params.set("scoring", league?.scoringFormat || "Roto");
       params.set("limit", "10000");
       const res = await fetch(`/api/adp?${params}`);
       if (!res.ok) throw new Error("Failed to fetch ADP");

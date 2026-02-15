@@ -352,7 +352,7 @@ export class DatabaseStorage implements IStorage {
     const allCompleted = await db.select().from(leagues).where(eq(leagues.draftStatus, "completed"));
     return allCompleted.filter(l => {
       const lType = l.type || "Redraft";
-      const lScoring = l.scoringFormat || "5x5 Roto";
+      const lScoring = l.scoringFormat || "Roto";
       const lYear = l.createdAt ? new Date(l.createdAt).getFullYear() : 2026;
       return lType === leagueType && lScoring === scoringFormat && lYear === season;
     });

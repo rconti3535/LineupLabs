@@ -5,7 +5,7 @@ import { insertLeagueSchema, insertTeamSchema, insertUserSchema, insertDraftPick
 
 async function recalculateAdpForLeague(league: { type: string | null; scoringFormat: string | null; createdAt: Date | null }) {
   const leagueType = league.type || "Redraft";
-  const scoringFormat = league.scoringFormat || "5x5 Roto";
+  const scoringFormat = league.scoringFormat || "Roto";
   const season = league.createdAt ? new Date(league.createdAt).getFullYear() : 2026;
   await storage.recalculateAdp(leagueType, scoringFormat, season);
 }
@@ -639,7 +639,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const leagueType = league.type || "Redraft";
-      const scoringFormat = league.scoringFormat || "5x5 Roto";
+      const scoringFormat = league.scoringFormat || "Roto";
       const season = new Date().getFullYear();
 
       let selectedPlayer = await storage.getBestAvailableByAdp(
@@ -846,7 +846,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/adp", async (req, res) => {
     try {
       const leagueType = (req.query.type as string) || "Redraft";
-      const scoringFormat = (req.query.scoring as string) || "5x5 Roto";
+      const scoringFormat = (req.query.scoring as string) || "Roto";
       const season = parseInt(req.query.season as string) || 2026;
       const limit = parseInt(req.query.limit as string) || 50;
       const offset = parseInt(req.query.offset as string) || 0;
@@ -861,7 +861,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const playerId = parseInt(req.params.playerId);
       const leagueType = (req.query.type as string) || "Redraft";
-      const scoringFormat = (req.query.scoring as string) || "5x5 Roto";
+      const scoringFormat = (req.query.scoring as string) || "Roto";
       const season = parseInt(req.query.season as string) || 2026;
       const record = await storage.getPlayerAdp(playerId, leagueType, scoringFormat, season);
       if (!record) {
@@ -876,7 +876,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/adp/recalculate", async (req, res) => {
     try {
       const leagueType = (req.body.type as string) || "Redraft";
-      const scoringFormat = (req.body.scoring as string) || "5x5 Roto";
+      const scoringFormat = (req.body.scoring as string) || "Roto";
       const season = parseInt(req.body.season) || 2026;
       await storage.recalculateAdp(leagueType, scoringFormat, season);
       res.json({ message: "ADP recalculated successfully" });

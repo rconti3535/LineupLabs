@@ -204,7 +204,7 @@ export default function LeaguePage() {
   const startEditing = () => {
     if (!league) return;
     setEditMaxTeams(String(league.maxTeams));
-    setEditScoringFormat(league.scoringFormat || "5x5 Roto");
+    setEditScoringFormat(league.scoringFormat || "Roto");
     setEditType(league.type || "Redraft");
     setEditStatus(league.isPublic ? "Public" : "Private");
     setIsEditing(true);
@@ -665,7 +665,7 @@ export default function LeaguePage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="5x5 Roto">5x5 Roto</SelectItem>
+                      <SelectItem value="Roto">Roto</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
