@@ -48,6 +48,7 @@ Key API routes:
 - `POST /api/leagues/:id/draft-control` — commissioner start/pause/resume draft
 - `POST /api/leagues/:id/roster-swap` — swap two players' roster positions (with position eligibility validation)
 - `POST /api/leagues/:id/init-roster-slots` — initialize persisted roster slot assignments after draft completion
+- `GET /api/leagues/:id/standings` — compute and return Roto standings with category values, points, and rankings
 
 ### Data Storage
 - **Database**: PostgreSQL (via Neon serverless driver `@neondatabase/serverless`)

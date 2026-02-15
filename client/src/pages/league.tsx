@@ -17,6 +17,175 @@ import { assignPlayersToRosterWithPicks, getSwapTargets, type RosterEntry } from
 
 type Tab = "roster" | "standings" | "settings";
 
+interface StandingsData {
+  standings: {
+    teamId: number;
+    teamName: string;
+    userId: number | null;
+    isCpu: boolean | null;
+    categoryValues: Record<string, number>;
+    categoryPoints: Record<string, number>;
+    totalPoints: number;
+  }[];
+  hittingCategories: string[];
+  pitchingCategories: string[];
+  numTeams: number;
+}
+
+function formatStatValue(cat: string, value: number): string {
+  const RATE_STATS = ["AVG", "OBP", "SLG", "OPS"];
+  const DECIMAL_STATS = ["ERA", "WHIP", "K/9"];
+  if (RATE_STATS.includes(cat)) return value === 0 ? ".000" : value.toFixed(3).replace(/^0/, "");
+  if (DECIMAL_STATS.includes(cat)) return value.toFixed(2);
+  if (cat === "IP") return value.toFixed(1);
+  return String(Math.round(value));
+}
+
+function StandingsTab({ leagueId, league, teamsLoading, teams }: { leagueId: number; league: League; teamsLoading: boolean; teams: Team[] | undefined }) {
+  const { data: standingsData, isLoading } = useQuery<StandingsData>({
+    queryKey: ["/api/leagues", leagueId, "standings"],
+    queryFn: async () => {
+      const res = await fetch(`/api/leagues/${leagueId}/standings`);
+      if (!res.ok) throw new Error("Failed to fetch standings");
+      return res.json();
+    },
+    enabled: leagueId !== null,
+  });
+
+  const loading = teamsLoading || isLoading;
+
+  if (loading) {
+    return (
+      <Card className="gradient-card rounded-xl p-5 border-0">
+        <h3 className="text-white font-semibold mb-4">League Standings</h3>
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-14 w-full rounded-lg" />
+          ))}
+        </div>
+      </Card>
+    );
+  }
+
+  if (!teams || teams.length === 0) {
+    return (
+      <Card className="gradient-card rounded-xl p-5 border-0">
+        <h3 className="text-white font-semibold mb-4">League Standings</h3>
+        <p className="text-gray-400 text-sm text-center py-4">No teams in this league yet</p>
+      </Card>
+    );
+  }
+
+  if (!standingsData) {
+    return (
+      <Card className="gradient-card rounded-xl p-5 border-0">
+        <h3 className="text-white font-semibold mb-4">League Standings</h3>
+        <p className="text-gray-400 text-sm text-center py-4">Unable to load standings</p>
+      </Card>
+    );
+  }
+
+  const { standings, hittingCategories, pitchingCategories } = standingsData;
+  const allCats = [
+    ...hittingCategories.map(c => ({ key: `h_${c}`, label: c, isHitting: true })),
+    ...pitchingCategories.map(c => ({ key: `p_${c}`, label: c, isHitting: false })),
+  ];
+
+  return (
+    <div className="space-y-4">
+      <Card className="gradient-card rounded-xl p-5 border-0">
+        <h3 className="text-white font-semibold mb-4">Roto Standings</h3>
+        <div className="space-y-2">
+          {standings.map((team, idx) => (
+            <div key={team.teamId} className="flex items-center justify-between p-3 rounded-lg sleeper-card-bg">
+              <div className="flex items-center gap-3">
+                <span className={`text-sm font-bold w-6 text-center ${idx === 0 ? "text-yellow-400" : idx === 1 ? "text-gray-300" : idx === 2 ? "text-orange-400" : "text-gray-500"}`}>
+                  {idx + 1}
+                </span>
+                <div>
+                  <p className="text-white font-medium text-sm">{team.teamName}</p>
+                  {team.isCpu && <span className="text-[10px] text-gray-500">CPU</span>}
+                </div>
+              </div>
+              <p className="text-white font-bold text-sm">{team.totalPoints.toFixed(1)} pts</p>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <Card className="gradient-card rounded-xl p-5 border-0">
+        <h3 className="text-white font-semibold mb-4">Category Breakdown</h3>
+
+        <p className="text-gray-400 text-[11px] uppercase font-bold tracking-wider mb-2">Hitting</p>
+        <div className="overflow-x-auto hide-scrollbar -mx-1 px-1 mb-5" style={{ WebkitOverflowScrolling: "touch" }}>
+          <table className="w-full" style={{ minWidth: Math.max(300, 120 + hittingCategories.length * 60) + "px" }}>
+            <thead>
+              <tr className="border-b border-gray-700">
+                <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[120px] pl-1">Team</th>
+                {hittingCategories.map(cat => (
+                  <th key={cat} className="text-center text-[10px] text-gray-400 font-semibold uppercase pb-1.5 w-[56px]">{cat}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {standings.map(team => (
+                <tr key={team.teamId} className="border-b border-gray-800/50">
+                  <td className="py-2 pl-1">
+                    <p className="text-white text-xs font-medium truncate max-w-[110px]">{team.teamName}</p>
+                  </td>
+                  {hittingCategories.map(cat => {
+                    const val = team.categoryValues[`h_${cat}`] || 0;
+                    const pts = team.categoryPoints[`h_${cat}`] || 0;
+                    return (
+                      <td key={cat} className="text-center py-2">
+                        <p className="text-white text-xs font-medium">{formatStatValue(cat, val)}</p>
+                        <p className="text-gray-500 text-[10px]">{pts.toFixed(1)}</p>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <p className="text-gray-400 text-[11px] uppercase font-bold tracking-wider mb-2">Pitching</p>
+        <div className="overflow-x-auto hide-scrollbar -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
+          <table className="w-full" style={{ minWidth: Math.max(300, 120 + pitchingCategories.length * 60) + "px" }}>
+            <thead>
+              <tr className="border-b border-gray-700">
+                <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[120px] pl-1">Team</th>
+                {pitchingCategories.map(cat => (
+                  <th key={cat} className="text-center text-[10px] text-gray-400 font-semibold uppercase pb-1.5 w-[56px]">{cat}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {standings.map(team => (
+                <tr key={team.teamId} className="border-b border-gray-800/50">
+                  <td className="py-2 pl-1">
+                    <p className="text-white text-xs font-medium truncate max-w-[110px]">{team.teamName}</p>
+                  </td>
+                  {pitchingCategories.map(cat => {
+                    const val = team.categoryValues[`p_${cat}`] || 0;
+                    const pts = team.categoryPoints[`p_${cat}`] || 0;
+                    return (
+                      <td key={cat} className="text-center py-2">
+                        <p className="text-white text-xs font-medium">{formatStatValue(cat, val)}</p>
+                        <p className="text-gray-500 text-[10px]">{pts.toFixed(1)}</p>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 export default function LeaguePage() {
   const [, params] = useRoute("/league/:id");
   const [, setLocation] = useLocation();
@@ -250,6 +419,10 @@ export default function LeaguePage() {
       scoringFormat: editScoringFormat,
       hittingCategories: editHittingCategories,
       pitchingCategories: editPitchingCategories,
+    }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "standings"] });
+      },
     });
     setIsEditingScoring(false);
   };
@@ -614,38 +787,7 @@ export default function LeaguePage() {
         </div>
       )}
 
-      {activeTab === "standings" && (
-        <Card className="gradient-card rounded-xl p-5 border-0">
-          <h3 className="text-white font-semibold mb-4">League Standings</h3>
-          {teamsLoading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="h-14 w-full rounded-lg" />
-              ))}
-            </div>
-          ) : teams && teams.length > 0 ? (
-            <div className="space-y-3">
-              {teams.map((team, index) => (
-                <div
-                  key={team.id}
-                  className="flex items-center justify-between p-3 rounded-lg sleeper-card-bg"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-gray-400 text-sm font-medium w-6">{index + 1}</span>
-                    <div>
-                      <p className="text-white font-medium text-sm">{team.name}</p>
-                      <p className="text-gray-400 text-xs">{team.wins}-{team.losses}</p>
-                    </div>
-                  </div>
-                  <p className="text-white font-medium text-sm">{team.points} pts</p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-gray-400 text-sm text-center py-4">No teams in this league yet</p>
-          )}
-        </Card>
-      )}
+      {activeTab === "standings" && <StandingsTab leagueId={leagueId!} league={league!} teamsLoading={teamsLoading} teams={teams} />}
 
       {activeTab === "settings" && (
         <>

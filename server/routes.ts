@@ -167,7 +167,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const teams = await storage.getTeamsByLeagueId(id);
       const draftPicks = await storage.getDraftPicksByLeague(id);
-      const playerIds = [...new Set(draftPicks.map(dp => dp.playerId))];
+      const playerIdSet = new Set(draftPicks.map(dp => dp.playerId));
+      const playerIds = Array.from(playerIdSet);
       const playerList = await storage.getPlayersByIds(playerIds);
       const playerMap = new Map(playerList.map(p => [p.id, p]));
       const rosterPositions = league.rosterPositions || ["C", "1B", "2B", "3B", "SS", "OF", "OF", "OF", "UTIL", "SP", "SP", "RP", "RP", "BN", "BN", "IL"];
