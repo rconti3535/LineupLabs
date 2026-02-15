@@ -532,7 +532,24 @@ export class DatabaseStorage implements IStorage {
     const [countResult] = await db.select({ count: sql<number>`count(*)` }).from(players).where(where);
     const total = Number(countResult.count);
     const result = await db.select().from(players).where(where).orderBy(players.name).limit(limit).offset(offset);
-    return { players: result, total };
+
+    const playerIds = result.map(p => p.id);
+    let adpMap: Record<number, number> = {};
+    if (playerIds.length > 0) {
+      const adpRows = await db.select({ playerId: playerAdp.playerId, adp: playerAdp.adp })
+        .from(playerAdp)
+        .where(inArray(playerAdp.playerId, playerIds));
+      for (const row of adpRows) {
+        adpMap[row.playerId] = row.adp;
+      }
+    }
+
+    const playersWithAdp = result.map(p => ({
+      ...p,
+      adpValue: adpMap[p.id] ?? null,
+    }));
+
+    return { players: playersWithAdp, total };
   }
 
   async getActiveDraftLeagues(): Promise<League[]> {
