@@ -46,6 +46,8 @@ Key API routes:
 - `POST /api/adp/recalculate` — manually trigger ADP recalculation
 - `POST /api/leagues/:id/auto-pick` — server auto-picks best available player
 - `POST /api/leagues/:id/draft-control` — commissioner start/pause/resume draft
+- `POST /api/leagues/:id/roster-swap` — swap two players' roster positions (with position eligibility validation)
+- `POST /api/leagues/:id/init-roster-slots` — initialize persisted roster slot assignments after draft completion
 
 ### Data Storage
 - **Database**: PostgreSQL (via Neon serverless driver `@neondatabase/serverless`)
@@ -59,7 +61,7 @@ Key API routes:
 - **leagues** — id, name, description, type, numberOfTeams, scoringFormat, isPublic, maxTeams, currentTeams, buyin, prize, status, rosterPositions, draftType, draftDate, secondsPerPick, draftOrder, draftStatus (pending/active/paused/completed), draftPickStartedAt (ISO timestamp for server-side timer), createdBy (FK to users), createdAt
 - **teams** — id, name, leagueId (FK to leagues), userId (FK to users), wins, losses, points, rank, logo, nextOpponent
 - **players** — id, mlbId (unique), name, firstName, lastName, position, team, teamAbbreviation, jerseyNumber, bats, throws, age, height, weight, mlbLevel (MLB/AAA/AA/A+/A/Rookie), avatar, points, status. ~8,200 real players imported from MLB Stats API.
-- **draft_picks** — id, leagueId (FK to leagues), teamId (FK to teams), playerId (FK to players), overallPick, round, pickInRound, pickedAt. Tracks all draft selections per league.
+- **draft_picks** — id, leagueId (FK to leagues), teamId (FK to teams), playerId (FK to players), overallPick, round, pickInRound, pickedAt, rosterSlot (nullable integer for persisted lineup position). Tracks all draft selections per league.
 - **player_adp** — id, playerId (FK to players), leagueType, scoringFormat, season, adp (average draft position), draftCount, totalPositionSum. Recalculated when drafts complete. Undrafted players get position 9999.
 - **activities** — user activity tracking
 
