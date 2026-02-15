@@ -1299,13 +1299,13 @@ export default function LeaguePage() {
                       </Button>
                     )}
                     <Select value={rosterStatView} onValueChange={(v) => setRosterStatView(v as "2025stats" | "2026stats" | "2026proj")}>
-                      <SelectTrigger className="h-7 w-[140px] text-xs bg-gray-800 border-gray-700 text-gray-200">
+                      <SelectTrigger className="h-6 w-[110px] text-[10px] bg-gray-800/50 border-gray-700 text-gray-400 hover:text-gray-200 transition-colors">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="bg-gray-800 border-gray-700">
-                        <SelectItem value="2025stats" className="text-xs text-gray-200">2025 Stats</SelectItem>
-                        <SelectItem value="2026stats" className="text-xs text-gray-200">2026 Stats</SelectItem>
-                        <SelectItem value="2026proj" className="text-xs text-gray-200">2026 Projections</SelectItem>
+                        <SelectItem value="2025stats" className="text-[10px] text-gray-200">2025 Stats</SelectItem>
+                        <SelectItem value="2026stats" className="text-[10px] text-gray-200">2026 Stats</SelectItem>
+                        <SelectItem value="2026proj" className="text-[10px] text-gray-200">2026 Projections</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
