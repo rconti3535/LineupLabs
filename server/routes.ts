@@ -913,6 +913,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/import-stats", async (req, res) => {
+    try {
+      const { importSeasonStats } = await import("./import-stats");
+      res.json({ message: "Stats import started" });
+      importSeasonStats().then(result => {
+        console.log("Stats import finished:", result);
+      }).catch(e => console.error("Stats import error:", e));
+    } catch (error) {
+      console.error("Import stats error:", error);
+      res.status(500).json({ message: "Failed to start stats import" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   async function checkExpiredDraftPicks() {
