@@ -974,6 +974,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/leagues/:id/add-drop", async (req, res) => {
+    try {
+      const leagueId = parseInt(req.params.id);
+      const { userId, addPlayerId, dropPickId } = req.body;
+      if (!userId || !addPlayerId || !dropPickId) return res.status(400).json({ message: "Missing required fields" });
+
+      const league = await storage.getLeague(leagueId);
+      if (!league) return res.status(404).json({ message: "League not found" });
+
+      const leagueTeams = await storage.getTeamsByLeagueId(leagueId);
+      const userTeam = leagueTeams.find(t => t.userId === userId);
+      if (!userTeam) return res.status(403).json({ message: "You don't have a team in this league" });
+
+      const dropPick = await storage.getDraftPickById(dropPickId);
+      if (!dropPick || dropPick.teamId !== userTeam.id || dropPick.leagueId !== leagueId) {
+        return res.status(403).json({ message: "Invalid pick to drop" });
+      }
+
+      const draftedIds = await storage.getDraftedPlayerIds(leagueId);
+      if (draftedIds.includes(addPlayerId)) return res.status(400).json({ message: "Player is already on a roster" });
+
+      const player = await storage.getPlayer(addPlayerId);
+      if (!player) return res.status(404).json({ message: "Player not found" });
+
+      const rosterSlot = dropPick.rosterSlot ?? 0;
+      await storage.dropPlayerFromTeam(dropPickId);
+      const pick = await storage.addPlayerToTeam(leagueId, userTeam.id, addPlayerId, rosterSlot);
+      res.json({ pick, player, message: "Player added and dropped successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to add/drop player" });
+    }
+  });
+
   app.post("/api/leagues/:id/drop-player", async (req, res) => {
     try {
       const leagueId = parseInt(req.params.id);
