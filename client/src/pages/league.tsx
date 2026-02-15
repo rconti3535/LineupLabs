@@ -292,6 +292,15 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
 
   return (
     <div>
+      <div className="relative mb-3">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
+        <Input
+          placeholder="Search players..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-8 h-9 bg-gray-800/50 border-gray-700 text-sm text-white"
+        />
+      </div>
       <div className="flex gap-2 mb-3">
         <div className="flex bg-gray-800/60 rounded-lg p-0.5 shrink-0">
           <button
@@ -306,15 +315,6 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
           >
             Pitchers
           </button>
-        </div>
-        <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
-          <Input
-            placeholder="Search players..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-8 h-9 bg-gray-800/50 border-gray-700 text-sm text-white"
-          />
         </div>
         <Select value={positionFilter} onValueChange={(v) => { setPositionFilter(v); setPage(0); }}>
           <SelectTrigger className="w-[72px] h-9 bg-gray-800/50 border-gray-700 text-sm text-white">
