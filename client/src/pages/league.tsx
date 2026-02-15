@@ -1267,23 +1267,6 @@ export default function LeaguePage() {
               return "border-b border-gray-800/50";
             };
 
-            const renderSwapButton = (entry: RosterEntry) => {
-              if (!isDraftCompleted || !entry.player) return null;
-              const idx = entry.slotIndex;
-              const isSelected = selectedSwapIndex === idx;
-              const isTarget = swapTargets.includes(idx);
-              return (
-                <button
-                  onClick={() => handleSwapSelect(idx)}
-                  className={`w-5 h-5 rounded flex items-center justify-center shrink-0 transition-colors ${
-                    isSelected ? "bg-blue-600 text-white" : isTarget ? "bg-green-600 text-white animate-pulse" : "bg-gray-700/50 text-gray-400 hover:bg-gray-600 hover:text-gray-200"
-                  }`}
-                  title={isSelected ? "Cancel swap" : isTarget ? "Swap here" : "Swap player"}
-                >
-                  <ArrowUpDown className="w-3 h-3" />
-                </button>
-              );
-            };
 
             return (
               <div className="overflow-hidden">
@@ -1317,7 +1300,6 @@ export default function LeaguePage() {
                         <table className="w-full" style={{ minWidth: Math.max(300, 200 + leagueHittingCats.length * 52) + "px" }}>
                           <thead>
                             <tr className="border-b border-gray-700">
-                              {isDraftCompleted && <th className="w-6 pb-1.5"></th>}
                               <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-9 pl-1">Pos</th>
                               <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[140px]">Player</th>
                               {leagueHittingCats.map(stat => (
@@ -1330,18 +1312,30 @@ export default function LeaguePage() {
                               const p = entry.player as Record<string, unknown> | null;
                               return (
                                 <tr key={entry.slotIndex} className={getRowClass(entry.slotIndex)} onClick={() => swapTargets.includes(entry.slotIndex) ? handleSwapSelect(entry.slotIndex) : undefined}>
-                                  {isDraftCompleted && <td className="py-1.5 pl-1">{renderSwapButton(entry)}</td>}
                                   <td className="py-1.5 pl-1">
-                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-700 text-gray-300">{entry.slotPos}</span>
+                                    <button
+                                      onClick={() => handleSwapSelect(entry.slotIndex)}
+                                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors ${
+                                        selectedSwapIndex === entry.slotIndex 
+                                          ? "bg-blue-600 text-white" 
+                                          : swapTargets.includes(entry.slotIndex)
+                                            ? "bg-green-600 text-white animate-pulse"
+                                            : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                                      }`}
+                                    >
+                                      {entry.slotPos}
+                                    </button>
                                   </td>
                                   <td className="py-1.5 pr-2">
                                     {p ? (
-                                      <div>
+                                      <div className="cursor-pointer" onClick={() => isDraftCompleted && p && handleSwapSelect(entry.slotIndex)}>
                                         <p className="text-white text-xs font-medium truncate max-w-[130px]">{p.name as string}</p>
                                         <p className="text-gray-500 text-[10px]">{p.position as string} — {(p.teamAbbreviation || p.team) as string}</p>
                                       </div>
                                     ) : (
-                                      <p className="text-gray-600 text-xs italic">Empty</p>
+                                      <div className="cursor-pointer" onClick={() => isDraftCompleted && handleSwapSelect(entry.slotIndex)}>
+                                        <p className="text-gray-600 text-xs italic">Empty</p>
+                                      </div>
                                     )}
                                   </td>
                                   {leagueHittingCats.map(stat => (
@@ -1362,7 +1356,6 @@ export default function LeaguePage() {
                         <table className="w-full" style={{ minWidth: Math.max(300, 200 + leaguePitchingCats.length * 52) + "px" }}>
                           <thead>
                             <tr className="border-b border-gray-700">
-                              {isDraftCompleted && <th className="w-6 pb-1.5"></th>}
                               <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-9 pl-1">Pos</th>
                               <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[140px]">Player</th>
                               {leaguePitchingCats.map(stat => (
@@ -1375,18 +1368,30 @@ export default function LeaguePage() {
                               const p = entry.player as Record<string, unknown> | null;
                               return (
                                 <tr key={entry.slotIndex} className={getRowClass(entry.slotIndex)} onClick={() => swapTargets.includes(entry.slotIndex) ? handleSwapSelect(entry.slotIndex) : undefined}>
-                                  {isDraftCompleted && <td className="py-1.5 pl-1">{renderSwapButton(entry)}</td>}
                                   <td className="py-1.5 pl-1">
-                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-700 text-gray-300">{entry.slotPos}</span>
+                                    <button
+                                      onClick={() => handleSwapSelect(entry.slotIndex)}
+                                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors ${
+                                        selectedSwapIndex === entry.slotIndex 
+                                          ? "bg-blue-600 text-white" 
+                                          : swapTargets.includes(entry.slotIndex)
+                                            ? "bg-green-600 text-white animate-pulse"
+                                            : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                                      }`}
+                                    >
+                                      {entry.slotPos}
+                                    </button>
                                   </td>
                                   <td className="py-1.5 pr-2">
                                     {p ? (
-                                      <div>
+                                      <div className="cursor-pointer" onClick={() => isDraftCompleted && p && handleSwapSelect(entry.slotIndex)}>
                                         <p className="text-white text-xs font-medium truncate max-w-[130px]">{p.name as string}</p>
                                         <p className="text-gray-500 text-[10px]">{p.position as string} — {(p.teamAbbreviation || p.team) as string}</p>
                                       </div>
                                     ) : (
-                                      <p className="text-gray-600 text-xs italic">Empty</p>
+                                      <div className="cursor-pointer" onClick={() => isDraftCompleted && handleSwapSelect(entry.slotIndex)}>
+                                        <p className="text-gray-600 text-xs italic">Empty</p>
+                                      </div>
                                     )}
                                   </td>
                                   {leaguePitchingCats.map(stat => (
@@ -1416,15 +1421,27 @@ export default function LeaguePage() {
                               }`}
                               onClick={() => isTarget ? handleSwapSelect(entry.slotIndex) : undefined}
                             >
-                              {isDraftCompleted && renderSwapButton(entry)}
-                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-700 text-gray-300 shrink-0">{entry.slotPos}</span>
+                              <button
+                                onClick={() => handleSwapSelect(entry.slotIndex)}
+                                className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 transition-colors ${
+                                  isSelected 
+                                    ? "bg-blue-600 text-white" 
+                                    : isTarget
+                                      ? "bg-green-600 text-white animate-pulse"
+                                      : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                                }`}
+                              >
+                                {entry.slotPos}
+                              </button>
                               {p ? (
-                                <div className="min-w-0">
+                                <div className="min-w-0" onClick={() => isDraftCompleted && p && handleSwapSelect(entry.slotIndex)}>
                                   <p className="text-white text-xs font-medium truncate">{p.name}</p>
                                   <p className="text-gray-500 text-[10px]">{p.position} — {p.teamAbbreviation || p.team}</p>
                                 </div>
                               ) : (
-                                <p className="text-gray-600 text-xs italic">Empty</p>
+                                <div className="min-w-0" onClick={() => isDraftCompleted && handleSwapSelect(entry.slotIndex)}>
+                                  <p className="text-gray-600 text-xs italic">Empty</p>
+                                </div>
                               )}
                             </div>
                           );
