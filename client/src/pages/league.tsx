@@ -780,6 +780,7 @@ export default function LeaguePage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedSwapIndex, setSelectedSwapIndex] = useState<number | null>(null);
   const [swapTargets, setSwapTargets] = useState<number[]>([]);
+  const [rosterStatView, setRosterStatView] = useState<"2025stats" | "2026stats" | "2026proj">("2025stats");
   const { toast } = useToast();
 
   const { data: league, isLoading: leagueLoading } = useQuery<League>({
@@ -1266,6 +1267,8 @@ export default function LeaguePage() {
 
             const STAT_COL = "w-[42px] text-center text-[11px] shrink-0";
 
+            const statPrefix = rosterStatView === "2026proj" ? "proj" : "stat";
+
             const getRowClass = (idx: number) => {
               if (selectedSwapIndex === idx) return "border-b border-blue-500/50 bg-blue-900/30";
               if (swapTargets.includes(idx)) return "border-b border-green-500/30 bg-green-900/20 cursor-pointer";
@@ -1284,16 +1287,28 @@ export default function LeaguePage() {
                       </Badge>
                     )}
                   </div>
-                  {selectedSwapIndex !== null && (
-                    <Button
-                      onClick={() => { setSelectedSwapIndex(null); setSwapTargets([]); }}
-                      variant="ghost"
-                      size="sm"
-                      className="text-gray-400 hover:text-white h-7 px-2 text-xs"
-                    >
-                      Cancel Swap
-                    </Button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {selectedSwapIndex !== null && (
+                      <Button
+                        onClick={() => { setSelectedSwapIndex(null); setSwapTargets([]); }}
+                        variant="ghost"
+                        size="sm"
+                        className="text-gray-400 hover:text-white h-7 px-2 text-xs"
+                      >
+                        Cancel Swap
+                      </Button>
+                    )}
+                    <Select value={rosterStatView} onValueChange={(v) => setRosterStatView(v as "2025stats" | "2026stats" | "2026proj")}>
+                      <SelectTrigger className="h-7 w-[140px] text-xs bg-gray-800 border-gray-700 text-gray-200">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-gray-800 border-gray-700">
+                        <SelectItem value="2025stats" className="text-xs text-gray-200">2025 Stats</SelectItem>
+                        <SelectItem value="2026stats" className="text-xs text-gray-200">2026 Stats</SelectItem>
+                        <SelectItem value="2026proj" className="text-xs text-gray-200">2026 Projections</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 {selectedSwapIndex !== null && (
                   <p className="text-blue-400 text-xs mb-3 px-1">Tap a highlighted slot to swap players</p>
@@ -1344,7 +1359,7 @@ export default function LeaguePage() {
                                     )}
                                   </td>
                                   {leagueHittingCats.map(stat => (
-                                    <td key={stat} className={`${STAT_COL} text-gray-300`}>{p ? (p[`stat${stat}`] as string ?? "-") : "-"}</td>
+                                    <td key={stat} className={`${STAT_COL} text-gray-300`}>{p ? (p[`${statPrefix}${stat}`] as string ?? "-") : "-"}</td>
                                   ))}
                                 </tr>
                               );
@@ -1374,7 +1389,7 @@ export default function LeaguePage() {
                                     </div>
                                   </td>
                                   {leagueHittingCats.map(stat => (
-                                    <td key={stat} className={`${STAT_COL} text-gray-500 opacity-60`}>{p ? (p[`stat${stat}`] as string ?? "-") : "-"}</td>
+                                    <td key={stat} className={`${STAT_COL} text-gray-500 opacity-60`}>{p ? (p[`${statPrefix}${stat}`] as string ?? "-") : "-"}</td>
                                   ))}
                                 </tr>
                               );
@@ -1430,7 +1445,7 @@ export default function LeaguePage() {
                                     )}
                                   </td>
                                   {leaguePitchingCats.map(stat => (
-                                    <td key={stat} className={`${STAT_COL} text-gray-300`}>{p ? (p[`stat${stat}`] as string ?? "-") : "-"}</td>
+                                    <td key={stat} className={`${STAT_COL} text-gray-300`}>{p ? (p[`${statPrefix}${stat}`] as string ?? "-") : "-"}</td>
                                   ))}
                                 </tr>
                               );
@@ -1460,7 +1475,7 @@ export default function LeaguePage() {
                                     </div>
                                   </td>
                                   {leaguePitchingCats.map(stat => (
-                                    <td key={stat} className={`${STAT_COL} text-gray-500 opacity-60`}>{p ? (p[`stat${stat}`] as string ?? "-") : "-"}</td>
+                                    <td key={stat} className={`${STAT_COL} text-gray-500 opacity-60`}>{p ? (p[`${statPrefix}${stat}`] as string ?? "-") : "-"}</td>
                                   ))}
                                 </tr>
                               );
