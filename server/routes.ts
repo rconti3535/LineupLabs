@@ -998,8 +998,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const player = await storage.getPlayer(addPlayerId);
       if (!player) return res.status(404).json({ message: "Player not found" });
 
+      const waiverCheck = await storage.getActiveWaiverForPlayer(leagueId, addPlayerId);
+      if (waiverCheck) return res.status(400).json({ message: "Player is on waivers and cannot be added directly" });
+
       const rosterSlot = dropPick.rosterSlot ?? 0;
+      const droppedPlayerId = dropPick.playerId;
       await storage.dropPlayerFromTeam(dropPickId);
+
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
+      await storage.createWaiver({
+        leagueId,
+        playerId: droppedPlayerId,
+        droppedByTeamId: userTeam.id,
+        waiverExpiresAt: expiresAt.toISOString(),
+        status: "active",
+        createdAt: now.toISOString(),
+      });
+
       const pick = await storage.addPlayerToTeam(leagueId, userTeam.id, addPlayerId, rosterSlot);
       res.json({ pick, player, message: "Player added and dropped successfully" });
     } catch (error) {
@@ -1025,10 +1041,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Invalid pick" });
       }
 
+      const droppedPlayerId = pick.playerId;
       await storage.dropPlayerFromTeam(pickId);
-      res.json({ message: "Player dropped successfully" });
+
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
+      await storage.createWaiver({
+        leagueId,
+        playerId: droppedPlayerId,
+        droppedByTeamId: userTeam.id,
+        waiverExpiresAt: expiresAt.toISOString(),
+        status: "active",
+        createdAt: now.toISOString(),
+      });
+
+      res.json({ message: "Player dropped successfully — on waivers for 2 days" });
     } catch (error) {
       res.status(500).json({ message: "Failed to drop player" });
+    }
+  });
+
+  app.get("/api/leagues/:id/waivers", async (req, res) => {
+    try {
+      const leagueId = parseInt(req.params.id);
+      const activeWaivers = await storage.getActiveWaiversByLeague(leagueId);
+      const waiversWithPlayers = await Promise.all(activeWaivers.map(async (w) => {
+        const player = await storage.getPlayer(w.playerId);
+        const claims = await storage.getClaimsForWaiver(w.id);
+        return { ...w, player, claimCount: claims.length };
+      }));
+      res.json(waiversWithPlayers);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch waivers" });
+    }
+  });
+
+  app.post("/api/leagues/:id/waiver-claim", async (req, res) => {
+    try {
+      const leagueId = parseInt(req.params.id);
+      const { userId, playerId } = req.body;
+      if (!userId || !playerId) return res.status(400).json({ message: "Missing required fields" });
+
+      const league = await storage.getLeague(leagueId);
+      if (!league) return res.status(404).json({ message: "League not found" });
+
+      const leagueTeams = await storage.getTeamsByLeagueId(leagueId);
+      const userTeam = leagueTeams.find(t => t.userId === userId);
+      if (!userTeam) return res.status(403).json({ message: "You don't have a team in this league" });
+
+      const waiver = await storage.getActiveWaiverForPlayer(leagueId, playerId);
+      if (!waiver) return res.status(404).json({ message: "No active waiver for this player" });
+
+      if (waiver.droppedByTeamId === userTeam.id) {
+        return res.status(400).json({ message: "You cannot claim a player you dropped" });
+      }
+
+      const existingClaims = await storage.getClaimsForWaiver(waiver.id);
+      const alreadyClaimed = existingClaims.find(c => c.teamId === userTeam.id);
+      if (alreadyClaimed) return res.status(400).json({ message: "You already have a claim on this player" });
+
+      const claim = await storage.createWaiverClaim({
+        waiverId: waiver.id,
+        teamId: userTeam.id,
+        createdAt: new Date().toISOString(),
+      });
+      res.json({ claim, message: "Waiver claim submitted" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to submit waiver claim" });
     }
   });
 
@@ -1166,6 +1245,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   setInterval(checkExpiredDraftPicks, 5000);
+
+  async function processExpiredWaivers() {
+    try {
+      const expiredWaivers = await storage.getExpiredWaivers();
+      for (const waiver of expiredWaivers) {
+        const claims = await storage.getClaimsForWaiver(waiver.id);
+        if (claims.length > 0) {
+          const winningClaim = claims[0];
+          const rosterPositions = (await storage.getLeague(waiver.leagueId))?.rosterPositions || [];
+          const benchIndex = rosterPositions.findIndex(s => s === "BN");
+          const rosterSlot = benchIndex !== -1 ? benchIndex : rosterPositions.length - 1;
+          await storage.addPlayerToTeam(waiver.leagueId, winningClaim.teamId, waiver.playerId, rosterSlot);
+          await storage.completeWaiver(waiver.id, "claimed");
+        } else {
+          await storage.completeWaiver(waiver.id, "cleared");
+        }
+      }
+    } catch (error) {
+      console.error("Error processing expired waivers:", error);
+    }
+  }
+
+  setInterval(processExpiredWaivers, 60000);
 
   return httpServer;
 }
