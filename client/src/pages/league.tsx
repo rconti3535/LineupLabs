@@ -288,6 +288,7 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
   const myTeamPicks = myPicks?.filter(p => p.teamId === userTeam?.id) || [];
   const rosterPositions = league.rosterPositions || [];
   const hasOpenSlot = myTeamPicks.length < rosterPositions.length;
+  const rosteredPlayerIds = new Set((myPicks || []).map(p => p.playerId));
 
   const claimMutation = useMutation({
     mutationFn: async (playerId: number) => {
@@ -493,10 +494,10 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
             </Select>
           </div>
           <div className="overflow-x-auto hide-scrollbar" style={{ WebkitOverflowScrolling: "touch" }}>
-            <table className="w-full" style={{ minWidth: (userTeam && rosterStatus === "free_agents" ? 24 : 0) + 120 + (statView === "adp" ? 56 : activeCats.length * 48) + "px" }}>
+            <table className="w-full" style={{ minWidth: 24 + 120 + (statView === "adp" ? 56 : activeCats.length * 48) + "px" }}>
               <thead>
                 <tr className="border-b border-gray-700">
-                  {userTeam && rosterStatus === "free_agents" && <th className="w-[24px]" />}
+                  <th className="w-[24px]" />
                   <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 pl-1 w-[120px]">Player</th>
                   {statView === "adp" ? (
                     <th className="text-center text-[10px] text-gray-400 font-semibold uppercase pb-1.5 w-[56px]">ADP</th>
@@ -510,36 +511,33 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
               <tbody>
                 {(data.players as PlayerWithAdp[]).map(player => {
                   const isOnWaivers = waiverPlayerIds.has(player.id);
+                  const isRostered = rosteredPlayerIds.has(player.id);
+                  const plusColor = isRostered
+                    ? "text-red-400 border-red-500/60 hover:bg-red-500/20"
+                    : isOnWaivers
+                    ? "text-yellow-400 border-yellow-500/60 hover:bg-yellow-500/20"
+                    : "text-green-400 border-green-500/60 hover:bg-green-500/20";
                   return (
                   <tr key={player.id} className="border-b border-gray-800/40 hover:bg-white/[0.02]">
-                    {userTeam && rosterStatus === "free_agents" && (
-                      <td className="py-1.5">
-                        {isOnWaivers ? (
-                          <button
-                            className="w-5 h-5 rounded-full flex items-center justify-center text-yellow-400 hover:bg-yellow-500/20 transition-colors disabled:opacity-30"
-                            onClick={() => claimMutation.mutate(player.id)}
-                            disabled={claimMutation.isPending}
-                            title="On waivers — submit claim"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                          </button>
-                        ) : (
-                          <button
-                            className="w-5 h-5 rounded-full flex items-center justify-center text-green-400 hover:bg-green-500/20 transition-colors disabled:opacity-30"
-                            onClick={() => {
-                              if (hasOpenSlot) {
-                                addMutation.mutate(player.id);
-                              } else {
-                                setAddDropPlayer(player);
-                              }
-                            }}
-                            disabled={addMutation.isPending}
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </td>
-                    )}
+                    <td className="py-1.5">
+                      <button
+                        className={`w-6 h-6 rounded-md border flex items-center justify-center transition-colors disabled:opacity-30 ${plusColor}`}
+                        onClick={() => {
+                          if (isRostered) return;
+                          if (isOnWaivers) {
+                            claimMutation.mutate(player.id);
+                          } else if (hasOpenSlot) {
+                            addMutation.mutate(player.id);
+                          } else {
+                            setAddDropPlayer(player);
+                          }
+                        }}
+                        disabled={isRostered || addMutation.isPending || claimMutation.isPending}
+                        title={isRostered ? "Already rostered" : isOnWaivers ? "On waivers — submit claim" : "Add to roster"}
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
                     <td className="py-1.5 pl-1">
                       <p className="text-white text-xs font-medium truncate max-w-[110px]">{player.name}</p>
                       <div className="flex items-center gap-1">
