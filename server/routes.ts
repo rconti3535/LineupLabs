@@ -1225,8 +1225,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/import-stats", async (req, res) => {
     try {
       const { importSeasonStats } = await import("./import-stats");
-      res.json({ message: "Stats import started" });
-      importSeasonStats().then(result => {
+      const season = req.body.season ? parseInt(req.body.season) : undefined;
+      res.json({ message: `Stats import started for season ${season || 2025}` });
+      importSeasonStats(season).then(result => {
         console.log("Stats import finished:", result);
       }).catch(e => console.error("Stats import error:", e));
     } catch (error) {

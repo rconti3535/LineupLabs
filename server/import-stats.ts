@@ -50,9 +50,10 @@ interface MLBPitchingStats {
   outs?: number;
 }
 
-async function fetchPlayerStats(mlbId: number): Promise<{ hitting: MLBHittingStats | null; pitching: MLBPitchingStats | null }> {
+async function fetchPlayerStats(mlbId: number, season?: number): Promise<{ hitting: MLBHittingStats | null; pitching: MLBPitchingStats | null }> {
   try {
-    const url = `https://statsapi.mlb.com/api/v1/people/${mlbId}/stats?stats=season&season=${SEASON}&group=hitting,pitching`;
+    const targetSeason = season || SEASON;
+    const url = `https://statsapi.mlb.com/api/v1/people/${mlbId}/stats?stats=season&season=${targetSeason}&group=hitting,pitching`;
     const res = await fetch(url);
     if (!res.ok) return { hitting: null, pitching: null };
 
@@ -83,8 +84,54 @@ function parseIP(ip: string | undefined): number {
   return whole * 3 + fraction;
 }
 
-export async function importSeasonStats() {
-  console.log(`Fetching ${SEASON} MLB season stats...`);
+function buildHittingUpdate(hitting: MLBHittingStats, prefix: "stat" | "s26"): Record<string, unknown> {
+  const d: Record<string, unknown> = {};
+  d[`${prefix}R`] = hitting.runs || 0;
+  d[`${prefix}HR`] = hitting.homeRuns || 0;
+  d[`${prefix}RBI`] = hitting.rbi || 0;
+  d[`${prefix}SB`] = hitting.stolenBases || 0;
+  d[`${prefix}AVG`] = hitting.avg || ".000";
+  d[`${prefix}H`] = hitting.hits || 0;
+  d[`${prefix}2B`] = hitting.doubles || 0;
+  d[`${prefix}3B`] = hitting.triples || 0;
+  d[`${prefix}BB`] = hitting.baseOnBalls || 0;
+  d[`${prefix}K`] = hitting.strikeOuts || 0;
+  d[`${prefix}OBP`] = hitting.obp || ".000";
+  d[`${prefix}SLG`] = hitting.slg || ".000";
+  d[`${prefix}OPS`] = hitting.ops || ".000";
+  d[`${prefix}TB`] = hitting.totalBases || 0;
+  d[`${prefix}CS`] = hitting.caughtStealing || 0;
+  d[`${prefix}HBP`] = hitting.hitByPitch || 0;
+  d[`${prefix}AB`] = hitting.atBats || 0;
+  d[`${prefix}PA`] = hitting.plateAppearances || 0;
+  return d;
+}
+
+function buildPitchingUpdate(pitching: MLBPitchingStats, prefix: "stat" | "s26"): Record<string, unknown> {
+  const d: Record<string, unknown> = {};
+  d[`${prefix}W`] = pitching.wins || 0;
+  d[`${prefix}SV`] = pitching.saves || 0;
+  d[`${prefix}ERA`] = pitching.era || "0.00";
+  d[`${prefix}WHIP`] = pitching.whip || "0.00";
+  d[`${prefix}L`] = pitching.losses || 0;
+  d[`${prefix}SO`] = pitching.strikeOuts || 0;
+  d[`${prefix}IP`] = pitching.inningsPitched || "0.0";
+  d[`${prefix}BBp`] = pitching.baseOnBalls || 0;
+  d[`${prefix}HRp`] = pitching.homeRuns || 0;
+  d[`${prefix}CG`] = pitching.completeGames || 0;
+  d[`${prefix}SHO`] = pitching.shutouts || 0;
+  d[`${prefix}BSV`] = pitching.blownSaves || 0;
+  d[`${prefix}ER`] = pitching.earnedRuns || 0;
+  d[`${prefix}HA`] = pitching.hits || 0;
+  d[`${prefix}IPOuts`] = parseIP(pitching.inningsPitched) || pitching.outs || 0;
+  d[`${prefix}HLD`] = pitching.holds || 0;
+  return d;
+}
+
+export async function importSeasonStats(season?: number) {
+  const targetSeason = season || SEASON;
+  const prefix: "stat" | "s26" = targetSeason === 2026 ? "s26" : "stat";
+  console.log(`Fetching ${targetSeason} MLB season stats (writing to ${prefix}* fields)...`);
 
   const allPlayers = await db
     .select({ id: players.id, mlbId: players.mlbId, name: players.name, position: players.position })
@@ -104,7 +151,7 @@ export async function importSeasonStats() {
     const results = await Promise.all(
       batch.map(async (player) => {
         await sleep(Math.random() * DELAY_MS);
-        const stats = await fetchPlayerStats(player.mlbId!);
+        const stats = await fetchPlayerStats(player.mlbId!, targetSeason);
         return { player, stats };
       })
     );
@@ -120,45 +167,8 @@ export async function importSeasonStats() {
       try {
         const updateData: Record<string, unknown> = {};
 
-        if (hitting) {
-          updateData.statR = hitting.runs || 0;
-          updateData.statHR = hitting.homeRuns || 0;
-          updateData.statRBI = hitting.rbi || 0;
-          updateData.statSB = hitting.stolenBases || 0;
-          updateData.statAVG = hitting.avg || ".000";
-          updateData.statH = hitting.hits || 0;
-          updateData.stat2B = hitting.doubles || 0;
-          updateData.stat3B = hitting.triples || 0;
-          updateData.statBB = hitting.baseOnBalls || 0;
-          updateData.statK = hitting.strikeOuts || 0;
-          updateData.statOBP = hitting.obp || ".000";
-          updateData.statSLG = hitting.slg || ".000";
-          updateData.statOPS = hitting.ops || ".000";
-          updateData.statTB = hitting.totalBases || 0;
-          updateData.statCS = hitting.caughtStealing || 0;
-          updateData.statHBP = hitting.hitByPitch || 0;
-          updateData.statAB = hitting.atBats || 0;
-          updateData.statPA = hitting.plateAppearances || 0;
-        }
-
-        if (pitching) {
-          updateData.statW = pitching.wins || 0;
-          updateData.statSV = pitching.saves || 0;
-          updateData.statERA = pitching.era || "0.00";
-          updateData.statWHIP = pitching.whip || "0.00";
-          updateData.statL = pitching.losses || 0;
-          updateData.statSO = pitching.strikeOuts || 0;
-          updateData.statIP = pitching.inningsPitched || "0.0";
-          updateData.statBBp = pitching.baseOnBalls || 0;
-          updateData.statHRp = pitching.homeRuns || 0;
-          updateData.statCG = pitching.completeGames || 0;
-          updateData.statSHO = pitching.shutouts || 0;
-          updateData.statBSV = pitching.blownSaves || 0;
-          updateData.statER = pitching.earnedRuns || 0;
-          updateData.statHA = pitching.hits || 0;
-          updateData.statIPOuts = parseIP(pitching.inningsPitched) || pitching.outs || 0;
-          updateData.statHLD = pitching.holds || 0;
-        }
+        if (hitting) Object.assign(updateData, buildHittingUpdate(hitting, prefix));
+        if (pitching) Object.assign(updateData, buildPitchingUpdate(pitching, prefix));
 
         await db.update(players).set(updateData).where(eq(players.id, player.id));
         updated++;

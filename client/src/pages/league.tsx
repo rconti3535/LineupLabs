@@ -1267,7 +1267,7 @@ export default function LeaguePage() {
 
             const STAT_COL = "w-[42px] text-center text-[11px] shrink-0";
 
-            const statPrefix = rosterStatView === "2026proj" ? "proj" : "stat";
+            const statPrefix = rosterStatView === "2026proj" ? "proj" : rosterStatView === "2026stats" ? "s26" : "stat";
 
             const getRowClass = (idx: number) => {
               if (selectedSwapIndex === idx) return "border-b border-blue-500/50 bg-blue-900/30";
