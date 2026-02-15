@@ -71,6 +71,16 @@ export const players = pgTable("players", {
   avatar: text("avatar"),
   points: integer("points").default(0),
   status: text("status").default("Active"),
+  statR: integer("stat_r").default(0),
+  statHR: integer("stat_hr").default(0),
+  statRBI: integer("stat_rbi").default(0),
+  statSB: integer("stat_sb").default(0),
+  statAVG: text("stat_avg").default(".000"),
+  statW: integer("stat_w").default(0),
+  statSV: integer("stat_sv").default(0),
+  statK: integer("stat_k").default(0),
+  statERA: text("stat_era").default("0.00"),
+  statWHIP: text("stat_whip").default("0.00"),
 });
 
 export const draftPicks = pgTable("draft_picks", {
