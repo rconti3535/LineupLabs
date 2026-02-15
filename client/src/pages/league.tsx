@@ -432,6 +432,22 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
         </div>
       ) : (
         <div className="flex items-center gap-2 mb-3">
+          <button
+            className="w-9 h-9 flex items-center justify-center text-gray-400 hover:text-white bg-gray-800/50 border border-gray-700 rounded-md transition-colors shrink-0"
+            onClick={() => setSearchExpanded(true)}
+          >
+            <Search className="w-4 h-4" />
+          </button>
+          <Select value={rosterStatus} onValueChange={(v: "free_agents" | "rostered" | "all") => setRosterStatus(v)}>
+            <SelectTrigger className="w-9 h-9 bg-gray-800/50 border-gray-700 text-white p-0 flex items-center justify-center [&>svg:last-child]:hidden">
+              <Menu className="w-4 h-4" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="free_agents">Free Agents</SelectItem>
+              <SelectItem value="rostered">Rostered</SelectItem>
+              <SelectItem value="all">All Players</SelectItem>
+            </SelectContent>
+          </Select>
           <div className="flex bg-gray-800/60 rounded-lg p-0.5 shrink-0">
             <button
               className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${playerType === "batters" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-gray-300"}`}
@@ -456,23 +472,6 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
               ))}
             </SelectContent>
           </Select>
-          <div className="flex-1" />
-          <Select value={rosterStatus} onValueChange={(v: "free_agents" | "rostered" | "all") => setRosterStatus(v)}>
-            <SelectTrigger className="w-9 h-9 bg-gray-800/50 border-gray-700 text-white p-0 flex items-center justify-center [&>svg:last-child]:hidden">
-              <Menu className="w-4 h-4" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="free_agents">Free Agents</SelectItem>
-              <SelectItem value="rostered">Rostered</SelectItem>
-              <SelectItem value="all">All Players</SelectItem>
-            </SelectContent>
-          </Select>
-          <button
-            className="w-9 h-9 flex items-center justify-center text-gray-400 hover:text-white bg-gray-800/50 border border-gray-700 rounded-md transition-colors shrink-0"
-            onClick={() => setSearchExpanded(true)}
-          >
-            <Search className="w-4 h-4" />
-          </button>
         </div>
       )}
 
