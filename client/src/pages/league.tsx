@@ -259,128 +259,88 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
   const totalPages = data ? Math.ceil(data.total / pageSize) : 0;
 
   return (
-    <div className="space-y-3">
-      {userTeam && myTeamPicks.length > 0 && (
-        <Card className="gradient-card rounded-xl p-4 border-0">
-          <h3 className="text-white font-semibold text-sm mb-3">My Roster</h3>
-          <div className="space-y-1.5">
-            {myTeamPicks.map(pick => {
-              const slotLabel = pick.rosterSlot !== null && pick.rosterSlot < rosterPositions.length
-                ? rosterPositions[pick.rosterSlot]
-                : "BN";
-              return (
-                <div key={pick.id} className="flex items-center justify-between py-1.5 px-2 rounded-lg sleeper-card-bg">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-[10px] font-bold text-gray-400 w-8 shrink-0">{slotLabel}</span>
-                    <PlayerName playerId={pick.playerId} />
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 px-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 text-xs shrink-0"
-                    onClick={() => {
-                      setDropConfirm({ pickId: pick.id, playerName: `Player #${pick.playerId}` });
-                    }}
-                    disabled={dropMutation.isPending}
-                  >
-                    <X className="w-3 h-3 mr-1" />
-                    Drop
-                  </Button>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-      )}
-
-      <Card className="gradient-card rounded-xl p-4 border-0">
-        <h3 className="text-white font-semibold text-sm mb-3">Available Players</h3>
-        <div className="flex gap-2 mb-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
-            <Input
-              placeholder="Search players..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 h-9 bg-gray-800/50 border-gray-700 text-sm text-white"
-            />
-          </div>
-          <Select value={positionFilter} onValueChange={(v) => { setPositionFilter(v); setPage(0); }}>
-            <SelectTrigger className="w-[80px] h-9 bg-gray-800/50 border-gray-700 text-sm text-white">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {POSITIONS.map(pos => (
-                <SelectItem key={pos} value={pos}>{pos}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+    <div>
+      <div className="flex gap-2 mb-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
+          <Input
+            placeholder="Search players..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-8 h-9 bg-gray-800/50 border-gray-700 text-sm text-white"
+          />
         </div>
+        <Select value={positionFilter} onValueChange={(v) => { setPositionFilter(v); setPage(0); }}>
+          <SelectTrigger className="w-[80px] h-9 bg-gray-800/50 border-gray-700 text-sm text-white">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {POSITIONS.map(pos => (
+              <SelectItem key={pos} value={pos}>{pos}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
-        {isLoading ? (
-          <div className="space-y-2">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="h-12 w-full rounded-lg" />
+      {isLoading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-10 w-full rounded" />
+          ))}
+        </div>
+      ) : !data || data.players.length === 0 ? (
+        <p className="text-gray-400 text-sm text-center py-6">No available players found</p>
+      ) : (
+        <>
+          <div className="text-[10px] text-gray-500 mb-1.5">{data.total} players available</div>
+          <div className="divide-y divide-gray-800/60">
+            {data.players.map(player => (
+              <div key={player.id} className="flex items-center gap-2 py-2">
+                {userTeam && (
+                  <button
+                    className="w-5 h-5 rounded-full flex items-center justify-center text-green-400 hover:bg-green-500/20 transition-colors shrink-0 disabled:opacity-30"
+                    onClick={() => addMutation.mutate(player.id)}
+                    disabled={addMutation.isPending || !hasOpenSlot}
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-white text-sm font-medium truncate">{player.name}</p>
+                    <span className="text-[10px] text-blue-400 font-medium shrink-0">{player.position}</span>
+                    <span className="text-[10px] text-gray-500 shrink-0">{player.teamAbbreviation || player.team}</span>
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
-        ) : !data || data.players.length === 0 ? (
-          <p className="text-gray-400 text-sm text-center py-6">No available players found</p>
-        ) : (
-          <>
-            <div className="text-[10px] text-gray-500 mb-2">{data.total} players available</div>
-            <div className="space-y-1">
-              {data.players.map(player => (
-                <div key={player.id} className="flex items-center justify-between py-2 px-2.5 rounded-lg sleeper-card-bg">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="min-w-0">
-                      <p className="text-white text-sm font-medium truncate">{player.name}</p>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] text-blue-400 font-medium">{player.position}</span>
-                        <span className="text-[10px] text-gray-500">{player.teamAbbreviation || player.team}</span>
-                      </div>
-                    </div>
-                  </div>
-                  {userTeam && (
-                    <Button
-                      size="sm"
-                      className="h-7 px-2.5 text-xs bg-green-600/20 text-green-400 hover:bg-green-600/30 border-0"
-                      onClick={() => addMutation.mutate(player.id)}
-                      disabled={addMutation.isPending || !hasOpenSlot}
-                    >
-                      <Plus className="w-3 h-3 mr-1" />
-                      Add
-                    </Button>
-                  )}
-                </div>
-              ))}
-            </div>
 
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-800">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="text-xs text-gray-400"
-                  onClick={() => setPage(p => Math.max(0, p - 1))}
-                  disabled={page === 0}
-                >
-                  Previous
-                </Button>
-                <span className="text-xs text-gray-500">{page + 1} / {totalPages}</span>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="text-xs text-gray-400"
-                  onClick={() => setPage(p => p + 1)}
-                  disabled={page >= totalPages - 1}
-                >
-                  Next
-                </Button>
-              </div>
-            )}
-          </>
-        )}
-      </Card>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-800">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-xs text-gray-400"
+                onClick={() => setPage(p => Math.max(0, p - 1))}
+                disabled={page === 0}
+              >
+                Previous
+              </Button>
+              <span className="text-xs text-gray-500">{page + 1} / {totalPages}</span>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-xs text-gray-400"
+                onClick={() => setPage(p => p + 1)}
+                disabled={page >= totalPages - 1}
+              >
+                Next
+              </Button>
+            </div>
+          )}
+        </>
+      )}
 
       <Dialog open={!!dropConfirm} onOpenChange={() => setDropConfirm(null)}>
         <DialogContent className="bg-gray-900 border-gray-700">
