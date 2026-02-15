@@ -323,96 +323,128 @@ export default function LeaguePage() {
               else posSlots.push({ pos, index });
             });
 
-            const renderRow = (slot: { pos: string; index: number }, type: "bat" | "pitch" | "bench") => {
-              const p = assignment[slot.index] || null;
-              return (
-                <div key={slot.index} className="flex items-center min-w-0" style={{ minWidth: type === "bench" ? "auto" : "540px" }}>
-                  <span className="text-[10px] font-bold w-9 text-center py-0.5 rounded bg-gray-700 text-gray-300 shrink-0">
-                    {slot.pos}
-                  </span>
-                  <div className="w-[130px] shrink-0 pl-2 border-l border-gray-700 ml-2 min-w-0">
-                    {p ? (
-                      <div className="truncate">
-                        <p className="text-white text-xs font-medium truncate">{p.name}</p>
-                        <p className="text-gray-500 text-[10px] truncate">{p.position} — {p.teamAbbreviation || p.team}</p>
-                      </div>
-                    ) : (
-                      <p className="text-gray-600 text-xs italic">Empty</p>
-                    )}
-                  </div>
-                  {type === "bat" && (
-                    <div className="flex items-center ml-auto shrink-0">
-                      <span className="w-10 text-center text-xs text-gray-300">{p?.statR ?? "-"}</span>
-                      <span className="w-10 text-center text-xs text-gray-300">{p?.statHR ?? "-"}</span>
-                      <span className="w-10 text-center text-xs text-gray-300">{p?.statRBI ?? "-"}</span>
-                      <span className="w-10 text-center text-xs text-gray-300">{p?.statSB ?? "-"}</span>
-                      <span className="w-12 text-center text-xs text-gray-300">{p?.statAVG ?? "-"}</span>
-                    </div>
-                  )}
-                  {type === "pitch" && (
-                    <div className="flex items-center ml-auto shrink-0">
-                      <span className="w-10 text-center text-xs text-gray-300">{p?.statW ?? "-"}</span>
-                      <span className="w-10 text-center text-xs text-gray-300">{p?.statSV ?? "-"}</span>
-                      <span className="w-10 text-center text-xs text-gray-300">{p?.statK ?? "-"}</span>
-                      <span className="w-12 text-center text-xs text-gray-300">{p?.statERA ?? "-"}</span>
-                      <span className="w-12 text-center text-xs text-gray-300">{p?.statWHIP ?? "-"}</span>
-                    </div>
-                  )}
-                </div>
-              );
-            };
+            const STAT_COL = "w-[42px] text-center text-[11px] shrink-0";
 
             return (
-              <Card className="gradient-card rounded-xl p-5 border-0">
+              <Card className="gradient-card rounded-xl p-4 border-0 overflow-hidden">
                 <h3 className="text-white font-semibold mb-3">{myTeam.name}</h3>
-                <div className="space-y-4">
+                <div className="space-y-5">
                   {posSlots.length > 0 && (
-                    <div className="overflow-x-auto hide-scrollbar">
-                      <div style={{ minWidth: "540px" }}>
-                        <div className="flex items-center mb-1 px-1">
-                          <span className="text-[10px] text-gray-500 uppercase font-semibold w-9 shrink-0">Pos</span>
-                          <span className="w-[130px] shrink-0 pl-2 ml-2 text-[10px] text-gray-500 uppercase font-semibold">Hitters</span>
-                          <div className="flex items-center ml-auto shrink-0">
-                            <span className="w-10 text-center text-[10px] text-gray-500 font-semibold">R</span>
-                            <span className="w-10 text-center text-[10px] text-gray-500 font-semibold">HR</span>
-                            <span className="w-10 text-center text-[10px] text-gray-500 font-semibold">RBI</span>
-                            <span className="w-10 text-center text-[10px] text-gray-500 font-semibold">SB</span>
-                            <span className="w-12 text-center text-[10px] text-gray-500 font-semibold">AVG</span>
-                          </div>
-                        </div>
-                        <div className="space-y-1">
-                          {posSlots.map(slot => renderRow(slot, "bat"))}
-                        </div>
+                    <div>
+                      <p className="text-gray-400 text-[11px] uppercase font-bold tracking-wider mb-2">Position Players</p>
+                      <div className="overflow-x-auto -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
+                        <table className="w-full" style={{ minWidth: "520px" }}>
+                          <thead>
+                            <tr className="border-b border-gray-700">
+                              <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-9 pl-1">Pos</th>
+                              <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5">Player</th>
+                              <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>R</th>
+                              <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>HR</th>
+                              <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>RBI</th>
+                              <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>SB</th>
+                              <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>AVG</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {posSlots.map(slot => {
+                              const p = assignment[slot.index] || null;
+                              return (
+                                <tr key={slot.index} className="border-b border-gray-800/50">
+                                  <td className="py-1.5 pl-1">
+                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-700 text-gray-300">{slot.pos}</span>
+                                  </td>
+                                  <td className="py-1.5 pr-2">
+                                    {p ? (
+                                      <div>
+                                        <p className="text-white text-xs font-medium truncate max-w-[120px]">{p.name}</p>
+                                        <p className="text-gray-500 text-[10px]">{p.position} — {p.teamAbbreviation || p.team}</p>
+                                      </div>
+                                    ) : (
+                                      <p className="text-gray-600 text-xs italic">Empty</p>
+                                    )}
+                                  </td>
+                                  <td className={`${STAT_COL} text-gray-300`}>{p ? p.statR : "-"}</td>
+                                  <td className={`${STAT_COL} text-gray-300`}>{p ? p.statHR : "-"}</td>
+                                  <td className={`${STAT_COL} text-gray-300`}>{p ? p.statRBI : "-"}</td>
+                                  <td className={`${STAT_COL} text-gray-300`}>{p ? p.statSB : "-"}</td>
+                                  <td className={`${STAT_COL} text-gray-300`}>{p ? p.statAVG : "-"}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
                   )}
 
                   {pitchSlots.length > 0 && (
-                    <div className="overflow-x-auto hide-scrollbar">
-                      <div style={{ minWidth: "540px" }}>
-                        <div className="flex items-center mb-1 px-1">
-                          <span className="text-[10px] text-gray-500 uppercase font-semibold w-9 shrink-0">Pos</span>
-                          <span className="w-[130px] shrink-0 pl-2 ml-2 text-[10px] text-gray-500 uppercase font-semibold">Pitchers</span>
-                          <div className="flex items-center ml-auto shrink-0">
-                            <span className="w-10 text-center text-[10px] text-gray-500 font-semibold">W</span>
-                            <span className="w-10 text-center text-[10px] text-gray-500 font-semibold">SV</span>
-                            <span className="w-10 text-center text-[10px] text-gray-500 font-semibold">K</span>
-                            <span className="w-12 text-center text-[10px] text-gray-500 font-semibold">ERA</span>
-                            <span className="w-12 text-center text-[10px] text-gray-500 font-semibold">WHIP</span>
-                          </div>
-                        </div>
-                        <div className="space-y-1">
-                          {pitchSlots.map(slot => renderRow(slot, "pitch"))}
-                        </div>
+                    <div>
+                      <p className="text-gray-400 text-[11px] uppercase font-bold tracking-wider mb-2">Pitchers</p>
+                      <div className="overflow-x-auto -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
+                        <table className="w-full" style={{ minWidth: "520px" }}>
+                          <thead>
+                            <tr className="border-b border-gray-700">
+                              <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-9 pl-1">Pos</th>
+                              <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5">Player</th>
+                              <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>W</th>
+                              <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>SV</th>
+                              <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>K</th>
+                              <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>ERA</th>
+                              <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>WHIP</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {pitchSlots.map(slot => {
+                              const p = assignment[slot.index] || null;
+                              return (
+                                <tr key={slot.index} className="border-b border-gray-800/50">
+                                  <td className="py-1.5 pl-1">
+                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-700 text-gray-300">{slot.pos}</span>
+                                  </td>
+                                  <td className="py-1.5 pr-2">
+                                    {p ? (
+                                      <div>
+                                        <p className="text-white text-xs font-medium truncate max-w-[120px]">{p.name}</p>
+                                        <p className="text-gray-500 text-[10px]">{p.position} — {p.teamAbbreviation || p.team}</p>
+                                      </div>
+                                    ) : (
+                                      <p className="text-gray-600 text-xs italic">Empty</p>
+                                    )}
+                                  </td>
+                                  <td className={`${STAT_COL} text-gray-300`}>{p ? p.statW : "-"}</td>
+                                  <td className={`${STAT_COL} text-gray-300`}>{p ? p.statSV : "-"}</td>
+                                  <td className={`${STAT_COL} text-gray-300`}>{p ? p.statK : "-"}</td>
+                                  <td className={`${STAT_COL} text-gray-300`}>{p ? p.statERA : "-"}</td>
+                                  <td className={`${STAT_COL} text-gray-300`}>{p ? p.statWHIP : "-"}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
                   )}
 
                   {benchSlots.length > 0 && (
                     <div>
-                      <p className="text-[10px] text-gray-500 uppercase font-semibold mb-1 px-1">Bench / IL</p>
+                      <p className="text-gray-400 text-[11px] uppercase font-bold tracking-wider mb-2">Bench / IL</p>
                       <div className="space-y-1">
-                        {benchSlots.map(slot => renderRow(slot, "bench"))}
+                        {benchSlots.map(slot => {
+                          const p = assignment[slot.index] || null;
+                          return (
+                            <div key={slot.index} className="flex items-center gap-2 py-1.5">
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-700 text-gray-300 shrink-0">{slot.pos}</span>
+                              {p ? (
+                                <div className="min-w-0">
+                                  <p className="text-white text-xs font-medium truncate">{p.name}</p>
+                                  <p className="text-gray-500 text-[10px]">{p.position} — {p.teamAbbreviation || p.team}</p>
+                                </div>
+                              ) : (
+                                <p className="text-gray-600 text-xs italic">Empty</p>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
