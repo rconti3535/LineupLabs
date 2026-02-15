@@ -111,10 +111,10 @@
   }
 }
 
-.hide-scrollbar {
+.hide-scrollbar, body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
-.hide-scrollbar::-webkit-scrollbar {
+.hide-scrollbar::-webkit-scrollbar, body::-webkit-scrollbar {
   display: none;
 }
