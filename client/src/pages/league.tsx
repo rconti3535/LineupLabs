@@ -1110,8 +1110,10 @@ export default function LeaguePage() {
           <ArrowLeft className="w-5 h-5" />
         </Button>
 
-        <div className="flex-1 text-center min-w-0 px-2">
-          <h1 className="text-xl font-bold text-white truncate tracking-tight">{league.name}</h1>
+        <div className="flex-1 flex justify-center min-w-0 px-2">
+          <div className="bg-white/5 border border-white/10 px-4 py-1.5 rounded-full shadow-inner backdrop-blur-sm max-w-full">
+            <h1 className="text-sm font-bold text-white truncate tracking-wide uppercase">{league.name}</h1>
+          </div>
         </div>
 
         <div className="w-9 shrink-0" />
