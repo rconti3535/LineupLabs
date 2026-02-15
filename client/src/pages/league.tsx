@@ -1493,6 +1493,8 @@ export default function LeaguePage() {
                   <label className="text-gray-400 text-xs block mb-1">Max Teams</label>
                   <Input
                     type="number"
+                    min="2"
+                    max="30"
                     value={editMaxTeams}
                     onChange={(e) => setEditMaxTeams(e.target.value)}
                     className="bg-gray-800 border-gray-700 text-white text-sm h-9"

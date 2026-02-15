@@ -152,7 +152,7 @@ export default function CreateLeague() {
                   <FormControl>
                     <Input
                       type="number"
-                      min="6"
+                      min="2"
                       max="30"
                       placeholder="12"
                       className="sleeper-card-bg sleeper-border border text-white placeholder-gray-400"
@@ -161,7 +161,7 @@ export default function CreateLeague() {
                     />
                   </FormControl>
                   <div className="text-sm text-gray-400 mt-2">
-                    Choose between 6 and 30 teams
+                    Choose between 2 and 30 teams
                   </div>
                   <FormMessage />
                 </FormItem>
