@@ -878,12 +878,12 @@ export default function DraftRoom() {
                   {posSlots.length > 0 && (
                     <div>
                       <p className="text-gray-400 text-[11px] uppercase font-bold tracking-wider mb-2">Position Players</p>
-                      <div className="overflow-x-auto -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
-                        <table className="w-full" style={{ minWidth: "520px" }}>
+                      <div className="overflow-x-auto hide-scrollbar -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
+                        <table className="w-full" style={{ minWidth: "460px" }}>
                           <thead>
                             <tr className="border-b border-gray-700">
                               <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-9 pl-1">Pos</th>
-                              <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5">Player</th>
+                              <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[140px]">Player</th>
                               <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>R</th>
                               <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>HR</th>
                               <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>RBI</th>
@@ -902,7 +902,7 @@ export default function DraftRoom() {
                                   <td className="py-1.5 pr-2">
                                     {p ? (
                                       <div>
-                                        <p className="text-white text-xs font-medium truncate max-w-[120px]">{p.name}</p>
+                                        <p className="text-white text-xs font-medium truncate max-w-[130px]">{p.name}</p>
                                         <p className="text-gray-500 text-[10px]">{p.position} — {p.teamAbbreviation || p.team}</p>
                                       </div>
                                     ) : (
@@ -926,12 +926,12 @@ export default function DraftRoom() {
                   {pitchSlots.length > 0 && (
                     <div>
                       <p className="text-gray-400 text-[11px] uppercase font-bold tracking-wider mb-2">Pitchers</p>
-                      <div className="overflow-x-auto -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
-                        <table className="w-full" style={{ minWidth: "520px" }}>
+                      <div className="overflow-x-auto hide-scrollbar -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
+                        <table className="w-full" style={{ minWidth: "460px" }}>
                           <thead>
                             <tr className="border-b border-gray-700">
                               <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-9 pl-1">Pos</th>
-                              <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5">Player</th>
+                              <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[140px]">Player</th>
                               <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>W</th>
                               <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>SV</th>
                               <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>K</th>
@@ -950,7 +950,7 @@ export default function DraftRoom() {
                                   <td className="py-1.5 pr-2">
                                     {p ? (
                                       <div>
-                                        <p className="text-white text-xs font-medium truncate max-w-[120px]">{p.name}</p>
+                                        <p className="text-white text-xs font-medium truncate max-w-[130px]">{p.name}</p>
                                         <p className="text-gray-500 text-[10px]">{p.position} — {p.teamAbbreviation || p.team}</p>
                                       </div>
                                     ) : (
