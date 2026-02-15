@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Users, Trophy, Calendar, TrendingUp, Pencil, Trash2, AlertTriangle, ArrowUpDown, Search, Plus, X, ChevronDown, Menu } from "lucide-react";
+import { ArrowLeft, Users, Trophy, Calendar, TrendingUp, Pencil, Trash2, AlertTriangle, ArrowUpDown, Search, Plus, X, ChevronDown, Menu, Clock } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -809,6 +809,17 @@ export default function LeaguePage() {
     enabled: myPickPlayerIds.length > 0,
   });
 
+  const { data: myClaimsData } = useQuery<any[]>({
+    queryKey: ["/api/leagues", leagueId, "my-claims"],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const res = await fetch(`/api/leagues/${leagueId}/my-claims?userId=${user.id}`);
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!user?.id && leagueId !== null,
+  });
+
   const initRosterMutation = useMutation({
     mutationFn: async () => {
       await apiRequest("POST", `/api/leagues/${leagueId}/init-roster-slots`, { userId: user?.id });
@@ -1138,6 +1149,46 @@ export default function LeaguePage() {
               </div>
             </Card>
           ) : null}
+
+          {myClaimsData && myClaimsData.length > 0 && (
+            <Card className="gradient-card rounded-xl p-4 border-0 mb-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Clock className="w-4 h-4 text-yellow-400" />
+                <h3 className="text-yellow-400 font-semibold text-sm">Pending Waiver Claims</h3>
+                <span className="text-[10px] bg-yellow-400/20 text-yellow-400 px-1.5 py-0.5 rounded-full font-semibold">{myClaimsData.length}</span>
+              </div>
+              <div className="space-y-2">
+                {myClaimsData.map((claim: any) => (
+                  <div key={claim.id} className="flex items-center gap-3 bg-yellow-950/20 rounded-lg p-2.5 border border-yellow-900/30">
+                    <div className="w-7 h-7 rounded-full bg-yellow-600/20 flex items-center justify-center shrink-0">
+                      <Plus className="w-3.5 h-3.5 text-yellow-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-xs font-medium truncate">{claim.player?.name || "Unknown"}</p>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-blue-400">{claim.player?.position}</span>
+                        <span className="text-[10px] text-gray-500">{claim.player?.teamAbbreviation}</span>
+                        {claim.dropPlayer && (
+                          <>
+                            <span className="text-[10px] text-gray-600">•</span>
+                            <span className="text-[10px] text-red-400">Drop: {claim.dropPlayer.name}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-[10px] text-gray-400">Expires</p>
+                      <p className="text-[10px] text-yellow-400 font-medium">
+                        {claim.waiver?.waiverExpiresAt
+                          ? new Date(claim.waiver.waiverExpiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                          : "—"}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
 
           {myTeam ? (() => {
             const isPitcherSlot = (s: string) => s === "SP" || s === "RP";

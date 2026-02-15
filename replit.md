@@ -50,6 +50,7 @@ Key API routes:
 - `POST /api/leagues/:id/init-roster-slots` — initialize persisted roster slot assignments after draft completion
 - `GET /api/leagues/:id/standings` — compute and return Roto standings with category values, points, and rankings
 - `GET /api/leagues/:id/waivers` — fetch active waivers with player info and claim counts
+- `GET /api/leagues/:id/my-claims?userId=` — fetch user's outstanding waiver claims with player info
 - `POST /api/leagues/:id/waiver-claim` — submit a waiver claim on a player
 
 ### Data Storage
@@ -67,7 +68,7 @@ Key API routes:
 - **draft_picks** — id, leagueId (FK to leagues), teamId (FK to teams), playerId (FK to players), overallPick, round, pickInRound, pickedAt, rosterSlot (nullable integer for persisted lineup position). Tracks all draft selections per league.
 - **player_adp** — id, playerId (FK to players), leagueType, scoringFormat, season, adp (average draft position), draftCount, totalPositionSum. Recalculated when drafts complete. Undrafted players get position 9999.
 - **waivers** — id, leagueId (FK to leagues), playerId (FK to players), droppedByTeamId (FK to teams), waiverExpiresAt (ISO string), status (active/claimed/cleared), createdAt. 2-day waiver period for dropped players.
-- **waiver_claims** — id, waiverId (FK to waivers), teamId (FK to teams), createdAt. Teams submit claims on waiver players; first claim wins when waiver expires.
+- **waiver_claims** — id, waiverId (FK to waivers), teamId (FK to teams), dropPickId (nullable FK to draft_picks), createdAt. Teams submit claims on waiver players; first claim wins when waiver expires. dropPickId tracks which player to drop when roster is full.
 - **activities** — user activity tracking
 
 ### Storage Layer
