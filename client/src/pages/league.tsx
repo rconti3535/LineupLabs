@@ -123,8 +123,8 @@ function StandingsTab({ leagueId, league, teamsLoading, teams }: { leagueId: num
                       <div className="flex items-center gap-1.5 overflow-hidden">
                         <p className="text-white text-xs font-medium truncate">{team.teamName}</p>
                         {team.userId === league.createdBy && (
-                          <Badge className="text-[8px] h-3 px-1 bg-yellow-500 text-white border-0 shrink-0">
-                            COMMISH
+                          <Badge className="text-[8px] h-3 px-1 bg-yellow-600 text-white border-0 shrink-0">
+                            Commish
                           </Badge>
                         )}
                       </div>
@@ -1268,7 +1268,7 @@ export default function LeaguePage() {
                   <div className="flex items-center gap-2">
                     <h3 className="text-white font-semibold">{myTeam.name}</h3>
                     {user?.id === league.createdBy && (
-                      <Badge className="text-[10px] px-1.5 py-0 shrink-0 bg-yellow-500 text-white border-0">
+                      <Badge className="text-[10px] px-1.5 py-0 shrink-0 bg-yellow-600 text-white border-0">
                         Commish
                       </Badge>
                     )}
