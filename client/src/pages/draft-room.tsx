@@ -14,7 +14,7 @@ import { assignPlayersToRoster } from "@/lib/roster-utils";
 
 type DraftTab = "board" | "players" | "team";
 
-const POSITION_FILTERS = ["ALL", "C", "1B", "2B", "3B", "SS", "OF", "SP", "RP", "DH", "UTIL"];
+const POSITION_FILTERS = ["ALL", "C", "1B", "2B", "3B", "SS", "OF", "SP", "RP", "DH", "UT"];
 const LEVEL_FILTERS = ["ALL", "MLB", "AAA", "AA", "A+", "A", "Rookie"];
 
 function useCountdown(targetDate: Date | null) {
@@ -343,15 +343,19 @@ export default function DraftRoom() {
       if (idx !== -1) filledSlots.add(idx);
       else {
         if (!["SP", "RP"].includes(tp.position)) {
-          const utilIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "UTIL");
+          const utilIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "UT");
           if (utilIdx !== -1) filledSlots.add(utilIdx);
           else {
             const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
             if (bnIdx !== -1) filledSlots.add(bnIdx);
           }
         } else {
-          const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
-          if (bnIdx !== -1) filledSlots.add(bnIdx);
+          const pIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "P");
+          if (pIdx !== -1) filledSlots.add(pIdx);
+          else {
+            const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
+            if (bnIdx !== -1) filledSlots.add(bnIdx);
+          }
         }
       }
     }
@@ -359,7 +363,8 @@ export default function DraftRoom() {
       if (filledSlots.has(i)) continue;
       const slot = rosterPositions[i];
       if (slot === "BN" || slot === "IL") return true;
-      if (slot === "UTIL" && !["SP", "RP"].includes(playerPos)) return true;
+      if (slot === "UT" && !["SP", "RP"].includes(playerPos)) return true;
+      if (slot === "P" && ["SP", "RP"].includes(playerPos)) return true;
       if (slot === "OF" && ["OF", "LF", "CF", "RF"].includes(playerPos)) return true;
       if (slot === playerPos) return true;
     }
@@ -419,7 +424,7 @@ export default function DraftRoom() {
     const colors: Record<string, string> = {
       C: "bg-yellow-600", "1B": "bg-red-600", "2B": "bg-orange-600",
       "3B": "bg-pink-600", SS: "bg-purple-600", OF: "bg-green-600",
-      SP: "bg-blue-600", RP: "bg-cyan-600", DH: "bg-gray-600", UTIL: "bg-gray-600",
+      SP: "bg-blue-600", RP: "bg-cyan-600", DH: "bg-gray-600", UT: "bg-gray-600", P: "bg-indigo-600",
     };
     return colors[pos] || "bg-gray-600";
   };

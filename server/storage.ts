@@ -537,7 +537,7 @@ export class DatabaseStorage implements IStorage {
       }
     }
     if (!position && playerType === "batters") {
-      conditions.push(inArray(players.position, ["C", "1B", "2B", "3B", "SS", "OF", "LF", "CF", "RF", "DH", "UTIL"]));
+      conditions.push(inArray(players.position, ["C", "1B", "2B", "3B", "SS", "OF", "LF", "CF", "RF", "DH", "UT"]));
     } else if (!position && playerType === "pitchers") {
       conditions.push(inArray(players.position, ["SP", "RP", "P"]));
     }

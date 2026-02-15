@@ -171,7 +171,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const playerIds = Array.from(playerIdSet);
       const playerList = await storage.getPlayersByIds(playerIds);
       const playerMap = new Map(playerList.map(p => [p.id, p]));
-      const rosterPositions = league.rosterPositions || ["C", "1B", "2B", "3B", "SS", "OF", "OF", "OF", "UTIL", "SP", "SP", "RP", "RP", "BN", "BN", "IL"];
+      const rosterPositions = league.rosterPositions || ["C", "1B", "2B", "3B", "SS", "OF", "OF", "OF", "UT", "SP", "SP", "RP", "RP", "BN", "BN", "IL"];
 
       const standings = computeRotoStandings(league, teams, draftPicks, playerMap, rosterPositions);
       res.json({
@@ -438,15 +438,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (idx !== -1) filledSlots.add(idx);
         else {
           if (!["SP", "RP"].includes(tp.position)) {
-            const utilIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "UTIL");
+            const utilIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "UT");
             if (utilIdx !== -1) filledSlots.add(utilIdx);
             else {
               const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
               if (bnIdx !== -1) filledSlots.add(bnIdx);
             }
           } else {
-            const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
-            if (bnIdx !== -1) filledSlots.add(bnIdx);
+            const pIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "P");
+            if (pIdx !== -1) filledSlots.add(pIdx);
+            else {
+              const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
+              if (bnIdx !== -1) filledSlots.add(bnIdx);
+            }
           }
         }
       }
@@ -456,7 +460,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (filledSlots.has(i)) continue;
           const slot = rosterPositions[i];
           if (slot === "BN" || slot === "IL") return true;
-          if (slot === "UTIL" && !["SP", "RP"].includes(playerPos)) return true;
+          if (slot === "UT" && !["SP", "RP"].includes(playerPos)) return true;
+          if (slot === "P" && ["SP", "RP"].includes(playerPos)) return true;
           if (slot === "OF" && ["OF", "LF", "CF", "RF"].includes(playerPos)) return true;
           if (slot === playerPos) return true;
         }
@@ -624,15 +629,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (idx !== -1) filledSlots.add(idx);
         else {
           if (!["SP", "RP"].includes(tp.position)) {
-            const utilIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "UTIL");
+            const utilIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "UT");
             if (utilIdx !== -1) filledSlots.add(utilIdx);
             else {
               const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
               if (bnIdx !== -1) filledSlots.add(bnIdx);
             }
           } else {
-            const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
-            if (bnIdx !== -1) filledSlots.add(bnIdx);
+            const pIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "P");
+            if (pIdx !== -1) filledSlots.add(pIdx);
+            else {
+              const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
+              if (bnIdx !== -1) filledSlots.add(bnIdx);
+            }
           }
         }
       }
@@ -645,17 +654,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const hasBenchOrIL = emptySlotPositions.some(s => s === "BN" || s === "IL");
-      const hasUtil = emptySlotPositions.some(s => s === "UTIL");
+      const hasUtil = emptySlotPositions.some(s => s === "UT");
+      const hasP = emptySlotPositions.some(s => s === "P");
 
       const eligiblePositions: string[] = [];
       for (const slot of emptySlotPositions) {
         if (slot === "BN" || slot === "IL") continue;
-        if (slot === "UTIL") continue;
+        if (slot === "UT") continue;
+        if (slot === "P") continue;
         if (!eligiblePositions.includes(slot)) eligiblePositions.push(slot);
       }
 
       if (hasUtil) {
         for (const p of ["C", "1B", "2B", "3B", "SS", "OF", "DH"]) {
+          if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
+        }
+      }
+
+      if (hasP) {
+        for (const p of ["SP", "RP"]) {
           if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
         }
       }
@@ -739,7 +756,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const canFit = (playerPos: string, slotPos: string): boolean => {
         if (slotPos === "BN" || slotPos === "IL") return true;
-        if (slotPos === "UTIL") return !["SP", "RP"].includes(playerPos);
+        if (slotPos === "UT") return !["SP", "RP"].includes(playerPos);
+        if (slotPos === "P") return ["SP", "RP"].includes(playerPos);
         if (slotPos === "OF") return ["OF", "LF", "CF", "RF"].includes(playerPos);
         return playerPos === slotPos;
       };
@@ -800,7 +818,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const canFitSlot = (playerPos: string, slotPos: string): boolean => {
         if (slotPos === "BN" || slotPos === "IL") return true;
-        if (slotPos === "UTIL") return !["SP", "RP"].includes(playerPos);
+        if (slotPos === "UT") return !["SP", "RP"].includes(playerPos);
+        if (slotPos === "P") return ["SP", "RP"].includes(playerPos);
         if (slotPos === "OF") return ["OF", "LF", "CF", "RF"].includes(playerPos);
         return playerPos === slotPos;
       };
@@ -825,7 +844,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 break;
               }
             } else if (pass === 1) {
-              if (slot === "UTIL" && !["SP", "RP"].includes(player.position)) {
+              if ((slot === "UT" && !["SP", "RP"].includes(player.position)) || (slot === "P" && ["SP", "RP"].includes(player.position))) {
                 assigned[si] = pi;
                 usedPickIndices.add(pi);
                 break;
@@ -1230,15 +1249,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (idx !== -1) filledSlots.add(idx);
           else {
             if (!["SP", "RP"].includes(tp.position)) {
-              const utilIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "UTIL");
+              const utilIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "UT");
               if (utilIdx !== -1) filledSlots.add(utilIdx);
               else {
                 const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
                 if (bnIdx !== -1) filledSlots.add(bnIdx);
               }
             } else {
-              const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
-              if (bnIdx !== -1) filledSlots.add(bnIdx);
+              const pIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "P");
+              if (pIdx !== -1) filledSlots.add(pIdx);
+              else {
+                const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
+                if (bnIdx !== -1) filledSlots.add(bnIdx);
+              }
             }
           }
         }
@@ -1248,7 +1271,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (!filledSlots.has(i)) emptySlotPositions.push(rosterPositions[i]);
         }
 
-        const priorityOrder = ["C", "1B", "2B", "3B", "SS", "OF", "SP", "RP", "DH", "UTIL", "BN", "IL"];
+        const priorityOrder = ["C", "1B", "2B", "3B", "SS", "OF", "SP", "RP", "P", "DH", "UT", "BN", "IL"];
         emptySlotPositions.sort((a, b) => {
           const ai = priorityOrder.indexOf(a);
           const bi = priorityOrder.indexOf(b);
@@ -1257,7 +1280,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         let selectedPlayer = null;
         for (const slotPos of emptySlotPositions) {
-          if (slotPos === "BN" || slotPos === "IL" || slotPos === "UTIL") continue;
+          if (slotPos === "BN" || slotPos === "IL" || slotPos === "UT" || slotPos === "P") continue;
           selectedPlayer = await storage.getBestAvailablePlayer(draftedPlayerIds, slotPos);
           if (selectedPlayer) break;
         }

@@ -49,7 +49,7 @@ async function fetchJson(url: string) {
 function mapPosition(posAbbr: string): string {
   const posMap: Record<string, string> = {
     "P": "SP",
-    "TWP": "UTIL",
+    "TWP": "UT",
     "DH": "DH",
     "C": "C",
     "1B": "1B",
@@ -60,7 +60,7 @@ function mapPosition(posAbbr: string): string {
     "CF": "OF",
     "RF": "OF",
     "OF": "OF",
-    "IF": "UTIL",
+    "IF": "UT",
   };
   return posMap[posAbbr] || posAbbr;
 }

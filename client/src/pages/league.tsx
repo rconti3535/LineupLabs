@@ -161,7 +161,7 @@ function StandingsTab({ leagueId, league, teamsLoading, teams }: { leagueId: num
   );
 }
 
-const BATTER_POSITIONS = ["All", "C", "1B", "2B", "3B", "SS", "OF", "UTIL"];
+const BATTER_POSITIONS = ["All", "C", "1B", "2B", "3B", "SS", "OF", "UT"];
 const PITCHER_POSITIONS = ["All", "SP", "RP"];
 
 const HITTING_STAT_MAP: Record<string, { key: keyof Player; isRate?: boolean }> = {
@@ -1008,7 +1008,7 @@ export default function LeaguePage() {
 
   const startEditingRoster = () => {
     if (!league) return;
-    const positions = league.rosterPositions || ["C", "1B", "2B", "3B", "SS", "OF", "OF", "OF", "UTIL", "SP", "SP", "RP", "RP", "BN", "BN", "IL"];
+    const positions = league.rosterPositions || ["C", "1B", "2B", "3B", "SS", "OF", "OF", "OF", "UT", "SP", "SP", "RP", "RP", "BN", "BN", "IL"];
     setEditRosterPositions(positions);
     setEditRosterCounts(positionsToCountsMap(positions));
     setIsEditingRoster(true);
@@ -1046,7 +1046,7 @@ export default function LeaguePage() {
     setIsEditingDraft(false);
   };
 
-  const ALL_POSITIONS = ["C", "1B", "2B", "3B", "SS", "OF", "UTIL", "SP", "RP", "BN", "IL", "DH"];
+  const ALL_POSITIONS = ["C", "1B", "2B", "3B", "SS", "OF", "UT", "DH", "SP", "RP", "P", "BN", "IL"];
 
   if (leagueLoading) {
     return (
