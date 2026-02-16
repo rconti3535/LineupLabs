@@ -3058,47 +3058,35 @@ export default function LeaguePage() {
                   <div>
                     <label className="text-gray-400 text-xs block mb-2">Use arrows to set pick order</label>
                     <div className="space-y-1">
-                      {(() => {
-                        const maxSlots = league.maxTeams || league.numberOfTeams || 12;
-                        const slots = [];
-                        for (let i = 0; i < maxSlots; i++) {
-                          const teamId = manualTeamOrder[i];
-                          const team = teamId ? teams?.find(t => t.id === teamId) : undefined;
-                          slots.push(
-                            <div key={teamId || `open-${i}`} className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-2">
-                              <span className="text-primary font-bold text-xs w-5">{i + 1}</span>
-                              {team ? (
-                                <span className="text-white text-sm flex-1">{team.name}{team.isCpu ? " (CPU)" : ""}</span>
-                              ) : (
-                                <span className="text-gray-500 text-sm flex-1 italic">Open Slot</span>
-                              )}
-                              {team && (
-                                <div className="flex gap-1">
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-6 w-6 p-0 text-gray-400 hover:text-white"
-                                    onClick={() => moveTeamUp(i)}
-                                    disabled={i === 0 || !manualTeamOrder[i]}
-                                  >
-                                    <ChevronUp className="w-4 h-4" />
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-6 w-6 p-0 text-gray-400 hover:text-white"
-                                    onClick={() => moveTeamDown(i)}
-                                    disabled={i >= manualTeamOrder.length - 1 || !manualTeamOrder[i]}
-                                  >
-                                    <ChevronDown className="w-4 h-4" />
-                                  </Button>
-                                </div>
-                              )}
+                      {manualTeamOrder.map((teamId, index) => {
+                        const team = teams?.find(t => t.id === teamId);
+                        return (
+                          <div key={teamId} className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-2">
+                            <span className="text-primary font-bold text-xs w-5">{index + 1}</span>
+                            <span className="text-white text-sm flex-1">{team?.name || "Unknown"}{team?.isCpu ? " (CPU)" : ""}</span>
+                            <div className="flex gap-1">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 w-6 p-0 text-gray-400 hover:text-white"
+                                onClick={() => moveTeamUp(index)}
+                                disabled={index === 0}
+                              >
+                                <ChevronUp className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 w-6 p-0 text-gray-400 hover:text-white"
+                                onClick={() => moveTeamDown(index)}
+                                disabled={index >= manualTeamOrder.length - 1}
+                              >
+                                <ChevronDown className="w-4 h-4" />
+                              </Button>
                             </div>
-                          );
-                        }
-                        return slots;
-                      })()}
+                          </div>
+                        );
+                      })}
                     </div>
                     <Button
                       size="sm"
@@ -3115,10 +3103,11 @@ export default function LeaguePage() {
                     <div className="space-y-1">
                       {(() => {
                         const maxSlots = league.maxTeams || league.numberOfTeams || 12;
-                        const sorted = [...(teams || [])].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999));
+                        const posMap = new Map<number, Team>();
+                        (teams || []).forEach(t => { if (t.draftPosition) posMap.set(t.draftPosition, t); });
                         const slots = [];
                         for (let i = 0; i < maxSlots; i++) {
-                          const team = sorted[i];
+                          const team = posMap.get(i + 1);
                           slots.push(
                             <div key={team?.id || `open-${i}`} className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-2">
                               <span className="text-primary font-bold text-xs w-5">{i + 1}</span>
@@ -3172,9 +3161,10 @@ export default function LeaguePage() {
                     <div className="space-y-1">
                       {(() => {
                         const maxSlots = league.maxTeams || league.numberOfTeams || 12;
-                        const sorted = [...(teams || [])].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999));
+                        const posMap = new Map<number, Team>();
+                        (teams || []).forEach(t => { if (t.draftPosition) posMap.set(t.draftPosition, t); });
                         return Array.from({ length: maxSlots }, (_, i) => {
-                          const team = sorted[i];
+                          const team = posMap.get(i + 1);
                           return (
                             <div key={team?.id || `open-${i}`} className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-1.5">
                               <span className="text-primary font-bold text-xs w-5">{i + 1}</span>
@@ -3218,9 +3208,10 @@ export default function LeaguePage() {
                   <div className="space-y-1">
                     {(() => {
                       const maxSlots = league.maxTeams || league.numberOfTeams || 12;
-                      const sorted = [...(teams || [])].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999));
+                      const posMap = new Map<number, Team>();
+                      (teams || []).forEach(t => { if (t.draftPosition) posMap.set(t.draftPosition, t); });
                       return Array.from({ length: maxSlots }, (_, i) => {
-                        const team = sorted[i];
+                        const team = posMap.get(i + 1);
                         return (
                           <div key={team?.id || `open-${i}`} className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-1.5">
                             <span className="text-primary font-bold text-xs w-5">{i + 1}</span>

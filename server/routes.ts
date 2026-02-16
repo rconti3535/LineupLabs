@@ -268,9 +268,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Only the commissioner can set draft order" });
       }
       const leagueTeams = await storage.getTeamsByLeagueId(id);
-      const shuffled = [...leagueTeams].sort(() => Math.random() - 0.5);
-      for (let i = 0; i < shuffled.length; i++) {
-        await storage.updateTeam(shuffled[i].id, { draftPosition: i + 1 } as any);
+      const maxSlots = league.maxTeams || league.numberOfTeams || 12;
+      const positions = Array.from({ length: maxSlots }, (_, i) => i + 1);
+      for (let i = positions.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [positions[i], positions[j]] = [positions[j], positions[i]];
+      }
+      for (let i = 0; i < leagueTeams.length; i++) {
+        await storage.updateTeam(leagueTeams[i].id, { draftPosition: positions[i] } as any);
       }
       await storage.updateLeague(id, { draftOrder: "Random" });
       const updatedTeams = await storage.getTeamsByLeagueId(id);
