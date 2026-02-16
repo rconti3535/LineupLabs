@@ -36,6 +36,7 @@ export const leagues = pgTable("leagues", {
   draftOrder: text("draft_order").default("Random"),
   draftStatus: text("draft_status").default("pending"),
   draftPickStartedAt: text("draft_pick_started_at"),
+  seasonWeeks: integer("season_weeks").default(22),
   createdBy: integer("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -270,6 +271,21 @@ export const dailyLineups = pgTable("daily_lineups", {
   slotPos: text("slot_pos").notNull(),
   playerId: integer("player_id").references(() => players.id),
 });
+
+export const leagueMatchups = pgTable("league_matchups", {
+  id: serial("id").primaryKey(),
+  leagueId: integer("league_id").references(() => leagues.id).notNull(),
+  week: integer("week").notNull(),
+  teamAId: integer("team_a_id").references(() => teams.id).notNull(),
+  teamBId: integer("team_b_id").references(() => teams.id).notNull(),
+});
+
+export const insertLeagueMatchupSchema = createInsertSchema(leagueMatchups).omit({
+  id: true,
+});
+
+export type LeagueMatchup = typeof leagueMatchups.$inferSelect;
+export type InsertLeagueMatchup = z.infer<typeof insertLeagueMatchupSchema>;
 
 export const insertWaiverSchema = createInsertSchema(waivers).omit({
   id: true,

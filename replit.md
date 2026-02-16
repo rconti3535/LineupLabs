@@ -49,7 +49,7 @@ Key API routes:
 - `POST /api/leagues/:id/roster-swap` — swap two players' roster positions (with position eligibility validation)
 - `POST /api/leagues/:id/init-roster-slots` — initialize persisted roster slot assignments after draft completion
 - `GET /api/leagues/:id/standings` — compute and return Roto standings with category values, points, and rankings
-- `GET /api/leagues/:id/matchups` — compute H2H matchups week-by-week with scores and category breakdowns (H2H leagues only)
+- `GET /api/leagues/:id/matchups` — fetch persisted H2H matchups week-by-week with scores and category breakdowns (H2H leagues only; matchups generated at draft completion via round-robin scheduling)
 - `GET /api/leagues/:id/waivers` — fetch active waivers with player info and claim counts
 - `GET /api/leagues/:id/my-claims?userId=` — fetch user's outstanding waiver claims with player info
 - `POST /api/leagues/:id/waiver-claim` — submit a waiver claim on a player
@@ -64,13 +64,14 @@ Key API routes:
 
 ### Database Schema (defined in `shared/schema.ts`)
 - **users** — id, username, email, password, name, avatar, leagues count, wins, championships
-- **leagues** — id, name, description, type, numberOfTeams, scoringFormat (Roto/H2H Points/H2H Each Category/H2H Most Categories/Season Points), hittingCategories (text array, default R/HR/RBI/SB/AVG), pitchingCategories (text array, default W/SV/K/ERA/WHIP), isPublic, maxTeams, currentTeams, buyin, prize, status, rosterPositions, draftType, draftDate, secondsPerPick, draftOrder, draftStatus (pending/active/paused/completed), draftPickStartedAt (ISO timestamp for server-side timer), createdBy (FK to users), createdAt
+- **leagues** — id, name, description, type, numberOfTeams, scoringFormat (Roto/H2H Points/H2H Each Category/H2H Most Categories/Season Points), hittingCategories (text array, default R/HR/RBI/SB/AVG), pitchingCategories (text array, default W/SV/K/ERA/WHIP), isPublic, maxTeams, currentTeams, buyin, prize, status, rosterPositions, draftType, draftDate, secondsPerPick, draftOrder, draftStatus (pending/active/paused/completed), draftPickStartedAt (ISO timestamp for server-side timer), seasonWeeks (integer, default 22), createdBy (FK to users), createdAt
 - **teams** — id, name, leagueId (FK to leagues), userId (FK to users), wins, losses, points, rank, logo, nextOpponent
 - **players** — id, mlbId (unique), name, firstName, lastName, position, team, teamAbbreviation, jerseyNumber, bats, throws, age, height, weight, mlbLevel (MLB/AAA/AA/A+/A/Rookie), avatar, points, status. ~8,200 real players imported from MLB Stats API.
 - **draft_picks** — id, leagueId (FK to leagues), teamId (FK to teams), playerId (FK to players), overallPick, round, pickInRound, pickedAt, rosterSlot (nullable integer for persisted lineup position). Tracks all draft selections per league.
 - **player_adp** — id, playerId (FK to players), leagueType, scoringFormat, season, adp (average draft position), draftCount, totalPositionSum. Recalculated when drafts complete. Undrafted players get position 9999.
 - **waivers** — id, leagueId (FK to leagues), playerId (FK to players), droppedByTeamId (FK to teams), waiverExpiresAt (ISO string), status (active/claimed/cleared), createdAt. 2-day waiver period for dropped players.
 - **waiver_claims** — id, waiverId (FK to waivers), teamId (FK to teams), dropPickId (nullable FK to draft_picks), createdAt. Teams submit claims on waiver players; first claim wins when waiver expires. dropPickId tracks which player to drop when roster is full.
+- **league_matchups** — id, leagueId (FK to leagues), week (integer), teamAId (FK to teams), teamBId (FK to teams). Persisted H2H matchup pairings generated at draft completion using round-robin scheduling; N-1 unique week cycle repeated for seasonWeeks length.
 - **daily_lineups** — id, leagueId (FK to leagues), teamId (FK to teams), date (string YYYY-MM-DD), slotIndex (integer), slotPos (string), playerId (nullable FK to players). Tracks daily lineup assignments per team per date; initialized from previous day or draft picks when first accessed.
 - **activities** — user activity tracking
 

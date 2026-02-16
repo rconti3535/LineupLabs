@@ -429,6 +429,7 @@ export function computeMatchups(
   draftPicks: DraftPick[],
   allPlayers: Map<number, Player>,
   rosterPositions: string[],
+  persistedMatchups?: { week: number; teamAId: number; teamBId: number }[],
 ): MatchupWeek[] {
   const format = league.scoringFormat || "Roto";
   const isPoints = format === "H2H Points";
@@ -480,7 +481,18 @@ export function computeMatchups(
     }
   }
 
-  const weeks = generateRoundRobinMatchups(teams.map(t => t.id));
+  let weeks: [number, number][][];
+  if (persistedMatchups && persistedMatchups.length > 0) {
+    const weekMap = new Map<number, [number, number][]>();
+    for (const m of persistedMatchups) {
+      if (!weekMap.has(m.week)) weekMap.set(m.week, []);
+      weekMap.get(m.week)!.push([m.teamAId, m.teamBId]);
+    }
+    const sortedWeeks = Array.from(weekMap.keys()).sort((a, b) => a - b);
+    weeks = sortedWeeks.map(w => weekMap.get(w)!);
+  } else {
+    weeks = generateRoundRobinMatchups(teams.map(t => t.id)) as [number, number][][];
+  }
   const result: MatchupWeek[] = [];
 
   for (let wi = 0; wi < weeks.length; wi++) {

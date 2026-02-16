@@ -1,5 +1,5 @@
 import { 
-  users, leagues, teams, players, activities, draftPicks, playerAdp, waivers, waiverClaims, dailyLineups,
+  users, leagues, teams, players, activities, draftPicks, playerAdp, waivers, waiverClaims, dailyLineups, leagueMatchups,
   type User, type InsertUser,
   type League, type InsertLeague,
   type Team, type InsertTeam,
@@ -9,7 +9,8 @@ import {
   type Activity, type InsertActivity,
   type Waiver, type InsertWaiver,
   type WaiverClaim, type InsertWaiverClaim,
-  type DailyLineup, type InsertDailyLineup
+  type DailyLineup, type InsertDailyLineup,
+  type LeagueMatchup, type InsertLeagueMatchup
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, ilike, or, and, sql, notInArray, asc, desc, inArray, gte, gt } from "drizzle-orm";
@@ -94,6 +95,12 @@ export interface IStorage {
   getDailyLineupDates(leagueId: number, teamId: number): Promise<string[]>;
   getFutureDailyLineupDates(leagueId: number, teamId: number, fromDate: string): Promise<string[]>;
   deleteDailyLineupFromDate(leagueId: number, teamId: number, fromDate: string): Promise<void>;
+
+  // League Matchups
+  getMatchupsByLeague(leagueId: number): Promise<LeagueMatchup[]>;
+  getMatchupsByLeagueAndWeek(leagueId: number, week: number): Promise<LeagueMatchup[]>;
+  createMatchups(matchups: InsertLeagueMatchup[]): Promise<void>;
+  deleteMatchupsByLeague(leagueId: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -167,6 +174,7 @@ export class DatabaseStorage implements IStorage {
       await db.delete(waivers).where(eq(waivers.leagueId, id));
     }
 
+    await db.delete(leagueMatchups).where(eq(leagueMatchups.leagueId, id));
     await db.delete(draftPicks).where(eq(draftPicks.leagueId, id));
     await db.delete(teams).where(eq(teams.leagueId, id));
     await db.delete(leagues).where(eq(leagues.id, id));
@@ -708,6 +716,26 @@ export class DatabaseStorage implements IStorage {
         gte(dailyLineups.date, fromDate)
       )
     );
+  }
+
+  async getMatchupsByLeague(leagueId: number): Promise<LeagueMatchup[]> {
+    return await db.select().from(leagueMatchups)
+      .where(eq(leagueMatchups.leagueId, leagueId))
+      .orderBy(asc(leagueMatchups.week));
+  }
+
+  async getMatchupsByLeagueAndWeek(leagueId: number, week: number): Promise<LeagueMatchup[]> {
+    return await db.select().from(leagueMatchups)
+      .where(and(eq(leagueMatchups.leagueId, leagueId), eq(leagueMatchups.week, week)));
+  }
+
+  async createMatchups(matchups: InsertLeagueMatchup[]): Promise<void> {
+    if (matchups.length === 0) return;
+    await db.insert(leagueMatchups).values(matchups);
+  }
+
+  async deleteMatchupsByLeague(leagueId: number): Promise<void> {
+    await db.delete(leagueMatchups).where(eq(leagueMatchups.leagueId, leagueId));
   }
 }
 

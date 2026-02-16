@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertLeagueSchema, insertTeamSchema, insertUserSchema, insertDraftPickSchema, type Player } from "@shared/schema";
+import { insertLeagueSchema, insertTeamSchema, insertUserSchema, insertDraftPickSchema, type Player, type InsertLeagueMatchup } from "@shared/schema";
 import { computeRotoStandings } from "./roto-scoring";
 import { computeStandings, computeMatchups } from "./scoring";
 
@@ -29,6 +29,58 @@ function getWaiverExpirationPST(): string {
     guess.setUTCHours(guess.getUTCHours() - h);
   }
   return guess.toISOString();
+}
+
+async function generateLeagueMatchups(leagueId: number): Promise<void> {
+  const league = await storage.getLeague(leagueId);
+  if (!league) return;
+
+  const format = league.scoringFormat || "Roto";
+  if (!format.startsWith("H2H")) return;
+
+  await storage.deleteMatchupsByLeague(leagueId);
+
+  const leagueTeams = await storage.getTeamsByLeagueId(leagueId);
+  const n = leagueTeams.length;
+  if (n < 2) return;
+
+  const teamIds = leagueTeams.map(t => t.id);
+  const ids = [...teamIds];
+  if (n % 2 !== 0) ids.push(-1);
+  const numIds = ids.length;
+
+  const rotationWeeks: [number, number][][] = [];
+  for (let round = 0; round < numIds - 1; round++) {
+    const pairs: [number, number][] = [];
+    for (let i = 0; i < numIds / 2; i++) {
+      const home = ids[i];
+      const away = ids[numIds - 1 - i];
+      if (home !== -1 && away !== -1) {
+        pairs.push([home, away]);
+      }
+    }
+    rotationWeeks.push(pairs);
+    const last = ids.pop()!;
+    ids.splice(1, 0, last);
+  }
+
+  const seasonWeeks = league.seasonWeeks || 22;
+  const matchupsToInsert: InsertLeagueMatchup[] = [];
+
+  for (let week = 1; week <= seasonWeeks; week++) {
+    const rotIdx = (week - 1) % rotationWeeks.length;
+    const pairs = rotationWeeks[rotIdx];
+    for (const [teamA, teamB] of pairs) {
+      matchupsToInsert.push({
+        leagueId,
+        week,
+        teamAId: teamA,
+        teamBId: teamB,
+      });
+    }
+  }
+
+  await storage.createMatchups(matchupsToInsert);
 }
 
 async function recalculateAdpForLeague(league: { type: string | null; scoringFormat: string | null; createdAt: Date | null }) {
@@ -225,7 +277,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const playerMap = new Map(playerList.map(p => [p.id, p]));
       const rosterPositions = league.rosterPositions || ["C", "1B", "2B", "3B", "SS", "OF", "OF", "OF", "UT", "SP", "SP", "RP", "RP", "BN", "BN", "IL"];
 
-      const matchups = computeMatchups(league, teams, draftPicks, playerMap, rosterPositions);
+      const dbMatchups = await storage.getMatchupsByLeague(id);
+      const persistedMatchups = dbMatchups.map(m => ({
+        week: m.week,
+        teamAId: m.teamAId,
+        teamBId: m.teamBId,
+      }));
+
+      const matchups = computeMatchups(league, teams, draftPicks, playerMap, rosterPositions, persistedMatchups);
       res.json({ format, matchups });
     } catch (error) {
       res.status(500).json({ message: "Failed to compute matchups" });
@@ -532,6 +591,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (nextOverall >= totalPicks) {
         await storage.updateLeague(leagueId, { draftStatus: "completed", draftPickStartedAt: null });
         recalculateAdpForLeague(league).catch(e => console.error("ADP recalc error:", e));
+        generateLeagueMatchups(leagueId).catch(e => console.error("Matchup gen error:", e));
       } else {
         await storage.updateLeague(leagueId, { draftPickStartedAt: new Date().toISOString() });
       }
@@ -612,6 +672,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (nextOverall >= totalPicks) {
         await storage.updateLeague(leagueId, { draftStatus: "completed", draftPickStartedAt: null });
         recalculateAdpForLeague(league).catch(e => console.error("ADP recalc error:", e));
+        generateLeagueMatchups(leagueId).catch(e => console.error("Matchup gen error:", e));
       } else {
         await storage.updateLeague(leagueId, { draftPickStartedAt: new Date().toISOString() });
       }
@@ -759,6 +820,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (nextOverall >= totalPicks) {
         await storage.updateLeague(leagueId, { draftStatus: "completed", draftPickStartedAt: null });
         recalculateAdpForLeague(league).catch(e => console.error("ADP recalc error:", e));
+        generateLeagueMatchups(leagueId).catch(e => console.error("Matchup gen error:", e));
       } else {
         await storage.updateLeague(leagueId, { draftPickStartedAt: new Date().toISOString() });
       }
@@ -1420,6 +1482,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (nextOverall > totalRounds * numTeams) {
           await storage.updateLeague(league.id, { draftStatus: "completed", draftPickStartedAt: null });
           recalculateAdpForLeague(league).catch(e => console.error("ADP recalc error:", e));
+          generateLeagueMatchups(league.id).catch(e => console.error("Matchup gen error:", e));
           continue;
         }
 
@@ -1499,6 +1562,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!selectedPlayer) {
           await storage.updateLeague(league.id, { draftStatus: "completed", draftPickStartedAt: null });
           recalculateAdpForLeague(league).catch(e => console.error("ADP recalc error:", e));
+          generateLeagueMatchups(league.id).catch(e => console.error("Matchup gen error:", e));
           continue;
         }
 
@@ -1515,6 +1579,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (nextOverall >= totalPicks) {
           await storage.updateLeague(league.id, { draftStatus: "completed", draftPickStartedAt: null });
           recalculateAdpForLeague(league).catch(e => console.error("ADP recalc error:", e));
+          generateLeagueMatchups(league.id).catch(e => console.error("Matchup gen error:", e));
         } else {
           await storage.updateLeague(league.id, { draftPickStartedAt: new Date().toISOString() });
         }
