@@ -231,6 +231,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      if (action === "start") {
+        const allTeams = await storage.getTeamsByLeagueId(id);
+        const hasPositions = allTeams.some(t => t.draftPosition);
+        if (!hasPositions) {
+          const shuffled = [...allTeams].sort(() => Math.random() - 0.5);
+          for (let i = 0; i < shuffled.length; i++) {
+            await storage.updateTeam(shuffled[i].id, { draftPosition: i + 1 } as any);
+          }
+        }
+      }
+
       const newStatus = action === "pause" ? "paused" : "active";
       const updateData: Record<string, unknown> = { draftStatus: newStatus };
       if (newStatus === "active") {
@@ -781,7 +792,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "userId and playerId are required" });
       }
 
-      const leagueTeams = await storage.getTeamsByLeagueId(leagueId);
+      const rawLeagueTeams = await storage.getTeamsByLeagueId(leagueId);
+      const leagueTeams = [...rawLeagueTeams].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999));
       const userTeam = leagueTeams.find(t => t.userId === userId);
       if (!userTeam) {
         return res.status(403).json({ message: "You don't have a team in this league" });
@@ -986,7 +998,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Draft is not active" });
       }
 
-      const leagueTeams = await storage.getTeamsByLeagueId(leagueId);
+      const rawLeagueTeams = await storage.getTeamsByLeagueId(leagueId);
+      const leagueTeams = [...rawLeagueTeams].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999));
       const existingPicks = await storage.getDraftPicksByLeague(leagueId);
       const rosterPositions = league.rosterPositions || [];
       const totalRounds = rosterPositions.length;

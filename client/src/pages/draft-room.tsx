@@ -121,7 +121,7 @@ export default function DraftRoom() {
     refetchInterval: 5000,
   });
 
-  const { data: teams } = useQuery<Team[]>({
+  const { data: rawTeams } = useQuery<Team[]>({
     queryKey: ["/api/teams/league", leagueId],
     queryFn: async () => {
       const res = await fetch(`/api/teams/league/${leagueId}`);
@@ -130,6 +130,8 @@ export default function DraftRoom() {
     },
     enabled: !!leagueId,
   });
+
+  const teams = rawTeams ? [...rawTeams].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999)) : undefined;
 
   const { data: draftPicks = [] } = useQuery<DraftPick[]>({
     queryKey: ["/api/leagues", leagueId, "draft-picks"],
