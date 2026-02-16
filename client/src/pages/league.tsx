@@ -1317,6 +1317,7 @@ export default function LeaguePage() {
   const [editType, setEditType] = useState("");
   const [editStatus, setEditStatus] = useState("");
   const [editLockType, setEditLockType] = useState("Daily");
+  const [editLeagueImage, setEditLeagueImage] = useState<string | null>(null);
   const [isEditingRoster, setIsEditingRoster] = useState(false);
   const [editRosterPositions, setEditRosterPositions] = useState<string[]>([]);
   const [editRosterCounts, setEditRosterCounts] = useState<Record<string, number>>({});
@@ -1639,7 +1640,20 @@ export default function LeaguePage() {
     setEditType(league.type || "Redraft");
     setEditStatus(league.isPublic ? "Public" : "Private");
     setEditLockType(league.lineupLockType || "Daily");
+    setEditLeagueImage(league.leagueImage || null);
     setIsEditing(true);
+  };
+
+  const handleLeagueImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: "Image too large", description: "Please use an image under 2MB", variant: "destructive" });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setEditLeagueImage(reader.result as string);
+    reader.readAsDataURL(file);
   };
 
   const saveSettings = () => {
@@ -1649,6 +1663,7 @@ export default function LeaguePage() {
       status: editStatus,
       isPublic: editStatus === "Public",
       lineupLockType: editLockType,
+      leagueImage: editLeagueImage,
     });
   };
 
@@ -2449,6 +2464,32 @@ export default function LeaguePage() {
                       <SelectItem value="Weekly">Weekly Lock (Mon game start)</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div>
+                  <label className="text-gray-400 text-xs block mb-1">League Photo</label>
+                  <div className="flex items-center gap-3">
+                    {editLeagueImage ? (
+                      <img src={editLeagueImage} alt="League" className="w-12 h-12 rounded-lg object-cover" />
+                    ) : (
+                      <div className="w-12 h-12 rounded-lg bg-gray-700 flex items-center justify-center">
+                        <Trophy className="w-6 h-6 text-gray-500" />
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      <label className="cursor-pointer bg-gray-700 hover:bg-gray-600 text-white text-xs px-3 py-1.5 rounded-md transition-colors">
+                        Upload
+                        <input type="file" accept="image/*" className="hidden" onChange={handleLeagueImageUpload} />
+                      </label>
+                      {editLeagueImage && (
+                        <button
+                          onClick={() => setEditLeagueImage(null)}
+                          className="text-red-400 hover:text-red-300 text-xs px-2 py-1.5"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             ) : (

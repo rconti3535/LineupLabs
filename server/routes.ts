@@ -163,6 +163,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (league.createdBy !== userId) {
         return res.status(403).json({ message: "Only the commissioner can update league settings" });
       }
+      if (updates.leagueImage !== undefined) {
+        if (updates.leagueImage !== null) {
+          if (typeof updates.leagueImage !== "string" || !updates.leagueImage.startsWith("data:image/")) {
+            return res.status(400).json({ message: "leagueImage must be a data URL starting with data:image/" });
+          }
+          if (updates.leagueImage.length > 3 * 1024 * 1024) {
+            return res.status(400).json({ message: "leagueImage is too large (max ~2MB)" });
+          }
+        }
+      }
       if (updates.pointValues !== undefined) {
         if (typeof updates.pointValues === "string") {
           try {

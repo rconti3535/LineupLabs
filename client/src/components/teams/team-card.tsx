@@ -1,6 +1,7 @@
 import { useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Trophy } from "lucide-react";
 import type { Team } from "@shared/schema";
 
 interface TeamCardProps {
@@ -8,9 +9,10 @@ interface TeamCardProps {
   leagueName?: string;
   isPublic?: boolean;
   isCommissioner?: boolean;
+  leagueImage?: string | null;
 }
 
-export function TeamCard({ team, leagueName, isPublic, isCommissioner }: TeamCardProps) {
+export function TeamCard({ team, leagueName, isPublic, isCommissioner, leagueImage }: TeamCardProps) {
   const [, setLocation] = useLocation();
 
   return (
@@ -19,11 +21,17 @@ export function TeamCard({ team, leagueName, isPublic, isCommissioner }: TeamCar
       onClick={() => setLocation(`/league/${team.leagueId}`)}
     >
       <div className="flex items-center space-x-3">
-        <img
-          src={team.logo || "https://images.unsplash.com/photo-1518611012118-696072aa579a?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=60&h=60"}
-          alt="Team logo"
-          className="w-10 h-10 rounded-lg object-cover"
-        />
+        {leagueImage ? (
+          <img
+            src={leagueImage}
+            alt="League"
+            className="w-10 h-10 rounded-lg object-cover"
+          />
+        ) : (
+          <div className="w-10 h-10 rounded-lg bg-gray-700 flex items-center justify-center">
+            <Trophy className="w-5 h-5 text-gray-400" />
+          </div>
+        )}
         <div className="min-w-0 flex-1">
           <h3 className="text-sm font-semibold text-white truncate">{leagueName || `League #${team.leagueId}`}</h3>
           <div className="flex items-center gap-1.5">

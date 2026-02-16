@@ -4,7 +4,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import { startWaiverProcessor } from "./waiver-processor";
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: false }));
 
 app.use((req, res, next) => {
