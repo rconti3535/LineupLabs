@@ -239,6 +239,7 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
   const [rosterStatus, setRosterStatus] = useState<"free_agents" | "rostered" | "all">("free_agents");
   const [statView, setStatView] = useState<"adp" | "2025stats" | "2026proj" | "2026stats">("adp");
   const [searchExpanded, setSearchExpanded] = useState(false);
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -439,6 +440,40 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
     }
   }, [searchExpanded]);
 
+  const handleSort = (cat: string) => {
+    setSortConfig(prev => {
+      if (prev?.key === cat) {
+        return { key: cat, direction: prev.direction === "desc" ? "asc" : "desc" };
+      }
+      return { key: cat, direction: "desc" };
+    });
+  };
+
+  const sortedPlayers = (() => {
+    if (!data?.players) return [];
+    const players = [...data.players] as PlayerWithAdp[];
+    if (!sortConfig) return players;
+
+    return players.sort((a, b) => {
+      let valA: number;
+      let valB: number;
+
+      if (sortConfig.key === "ADP") {
+        valA = a.externalAdp ?? (a.adpValue && a.adpValue < 9999 ? a.adpValue : 10000);
+        valB = b.externalAdp ?? (b.adpValue && b.adpValue < 9999 ? b.adpValue : 10000);
+      } else {
+        const strA = getStatValue(a, sortConfig.key);
+        const strB = getStatValue(b, sortConfig.key);
+        valA = strA === "-" ? -1 : parseFloat(strA);
+        valB = strB === "-" ? -1 : parseFloat(strB);
+      }
+
+      if (valA === valB) return 0;
+      const res = valA > valB ? 1 : -1;
+      return sortConfig.direction === "desc" ? -res : res;
+    });
+  })();
+
   return (
     <div>
       {searchExpanded ? (
@@ -536,16 +571,27 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
                   <th className="w-[24px]" />
                   <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 pl-1 w-[120px]">Player</th>
                   {statView === "adp" ? (
-                    <th className="text-center text-[10px] text-gray-400 font-semibold uppercase pb-1.5 w-[56px]">ADP</th>
+                    <th 
+                      className="text-center text-[10px] text-gray-400 font-semibold uppercase pb-1.5 w-[56px] cursor-pointer hover:text-white transition-colors"
+                      onClick={() => handleSort("ADP")}
+                    >
+                      ADP {sortConfig?.key === "ADP" && (sortConfig.direction === "desc" ? "↓" : "↑")}
+                    </th>
                   ) : (
                     activeCats.map(cat => (
-                      <th key={cat} className="text-center text-[10px] text-gray-400 font-semibold uppercase pb-1.5 w-[48px]">{cat}</th>
+                      <th 
+                        key={cat} 
+                        className="text-center text-[10px] text-gray-400 font-semibold uppercase pb-1.5 w-[48px] cursor-pointer hover:text-white transition-colors"
+                        onClick={() => handleSort(cat)}
+                      >
+                        {cat} {sortConfig?.key === cat && (sortConfig.direction === "desc" ? "↓" : "↑")}
+                      </th>
                     ))
                   )}
                 </tr>
               </thead>
               <tbody>
-                {(data.players as PlayerWithAdp[]).map(player => {
+                {sortedPlayers.map(player => {
                   const isOnWaivers = waiverPlayerIds.has(player.id);
                   const isRostered = rosteredPlayerIds.has(player.id);
                   const plusColor = isRostered
