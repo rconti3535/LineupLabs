@@ -18,14 +18,23 @@ import { assignPlayersToRosterWithPicks, getSwapTargets, type RosterEntry } from
 type Tab = "roster" | "players" | "standings" | "settings";
 
 interface StandingsData {
+  format: string;
   standings: {
     teamId: number;
     teamName: string;
     userId: number | null;
     isCpu: boolean | null;
     categoryValues: Record<string, number>;
-    categoryPoints: Record<string, number>;
-    totalPoints: number;
+    categoryPoints?: Record<string, number>;
+    totalPoints?: number;
+    wins?: number;
+    losses?: number;
+    ties?: number;
+    pointsFor?: number;
+    pointsAgainst?: number;
+    categoryWins?: number;
+    categoryLosses?: number;
+    categoryTies?: number;
   }[];
   hittingCategories: string[];
   pitchingCategories: string[];
@@ -85,85 +94,202 @@ function StandingsTab({ leagueId, league, teamsLoading, teams }: { leagueId: num
     );
   }
 
-  const { standings, hittingCategories, pitchingCategories } = standingsData;
-  const allCats = [
-    ...hittingCategories.map(c => ({ key: `h_${c}`, label: c, isHitting: true })),
-    ...pitchingCategories.map(c => ({ key: `p_${c}`, label: c, isHitting: false })),
-  ];
+  const { standings, hittingCategories, pitchingCategories, format } = standingsData;
 
-  const totalCats = hittingCategories.length + pitchingCategories.length;
-  const minWidth = 140 + 48 + totalCats * 56;
+  const rankClass = (idx: number) =>
+    idx === 0 ? "text-yellow-400" : idx === 1 ? "text-gray-300" : idx === 2 ? "text-orange-400" : "text-gray-500";
+
+  const teamCell = (team: typeof standings[0], idx: number) => (
+    <td className="py-2 sticky left-0 bg-[#1a1d26] z-10 pl-1">
+      <div className="flex items-center gap-2">
+        <span className={`text-xs font-bold w-5 text-center shrink-0 ${rankClass(idx)}`}>{idx + 1}</span>
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 overflow-hidden">
+            <p className="text-white text-xs font-medium truncate">{team.teamName}</p>
+            {team.userId === league.createdBy && (
+              <Badge className="text-[8px] h-3 px-1 bg-yellow-600 text-white border-0 shrink-0">Commish</Badge>
+            )}
+          </div>
+          {team.isCpu && <span className="text-[9px] text-gray-500">CPU</span>}
+        </div>
+      </div>
+    </td>
+  );
+
+  if (format === "Roto") {
+    const totalCats = hittingCategories.length + pitchingCategories.length;
+    const minWidth = 140 + 48 + totalCats * 56;
+    return (
+      <Card className="gradient-card rounded-xl p-4 border-0">
+        <h3 className="text-white font-semibold mb-3">Roto Standings</h3>
+        <div className="overflow-x-auto hide-scrollbar -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
+          <table className="w-full" style={{ minWidth: minWidth + "px" }}>
+            <thead>
+              <tr className="border-b border-gray-700">
+                <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 sticky left-0 bg-[#1a1d26] z-10 w-[140px] pl-1">Team</th>
+                <th className="text-center text-[10px] text-yellow-400 font-bold uppercase pb-1.5 w-[48px]">PTS</th>
+                {hittingCategories.map((cat, i) => (
+                  <th key={`h_${cat}`} className={`text-center text-[10px] text-blue-400 font-semibold uppercase pb-1.5 w-[56px] ${i === 0 ? "border-l border-gray-700/50" : ""}`}>{cat}</th>
+                ))}
+                {pitchingCategories.map((cat, i) => (
+                  <th key={`p_${cat}`} className={`text-center text-[10px] text-emerald-400 font-semibold uppercase pb-1.5 w-[56px] ${i === 0 ? "border-l border-gray-700/50" : ""}`}>{cat}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {standings.map((team, idx) => (
+                <tr key={team.teamId} className="border-b border-gray-800/50 hover:bg-white/[0.02]">
+                  {teamCell(team, idx)}
+                  <td className="text-center py-2">
+                    <p className="text-yellow-400 text-xs font-bold">{(team.totalPoints ?? 0).toFixed(1)}</p>
+                  </td>
+                  {hittingCategories.map((cat, i) => {
+                    const val = team.categoryValues[`h_${cat}`] || 0;
+                    const pts = team.categoryPoints?.[`h_${cat}`] || 0;
+                    return (
+                      <td key={`h_${cat}`} className={`text-center py-2 ${i === 0 ? "border-l border-gray-700/50" : ""}`}>
+                        <p className="text-white text-[11px] font-medium leading-tight">{formatStatValue(cat, val)}</p>
+                        <p className="text-gray-500 text-[9px] leading-tight">{pts.toFixed(1)}</p>
+                      </td>
+                    );
+                  })}
+                  {pitchingCategories.map((cat, i) => {
+                    const val = team.categoryValues[`p_${cat}`] || 0;
+                    const pts = team.categoryPoints?.[`p_${cat}`] || 0;
+                    return (
+                      <td key={`p_${cat}`} className={`text-center py-2 ${i === 0 ? "border-l border-gray-700/50" : ""}`}>
+                        <p className="text-white text-[11px] font-medium leading-tight">{formatStatValue(cat, val)}</p>
+                        <p className="text-gray-500 text-[9px] leading-tight">{pts.toFixed(1)}</p>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="flex items-center gap-4 mt-2 px-1">
+          <span className="text-[9px] text-blue-400 uppercase tracking-wider font-semibold">Hitting</span>
+          <span className="text-[9px] text-emerald-400 uppercase tracking-wider font-semibold">Pitching</span>
+        </div>
+      </Card>
+    );
+  }
+
+  if (format === "H2H Points" || format === "H2H Most Categories") {
+    return (
+      <Card className="gradient-card rounded-xl p-4 border-0">
+        <h3 className="text-white font-semibold mb-3">{format} Standings</h3>
+        <div className="overflow-x-auto hide-scrollbar -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
+          <table className="w-full" style={{ minWidth: "440px" }}>
+            <thead>
+              <tr className="border-b border-gray-700">
+                <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 sticky left-0 bg-[#1a1d26] z-10 w-[140px] pl-1">Team</th>
+                <th className="text-center text-[10px] text-green-400 font-semibold uppercase pb-1.5 w-[40px]">W</th>
+                <th className="text-center text-[10px] text-red-400 font-semibold uppercase pb-1.5 w-[40px]">L</th>
+                <th className="text-center text-[10px] text-gray-400 font-semibold uppercase pb-1.5 w-[40px]">T</th>
+                <th className="text-center text-[10px] text-yellow-400 font-semibold uppercase pb-1.5 w-[50px]">PCT</th>
+                <th className="text-center text-[10px] text-blue-400 font-semibold uppercase pb-1.5 w-[60px]">PF</th>
+                <th className="text-center text-[10px] text-gray-400 font-semibold uppercase pb-1.5 w-[60px]">PA</th>
+              </tr>
+            </thead>
+            <tbody>
+              {standings.map((team, idx) => {
+                const w = team.wins ?? 0;
+                const l = team.losses ?? 0;
+                const t = team.ties ?? 0;
+                const total = w + l + t;
+                const pct = total === 0 ? ".000" : (w / total).toFixed(3).replace(/^0/, "");
+                return (
+                  <tr key={team.teamId} className="border-b border-gray-800/50 hover:bg-white/[0.02]">
+                    {teamCell(team, idx)}
+                    <td className="text-center py-2"><p className="text-green-400 text-xs font-medium">{w}</p></td>
+                    <td className="text-center py-2"><p className="text-red-400 text-xs font-medium">{l}</p></td>
+                    <td className="text-center py-2"><p className="text-gray-400 text-xs font-medium">{t}</p></td>
+                    <td className="text-center py-2"><p className="text-yellow-400 text-xs font-bold">{pct}</p></td>
+                    <td className="text-center py-2"><p className="text-blue-400 text-xs font-medium">{(team.pointsFor ?? 0).toFixed(1)}</p></td>
+                    <td className="text-center py-2"><p className="text-gray-400 text-xs font-medium">{(team.pointsAgainst ?? 0).toFixed(1)}</p></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    );
+  }
+
+  if (format === "H2H Each Category") {
+    return (
+      <Card className="gradient-card rounded-xl p-4 border-0">
+        <h3 className="text-white font-semibold mb-3">H2H Each Category Standings</h3>
+        <div className="overflow-x-auto hide-scrollbar -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
+          <table className="w-full" style={{ minWidth: "400px" }}>
+            <thead>
+              <tr className="border-b border-gray-700">
+                <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 sticky left-0 bg-[#1a1d26] z-10 w-[140px] pl-1">Team</th>
+                <th className="text-center text-[10px] text-green-400 font-semibold uppercase pb-1.5 w-[48px]">CAT W</th>
+                <th className="text-center text-[10px] text-red-400 font-semibold uppercase pb-1.5 w-[48px]">CAT L</th>
+                <th className="text-center text-[10px] text-gray-400 font-semibold uppercase pb-1.5 w-[48px]">CAT T</th>
+                <th className="text-center text-[10px] text-yellow-400 font-semibold uppercase pb-1.5 w-[50px]">PCT</th>
+              </tr>
+            </thead>
+            <tbody>
+              {standings.map((team, idx) => {
+                const w = team.categoryWins ?? 0;
+                const l = team.categoryLosses ?? 0;
+                const t = team.categoryTies ?? 0;
+                const total = w + l + t;
+                const pct = total === 0 ? ".000" : (w / total).toFixed(3).replace(/^0/, "");
+                return (
+                  <tr key={team.teamId} className="border-b border-gray-800/50 hover:bg-white/[0.02]">
+                    {teamCell(team, idx)}
+                    <td className="text-center py-2"><p className="text-green-400 text-xs font-medium">{w}</p></td>
+                    <td className="text-center py-2"><p className="text-red-400 text-xs font-medium">{l}</p></td>
+                    <td className="text-center py-2"><p className="text-gray-400 text-xs font-medium">{t}</p></td>
+                    <td className="text-center py-2"><p className="text-yellow-400 text-xs font-bold">{pct}</p></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    );
+  }
+
+  if (format === "Season Points") {
+    return (
+      <Card className="gradient-card rounded-xl p-4 border-0">
+        <h3 className="text-white font-semibold mb-3">Season Points Standings</h3>
+        <div className="overflow-x-auto hide-scrollbar -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
+          <table className="w-full" style={{ minWidth: "280px" }}>
+            <thead>
+              <tr className="border-b border-gray-700">
+                <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 sticky left-0 bg-[#1a1d26] z-10 w-[140px] pl-1">Team</th>
+                <th className="text-center text-[10px] text-yellow-400 font-bold uppercase pb-1.5 w-[70px]">Total Pts</th>
+              </tr>
+            </thead>
+            <tbody>
+              {standings.map((team, idx) => (
+                <tr key={team.teamId} className="border-b border-gray-800/50 hover:bg-white/[0.02]">
+                  {teamCell(team, idx)}
+                  <td className="text-center py-2">
+                    <p className="text-yellow-400 text-xs font-bold">{(team.totalPoints ?? 0).toFixed(1)}</p>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card className="gradient-card rounded-xl p-4 border-0">
-      <h3 className="text-white font-semibold mb-3">Roto Standings</h3>
-      <div className="overflow-x-auto hide-scrollbar -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
-        <table className="w-full" style={{ minWidth: minWidth + "px" }}>
-          <thead>
-            <tr className="border-b border-gray-700">
-              <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 sticky left-0 bg-[#1a1d26] z-10 w-[140px] pl-1">Team</th>
-              <th className="text-center text-[10px] text-yellow-400 font-bold uppercase pb-1.5 w-[48px]">PTS</th>
-              {hittingCategories.map((cat, i) => (
-                <th key={`h_${cat}`} className={`text-center text-[10px] text-blue-400 font-semibold uppercase pb-1.5 w-[56px] ${i === 0 ? "border-l border-gray-700/50" : ""}`}>{cat}</th>
-              ))}
-              {pitchingCategories.map((cat, i) => (
-                <th key={`p_${cat}`} className={`text-center text-[10px] text-emerald-400 font-semibold uppercase pb-1.5 w-[56px] ${i === 0 ? "border-l border-gray-700/50" : ""}`}>{cat}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {standings.map((team, idx) => (
-              <tr key={team.teamId} className="border-b border-gray-800/50 hover:bg-white/[0.02]">
-                <td className="py-2 sticky left-0 bg-[#1a1d26] z-10 pl-1">
-                  <div className="flex items-center gap-2">
-                    <span className={`text-xs font-bold w-5 text-center shrink-0 ${idx === 0 ? "text-yellow-400" : idx === 1 ? "text-gray-300" : idx === 2 ? "text-orange-400" : "text-gray-500"}`}>
-                      {idx + 1}
-                    </span>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 overflow-hidden">
-                        <p className="text-white text-xs font-medium truncate">{team.teamName}</p>
-                        {team.userId === league.createdBy && (
-                          <Badge className="text-[8px] h-3 px-1 bg-yellow-600 text-white border-0 shrink-0">
-                            Commish
-                          </Badge>
-                        )}
-                      </div>
-                      {team.isCpu && <span className="text-[9px] text-gray-500">CPU</span>}
-                    </div>
-                  </div>
-                </td>
-                <td className="text-center py-2">
-                  <p className="text-yellow-400 text-xs font-bold">{team.totalPoints.toFixed(1)}</p>
-                </td>
-                {hittingCategories.map((cat, i) => {
-                  const val = team.categoryValues[`h_${cat}`] || 0;
-                  const pts = team.categoryPoints[`h_${cat}`] || 0;
-                  return (
-                    <td key={`h_${cat}`} className={`text-center py-2 ${i === 0 ? "border-l border-gray-700/50" : ""}`}>
-                      <p className="text-white text-[11px] font-medium leading-tight">{formatStatValue(cat, val)}</p>
-                      <p className="text-gray-500 text-[9px] leading-tight">{pts.toFixed(1)}</p>
-                    </td>
-                  );
-                })}
-                {pitchingCategories.map((cat, i) => {
-                  const val = team.categoryValues[`p_${cat}`] || 0;
-                  const pts = team.categoryPoints[`p_${cat}`] || 0;
-                  return (
-                    <td key={`p_${cat}`} className={`text-center py-2 ${i === 0 ? "border-l border-gray-700/50" : ""}`}>
-                      <p className="text-white text-[11px] font-medium leading-tight">{formatStatValue(cat, val)}</p>
-                      <p className="text-gray-500 text-[9px] leading-tight">{pts.toFixed(1)}</p>
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <div className="flex items-center gap-4 mt-2 px-1">
-        <span className="text-[9px] text-blue-400 uppercase tracking-wider font-semibold">Hitting</span>
-        <span className="text-[9px] text-emerald-400 uppercase tracking-wider font-semibold">Pitching</span>
-      </div>
+      <h3 className="text-white font-semibold mb-3">Standings</h3>
+      <p className="text-gray-400 text-sm">Unknown scoring format</p>
     </Card>
   );
 }
