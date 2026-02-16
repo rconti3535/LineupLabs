@@ -933,6 +933,7 @@ export default function LeaguePage() {
   const { user } = useAuth();
   const leagueId = params?.id ? parseInt(params.id) : null;
   const [activeTab, setActiveTab] = useState<Tab>("roster");
+  const [showSettings, setShowSettings] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editMaxTeams, setEditMaxTeams] = useState("");
   const [editScoringFormat, setEditScoringFormat] = useState("");
@@ -1361,7 +1362,6 @@ export default function LeaguePage() {
     { key: "roster", label: "Roster" },
     { key: "players", label: "Players" },
     { key: "standings", label: "Standings" },
-    { key: "settings", label: "Settings" },
   ];
 
   return (
@@ -1382,7 +1382,14 @@ export default function LeaguePage() {
           </div>
         </div>
 
-        <div className="w-9 shrink-0" />
+        <Button
+          onClick={() => setShowSettings(!showSettings)}
+          variant="ghost"
+          size="icon"
+          className={`shrink-0 h-9 w-9 rounded-full ${showSettings ? "text-blue-400 bg-white/10" : "text-gray-400 hover:text-white"}`}
+        >
+          <Settings className="w-5 h-5" />
+        </Button>
       </div>
 
       <div className="mb-4">
@@ -1395,9 +1402,9 @@ export default function LeaguePage() {
         {tabs.map((tab) => (
           <button
             key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
+            onClick={() => { setActiveTab(tab.key); setShowSettings(false); }}
             className={`flex-1 py-2.5 text-sm font-medium text-center transition-colors ${
-              activeTab === tab.key
+              activeTab === tab.key && !showSettings
                 ? "text-blue-400 border-b-2 border-blue-400"
                 : "text-gray-400 hover:text-gray-300"
             }`}
@@ -1407,7 +1414,7 @@ export default function LeaguePage() {
         ))}
       </div>
 
-      {activeTab === "roster" && (
+      {activeTab === "roster" && !showSettings && (
         <div>
           {league.draftStatus !== "completed" ? (
             <Card className="gradient-card rounded-xl p-4 border-0 mb-4">
@@ -1814,11 +1821,11 @@ export default function LeaguePage() {
         </div>
       )}
 
-      {activeTab === "players" && <PlayersTab leagueId={leagueId!} league={league!} user={user} />}
+      {activeTab === "players" && !showSettings && <PlayersTab leagueId={leagueId!} league={league!} user={user} />}
 
-      {activeTab === "standings" && <StandingsTab leagueId={leagueId!} league={league!} teamsLoading={teamsLoading} teams={teams} />}
+      {activeTab === "standings" && !showSettings && <StandingsTab leagueId={leagueId!} league={league!} teamsLoading={teamsLoading} teams={teams} />}
 
-      {activeTab === "settings" && (
+      {showSettings && (
         <>
         <Card className="gradient-card rounded-xl p-5 border-0">
           <div className="flex items-center justify-between mb-4">
