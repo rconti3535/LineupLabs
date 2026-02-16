@@ -165,7 +165,6 @@ function MatchupTab({ leagueId, league, user }: { leagueId: number; league: Leag
                 <div className="flex items-center justify-between">
                   <div className="flex-1 text-left">
                     <p className={`font-semibold text-sm truncate ${homeWins ? "text-green-400" : "text-white"}`}>{m.home.teamName}</p>
-                    {m.home.userId === user?.id && <span className="text-[10px] text-blue-400 font-bold uppercase">You</span>}
                   </div>
                   <div className="flex items-center gap-2 px-3 shrink-0">
                     <span className={`text-lg font-bold ${homeWins ? "text-green-400" : tied ? "text-gray-400" : "text-white"}`}>
@@ -178,7 +177,6 @@ function MatchupTab({ leagueId, league, user }: { leagueId: number; league: Leag
                   </div>
                   <div className="flex-1 text-right">
                     <p className={`font-semibold text-sm truncate ${awayWins ? "text-green-400" : "text-white"}`}>{m.away.teamName}</p>
-                    {m.away.userId === user?.id && <span className="text-[10px] text-blue-400 font-bold uppercase">You</span>}
                   </div>
                 </div>
               </button>
