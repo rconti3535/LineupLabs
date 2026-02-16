@@ -905,10 +905,9 @@ export default function LeaguePage() {
       const lineupEntry = dailyLineupData.find((d: any) => d.slotIndex === idx);
       const player = lineupEntry ? playerMap.get(lineupEntry.playerId) : undefined;
       return {
-        slotPosition: slotPos,
+        slotPos,
         slotIndex: idx,
         player: player || null,
-        playerId: lineupEntry?.playerId || null,
         pickId: lineupEntry?.id || null,
       } as RosterEntry;
     });
@@ -1372,42 +1371,40 @@ export default function LeaguePage() {
                 {selectedSwapIndex !== null && (
                   <p className="text-blue-400 text-xs mb-3 px-1">Tap a highlighted slot to swap players</p>
                 )}
-                {rosterStatView === "daily" && (
-                  <div className="flex items-center justify-between mb-3 bg-gray-800/50 rounded-lg px-3 py-2">
-                    <button
-                      onClick={() => {
-                        const d = new Date(dailyDate + "T12:00:00");
-                        d.setDate(d.getDate() - 1);
-                        setDailyDate(d.toISOString().split("T")[0]);
-                        setSelectedSwapIndex(null);
-                        setSwapTargets([]);
-                      }}
-                      className="p-1 text-gray-400 hover:text-white transition-colors"
-                    >
-                      <ChevronLeft className="w-5 h-5" />
-                    </button>
-                    <div className="text-center">
-                      <span className="text-sm font-semibold text-white">
-                        {new Date(dailyDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
-                      </span>
-                      {dailyDate === new Date().toISOString().split("T")[0] && (
-                        <span className="ml-2 text-[10px] text-green-400 font-medium">Today</span>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => {
-                        const d = new Date(dailyDate + "T12:00:00");
-                        d.setDate(d.getDate() + 1);
-                        setDailyDate(d.toISOString().split("T")[0]);
-                        setSelectedSwapIndex(null);
-                        setSwapTargets([]);
-                      }}
-                      className="p-1 text-gray-400 hover:text-white transition-colors"
-                    >
-                      <ChevronRight className="w-5 h-5" />
-                    </button>
+                <div className="flex items-center justify-center mb-3 gap-1">
+                  <button
+                    onClick={() => {
+                      const d = new Date(dailyDate + "T12:00:00");
+                      d.setDate(d.getDate() - 1);
+                      setDailyDate(d.toISOString().split("T")[0]);
+                      setSelectedSwapIndex(null);
+                      setSwapTargets([]);
+                    }}
+                    className="p-0.5 text-gray-400 hover:text-white transition-colors"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <div className="bg-gray-800/50 rounded px-2 py-0.5 text-center">
+                    <span className="text-[11px] font-medium text-white">
+                      {new Date(dailyDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                    </span>
+                    {dailyDate === new Date().toISOString().split("T")[0] && (
+                      <span className="ml-1 text-[9px] text-green-400 font-medium">Today</span>
+                    )}
                   </div>
-                )}
+                  <button
+                    onClick={() => {
+                      const d = new Date(dailyDate + "T12:00:00");
+                      d.setDate(d.getDate() + 1);
+                      setDailyDate(d.toISOString().split("T")[0]);
+                      setSelectedSwapIndex(null);
+                      setSwapTargets([]);
+                    }}
+                    className="p-0.5 text-gray-400 hover:text-white transition-colors"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
                 {rosterStatView === "daily" && dailyLineupLoading && (
                   <div className="text-center text-gray-400 text-xs py-4">Loading daily lineup...</div>
                 )}
