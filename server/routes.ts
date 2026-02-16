@@ -192,6 +192,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ message: "pointValues must be a JSON string or null" });
         }
       }
+      const effectiveType = updates.type || league.type;
+      const effectiveScoring = updates.scoringFormat || league.scoringFormat;
+      if (effectiveType === "Best Ball" && effectiveScoring && !["Roto", "Season Points"].includes(effectiveScoring)) {
+        return res.status(400).json({ message: "Best Ball leagues only support Roto and Season Points scoring formats" });
+      }
+
       const updated = await storage.updateLeague(id, updates);
       res.json(updated);
     } catch (error) {
@@ -536,6 +542,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const league = await storage.getLeague(leagueId);
       if (!league) return res.status(404).json({ message: "League not found" });
+      if (league.type === "Best Ball") return res.status(400).json({ message: "Lineup management is disabled in Best Ball leagues" });
 
       const now = new Date();
       const todayStr = now.toISOString().split("T")[0];
@@ -701,6 +708,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/leagues", async (req, res) => {
     try {
       const validatedData = insertLeagueSchema.parse(req.body);
+      if (validatedData.type === "Best Ball" && validatedData.scoringFormat && !["Roto", "Season Points"].includes(validatedData.scoringFormat)) {
+        return res.status(400).json({ message: "Best Ball leagues only support Roto and Season Points scoring formats" });
+      }
       const league = await storage.createLeague(validatedData);
 
       if (validatedData.createdBy) {
@@ -1151,6 +1161,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const league = await storage.getLeague(leagueId);
       if (!league) return res.status(404).json({ message: "League not found" });
+      if (league.type === "Best Ball") return res.status(400).json({ message: "Roster management is disabled in Best Ball leagues" });
 
       const leagueTeams = await storage.getTeamsByLeagueId(leagueId);
       const userTeam = leagueTeams.find(t => t.userId === userId);
@@ -1469,6 +1480,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const league = await storage.getLeague(leagueId);
       if (!league) return res.status(404).json({ message: "League not found" });
+      if (league.type === "Best Ball") return res.status(400).json({ message: "Add/drop is disabled in Best Ball leagues" });
 
       const leagueTeams = await storage.getTeamsByLeagueId(leagueId);
       const userTeam = leagueTeams.find(t => t.userId === userId);
@@ -1522,6 +1534,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const league = await storage.getLeague(leagueId);
       if (!league) return res.status(404).json({ message: "League not found" });
+      if (league.type === "Best Ball") return res.status(400).json({ message: "Add/drop is disabled in Best Ball leagues" });
 
       const leagueTeams = await storage.getTeamsByLeagueId(leagueId);
       const userTeam = leagueTeams.find(t => t.userId === userId);
@@ -1583,6 +1596,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const league = await storage.getLeague(leagueId);
       if (!league) return res.status(404).json({ message: "League not found" });
+      if (league.type === "Best Ball") return res.status(400).json({ message: "Drop is disabled in Best Ball leagues" });
 
       const leagueTeams = await storage.getTeamsByLeagueId(leagueId);
       const userTeam = leagueTeams.find(t => t.userId === userId);
@@ -1676,6 +1690,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const league = await storage.getLeague(leagueId);
       if (!league) return res.status(404).json({ message: "League not found" });
+      if (league.type === "Best Ball") return res.status(400).json({ message: "Waivers are disabled in Best Ball leagues" });
 
       const leagueTeams = await storage.getTeamsByLeagueId(leagueId);
       const userTeam = leagueTeams.find(t => t.userId === userId);
@@ -1850,6 +1865,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!teamId || !date || slotIndexA === undefined || slotIndexB === undefined) {
         return res.status(400).json({ message: "teamId, date, slotIndexA, slotIndexB required" });
       }
+
+      const bbLeague = await storage.getLeague(leagueId);
+      if (bbLeague?.type === "Best Ball") return res.status(400).json({ message: "Lineup management is disabled in Best Ball leagues" });
 
       const today = new Date().toISOString().split("T")[0];
       if (date < today) {

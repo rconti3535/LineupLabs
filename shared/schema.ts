@@ -18,7 +18,7 @@ export const leagues = pgTable("leagues", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
-  type: text("type").default("Redraft"), // Redraft, Dynasty
+  type: text("type").default("Redraft"), // Redraft, Dynasty, Best Ball
   numberOfTeams: integer("number_of_teams").default(12),
   scoringFormat: text("scoring_format").default("Roto"),
   hittingCategories: text("hitting_categories").array().default(["R", "HR", "RBI", "SB", "AVG"]),

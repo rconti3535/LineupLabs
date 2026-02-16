@@ -1071,7 +1071,7 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
             <table className="w-full" style={{ minWidth: 24 + 120 + (statView === "adp" ? 56 : activeCats.length * 48) + "px" }}>
               <thead>
                 <tr className="border-b border-gray-700">
-                  <th className="w-[24px]" />
+                  {league.type !== "Best Ball" && <th className="w-[24px]" />}
                   <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 pl-1 w-[120px]">Player</th>
                   {statView === "adp" ? (
                     <th 
@@ -1102,8 +1102,10 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
                     : isOnWaivers
                     ? "text-yellow-400 border-yellow-500/60 hover:bg-yellow-500/20"
                     : "text-green-400 border-green-500/60 hover:bg-green-500/20";
+                  const isBB = league.type === "Best Ball";
                   return (
                   <tr key={player.id} className="border-b border-gray-800/40 hover:bg-white/[0.02]">
+                    {!isBB && (
                     <td className="py-1.5">
                       <button
                         className={`w-6 h-6 rounded-md border flex items-center justify-center transition-colors disabled:opacity-30 ${plusColor}`}
@@ -1128,6 +1130,7 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
                         <Plus className="w-3.5 h-3.5" />
                       </button>
                     </td>
+                    )}
                     <td className="py-1.5 pl-1">
                       <p className="text-white text-xs font-medium truncate max-w-[110px]">{player.name}</p>
                       <div className="flex items-center gap-1">
@@ -1523,6 +1526,7 @@ export default function LeaguePage() {
   const isPastDate = dailyDate < new Date().toISOString().split("T")[0];
 
   const handleSwapSelect = (index: number) => {
+    if (league?.type === "Best Ball") return;
     if (rosterStatView === "daily") {
       if (isPastDate) {
         toast({ title: "Cannot edit past lineups", description: "You can only change today's or future lineups.", variant: "destructive" });
@@ -1856,6 +1860,7 @@ export default function LeaguePage() {
   }
 
   const isH2H = league.scoringFormat?.startsWith("H2H");
+  const isBestBall = league.type === "Best Ball";
   const tabs: { key: Tab; label: string }[] = [
     { key: "roster", label: "Roster" },
     ...(isH2H ? [{ key: "matchup" as Tab, label: "Matchup" }] : []),
@@ -1945,7 +1950,7 @@ export default function LeaguePage() {
             </Card>
           ) : null}
 
-          {myClaimsData && myClaimsData.length > 0 && (
+          {!isBestBall && myClaimsData && myClaimsData.length > 0 && (
             <div className="mb-4">
               <Select>
                 <SelectTrigger className="w-full bg-yellow-950/20 border-yellow-900/30 text-yellow-400 hover:bg-yellow-950/30 transition-colors h-10 px-4 rounded-xl">
@@ -2001,6 +2006,20 @@ export default function LeaguePage() {
             </div>
           )}
 
+          {isBestBall && (
+            <Card className="gradient-card rounded-xl p-4 border-0 mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-yellow-600/20 flex items-center justify-center shrink-0">
+                  <Trophy className="w-5 h-5 text-yellow-400" />
+                </div>
+                <div>
+                  <p className="text-white font-semibold text-sm">Best Ball League</p>
+                  <p className="text-gray-400 text-xs">No lineup management, waivers, or trades. Optimal lineups are calculated at season end.</p>
+                </div>
+              </div>
+            </Card>
+          )}
+
           {myTeam ? (() => {
             const isPitcherSlot = (s: string) => s === "SP" || s === "RP" || s === "P";
             const isPitcherPlayer = (p: Player) => ["SP", "RP", "P"].includes(p.position);
@@ -2036,7 +2055,7 @@ export default function LeaguePage() {
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    {selectedSwapIndex !== null && (
+                    {!isBestBall && selectedSwapIndex !== null && (
                       <Button
                         onClick={() => { setSelectedSwapIndex(null); setSwapTargets([]); }}
                         variant="ghost"
@@ -2051,7 +2070,9 @@ export default function LeaguePage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="bg-gray-800 border-gray-700">
-                        <SelectItem value="daily" className="text-[10px] text-gray-200">{isWeeklyLock ? "Weekly" : "Daily"}</SelectItem>
+                        {!isBestBall && (
+                          <SelectItem value="daily" className="text-[10px] text-gray-200">{isWeeklyLock ? "Weekly" : "Daily"}</SelectItem>
+                        )}
                         <SelectItem value="2025stats" className="text-[10px] text-gray-200">2025 Stats</SelectItem>
                         <SelectItem value="2026stats" className="text-[10px] text-gray-200">2026 Stats</SelectItem>
                         <SelectItem value="2026proj" className="text-[10px] text-gray-200">2026 Projections</SelectItem>
@@ -2059,10 +2080,10 @@ export default function LeaguePage() {
                     </Select>
                   </div>
                 </div>
-                {selectedSwapIndex !== null && (
+                {!isBestBall && selectedSwapIndex !== null && (
                   <p className="text-blue-400 text-xs mb-3 px-1">Tap a highlighted slot to swap players</p>
                 )}
-                <div className="flex items-center justify-between mb-3 px-2">
+                {!isBestBall && <div className="flex items-center justify-between mb-3 px-2">
                   <button
                     onClick={() => {
                       const d = new Date(dailyDate + "T12:00:00");
@@ -2110,8 +2131,8 @@ export default function LeaguePage() {
                   >
                     <ChevronRight className="w-5 h-5" />
                   </button>
-                </div>
-                {rosterStatView === "daily" && dailyLineupLoading && (
+                </div>}
+                {!isBestBall && rosterStatView === "daily" && dailyLineupLoading && (
                   <div className="text-center text-gray-400 text-xs py-4">{isWeeklyLock ? "Loading weekly lineup..." : "Loading daily lineup..."}</div>
                 )}
                 <div className="space-y-5">
@@ -2481,12 +2502,18 @@ export default function LeaguePage() {
                 </div>
                 <div>
                   <label className="text-gray-400 text-xs block mb-1">League Type</label>
-                  <Select value={editType} onValueChange={setEditType}>
+                  <Select value={editType} onValueChange={(val) => {
+                    setEditType(val);
+                    if (val === "Best Ball" && editScoringFormat !== "Roto" && editScoringFormat !== "Season Points") {
+                      setEditScoringFormat("Roto");
+                    }
+                  }}>
                     <SelectTrigger className="bg-gray-800 border-gray-700 text-white text-sm h-9">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Redraft">Redraft</SelectItem>
+                      <SelectItem value="Best Ball">Best Ball</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -2502,6 +2529,7 @@ export default function LeaguePage() {
                     </SelectContent>
                   </Select>
                 </div>
+                {editType !== "Best Ball" && (
                 <div>
                   <label className="text-gray-400 text-xs block mb-1">Lineup Lock</label>
                   <Select value={editLockType} onValueChange={setEditLockType}>
@@ -2514,6 +2542,7 @@ export default function LeaguePage() {
                     </SelectContent>
                   </Select>
                 </div>
+                )}
                 <div>
                   <label className="text-gray-400 text-xs block mb-1">League Photo</label>
                   <div className="flex items-center gap-3">
@@ -2564,6 +2593,7 @@ export default function LeaguePage() {
                     <p className="text-white font-medium text-sm">{league.isPublic ? "Public" : "Private"}</p>
                   </div>
                 </div>
+                {league.type !== "Best Ball" && (
                 <div className="flex items-center gap-2">
                   <Clock className="w-4 h-4 text-blue-400" />
                   <div>
@@ -2571,6 +2601,7 @@ export default function LeaguePage() {
                     <p className="text-white font-medium text-sm">{league.lineupLockType || "Daily"}</p>
                   </div>
                 </div>
+                )}
               </div>
             )
           ) : (
@@ -2626,12 +2657,19 @@ export default function LeaguePage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Roto">Roto</SelectItem>
-                      <SelectItem value="H2H Points">H2H Points</SelectItem>
-                      <SelectItem value="H2H Each Category">H2H Each Category</SelectItem>
-                      <SelectItem value="H2H Most Categories">H2H Most Categories</SelectItem>
+                      {(editType || league?.type) !== "Best Ball" && (
+                        <>
+                          <SelectItem value="H2H Points">H2H Points</SelectItem>
+                          <SelectItem value="H2H Each Category">H2H Each Category</SelectItem>
+                          <SelectItem value="H2H Most Categories">H2H Most Categories</SelectItem>
+                        </>
+                      )}
                       <SelectItem value="Season Points">Season Points</SelectItem>
                     </SelectContent>
                   </Select>
+                  {(editType || league?.type) === "Best Ball" && (
+                    <p className="text-xs text-yellow-400 mt-1">Best Ball leagues only support Roto and Season Points scoring</p>
+                  )}
                 </div>
                 {(editScoringFormat === "Roto" || editScoringFormat === "H2H Each Category" || editScoringFormat === "H2H Most Categories") && (
                   <>

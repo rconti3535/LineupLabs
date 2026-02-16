@@ -13,10 +13,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { ArrowLeft } from "lucide-react";
+import { useEffect } from "react";
 
 const createLeagueSchema = z.object({
   name: z.string().min(1, "League name is required"),
-  type: z.enum(["Redraft"]),
+  type: z.enum(["Redraft", "Best Ball"]),
   numberOfTeams: z.number().min(2, "Minimum 2 teams").max(30, "Maximum 30 teams"),
   scoringFormat: z.enum(["Roto", "H2H Points", "H2H Each Category", "H2H Most Categories", "Season Points"]),
   isPublic: z.boolean(),
@@ -68,6 +69,16 @@ export default function CreateLeague() {
       });
     },
   });
+
+  const watchType = form.watch("type");
+  const isBestBall = watchType === "Best Ball";
+
+  const currentScoringFormat = form.watch("scoringFormat");
+  useEffect(() => {
+    if (isBestBall && currentScoringFormat !== "Roto" && currentScoringFormat !== "Season Points") {
+      form.setValue("scoringFormat", "Roto");
+    }
+  }, [isBestBall, currentScoringFormat, form]);
 
   const onSubmit = (data: CreateLeagueForm) => {
     createLeagueMutation.mutate(data);
@@ -135,6 +146,17 @@ export default function CreateLeague() {
                           </div>
                         </Label>
                       </div>
+                      <div className="flex items-center space-x-3 p-4 rounded-lg sleeper-card-bg border sleeper-border">
+                        <RadioGroupItem value="Best Ball" id="bestball" className="text-blue-400" />
+                        <Label htmlFor="bestball" className="text-white cursor-pointer flex-1">
+                          <div>
+                            <div className="font-medium">Best Ball</div>
+                            <div className="text-sm text-gray-400">
+                              Draft only — no lineup management, waivers, or trades. Optimal lineups calculated at season end.
+                            </div>
+                          </div>
+                        </Label>
+                      </div>
                     </RadioGroup>
                   </FormControl>
                   <FormMessage />
@@ -186,43 +208,55 @@ export default function CreateLeague() {
                         <Label htmlFor="roto" className="text-white cursor-pointer flex-1">
                           <div>
                             <div className="font-medium">Roto</div>
-                            <div className="text-sm text-gray-400">Traditional rotisserie scoring</div>
+                            <div className="text-sm text-gray-400">
+                              {isBestBall
+                                ? "Each category gets its own optimal lineup at season end"
+                                : "Traditional rotisserie scoring"}
+                            </div>
                           </div>
                         </Label>
                       </div>
-                      <div className="flex items-center space-x-3 p-4 rounded-lg sleeper-card-bg border sleeper-border">
-                        <RadioGroupItem value="H2H Points" id="h2h-points" className="text-blue-400" />
-                        <Label htmlFor="h2h-points" className="text-white cursor-pointer flex-1">
-                          <div>
-                            <div className="font-medium">Head to Head Points</div>
-                            <div className="text-sm text-gray-400">Weekly matchups, winner by total fantasy points</div>
+                      {!isBestBall && (
+                        <>
+                          <div className="flex items-center space-x-3 p-4 rounded-lg sleeper-card-bg border sleeper-border">
+                            <RadioGroupItem value="H2H Points" id="h2h-points" className="text-blue-400" />
+                            <Label htmlFor="h2h-points" className="text-white cursor-pointer flex-1">
+                              <div>
+                                <div className="font-medium">Head to Head Points</div>
+                                <div className="text-sm text-gray-400">Weekly matchups, winner by total fantasy points</div>
+                              </div>
+                            </Label>
                           </div>
-                        </Label>
-                      </div>
-                      <div className="flex items-center space-x-3 p-4 rounded-lg sleeper-card-bg border sleeper-border">
-                        <RadioGroupItem value="H2H Each Category" id="h2h-each" className="text-blue-400" />
-                        <Label htmlFor="h2h-each" className="text-white cursor-pointer flex-1">
-                          <div>
-                            <div className="font-medium">Head to Head Each Category</div>
-                            <div className="text-sm text-gray-400">Weekly matchups, compare each stat category individually</div>
+                          <div className="flex items-center space-x-3 p-4 rounded-lg sleeper-card-bg border sleeper-border">
+                            <RadioGroupItem value="H2H Each Category" id="h2h-each" className="text-blue-400" />
+                            <Label htmlFor="h2h-each" className="text-white cursor-pointer flex-1">
+                              <div>
+                                <div className="font-medium">Head to Head Each Category</div>
+                                <div className="text-sm text-gray-400">Weekly matchups, compare each stat category individually</div>
+                              </div>
+                            </Label>
                           </div>
-                        </Label>
-                      </div>
-                      <div className="flex items-center space-x-3 p-4 rounded-lg sleeper-card-bg border sleeper-border">
-                        <RadioGroupItem value="H2H Most Categories" id="h2h-most" className="text-blue-400" />
-                        <Label htmlFor="h2h-most" className="text-white cursor-pointer flex-1">
-                          <div>
-                            <div className="font-medium">Head to Head Most Categories</div>
-                            <div className="text-sm text-gray-400">Weekly matchups, team that wins more categories gets the win</div>
+                          <div className="flex items-center space-x-3 p-4 rounded-lg sleeper-card-bg border sleeper-border">
+                            <RadioGroupItem value="H2H Most Categories" id="h2h-most" className="text-blue-400" />
+                            <Label htmlFor="h2h-most" className="text-white cursor-pointer flex-1">
+                              <div>
+                                <div className="font-medium">Head to Head Most Categories</div>
+                                <div className="text-sm text-gray-400">Weekly matchups, team that wins more categories gets the win</div>
+                              </div>
+                            </Label>
                           </div>
-                        </Label>
-                      </div>
+                        </>
+                      )}
                       <div className="flex items-center space-x-3 p-4 rounded-lg sleeper-card-bg border sleeper-border">
                         <RadioGroupItem value="Season Points" id="season-points" className="text-blue-400" />
                         <Label htmlFor="season-points" className="text-white cursor-pointer flex-1">
                           <div>
                             <div className="font-medium">Season Points</div>
-                            <div className="text-sm text-gray-400">No matchups, ranked by total cumulative fantasy points</div>
+                            <div className="text-sm text-gray-400">
+                              {isBestBall
+                                ? "Single optimal lineup calculated for the entire season at year end"
+                                : "No matchups, ranked by total cumulative fantasy points"}
+                            </div>
                           </div>
                         </Label>
                       </div>
