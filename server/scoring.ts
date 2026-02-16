@@ -405,6 +405,7 @@ export interface MatchupPair {
     userId: number | null;
     score: number;
     categoryValues: Record<string, number>;
+    roster: { slotPos: string; player: Player | null }[];
   };
   away: {
     teamId: number;
@@ -412,6 +413,7 @@ export interface MatchupPair {
     userId: number | null;
     score: number;
     categoryValues: Record<string, number>;
+    roster: { slotPos: string; player: Player | null }[];
   };
   categoryResults?: { cat: string; homeVal: number; awayVal: number; winner: "home" | "away" | "tie" }[];
 }
@@ -439,18 +441,42 @@ export function computeMatchups(
   ];
   const LOWER_IS_BETTER = new Set(["ERA", "WHIP", "K", "CS", "L", "BSV", "BB"]);
 
-  const teamScores = new Map<number, { total: number; categoryValues: Record<string, number>; teamName: string; userId: number | null }>();
+  const teamData = new Map<number, { 
+    total: number; 
+    categoryValues: Record<string, number>; 
+    teamName: string; 
+    userId: number | null;
+    roster: { slotPos: string; player: Player | null }[];
+  }>();
 
-  if (isPoints) {
-    for (const team of teams) {
-      const teamPicks = draftPicks.filter(dp => dp.teamId === team.id);
-      const result = computeTeamFantasyPoints(league, teamPicks, allPlayers, rosterPositions);
-      teamScores.set(team.id, { total: result.total, categoryValues: result.categoryValues, teamName: team.name, userId: team.userId });
+  for (const team of teams) {
+    const teamPicks = draftPicks.filter(dp => dp.teamId === team.id);
+    const roster: { slotPos: string; player: Player | null }[] = rosterPositions.map(pos => ({ slotPos: pos, player: null }));
+    
+    for (const pick of teamPicks) {
+      if (pick.rosterSlot !== null && pick.rosterSlot !== undefined && pick.rosterSlot < roster.length) {
+        roster[pick.rosterSlot].player = allPlayers.get(pick.playerId) || null;
+      }
     }
-  } else {
-    const rotoStandings = computeRotoStandings(league, teams, draftPicks, allPlayers, rosterPositions, "s26");
-    for (const s of rotoStandings) {
-      teamScores.set(s.teamId, { total: 0, categoryValues: s.categoryValues, teamName: s.teamName, userId: s.userId });
+
+    if (isPoints) {
+      const result = computeTeamFantasyPoints(league, teamPicks, allPlayers, rosterPositions);
+      teamData.set(team.id, { 
+        total: result.total, 
+        categoryValues: result.categoryValues, 
+        teamName: team.name, 
+        userId: team.userId,
+        roster
+      });
+    } else {
+      const results = computeTeamFantasyPoints(league, teamPicks, allPlayers, rosterPositions);
+      teamData.set(team.id, { 
+        total: 0, 
+        categoryValues: results.categoryValues, 
+        teamName: team.name, 
+        userId: team.userId,
+        roster
+      });
     }
   }
 
@@ -460,22 +486,22 @@ export function computeMatchups(
   for (let wi = 0; wi < weeks.length; wi++) {
     const matchups: MatchupPair[] = [];
     for (const [homeId, awayId] of weeks[wi]) {
-      const homeData = teamScores.get(homeId);
-      const awayData = teamScores.get(awayId);
-      if (!homeData || !awayData) continue;
+      const homeInfo = teamData.get(homeId);
+      const awayInfo = teamData.get(awayId);
+      if (!homeInfo || !awayInfo) continue;
 
       let homeScore = 0;
       let awayScore = 0;
       let categoryResults: MatchupPair["categoryResults"] = undefined;
 
       if (isPoints) {
-        homeScore = homeData.total;
-        awayScore = awayData.total;
+        homeScore = homeInfo.total;
+        awayScore = awayInfo.total;
       } else {
         categoryResults = [];
         for (const cat of allCats) {
-          const hv = homeData.categoryValues[cat.key] || 0;
-          const av = awayData.categoryValues[cat.key] || 0;
+          const hv = homeInfo.categoryValues[cat.key] || 0;
+          const av = awayInfo.categoryValues[cat.key] || 0;
           const lowerBetter = cat.isHitting
             ? LOWER_IS_BETTER.has(cat.id) && ["K", "CS"].includes(cat.id)
             : LOWER_IS_BETTER.has(cat.id);
@@ -492,8 +518,22 @@ export function computeMatchups(
       }
 
       matchups.push({
-        home: { teamId: homeId, teamName: homeData.teamName, userId: homeData.userId, score: homeScore, categoryValues: homeData.categoryValues },
-        away: { teamId: awayId, teamName: awayData.teamName, userId: awayData.userId, score: awayScore, categoryValues: awayData.categoryValues },
+        home: { 
+          teamId: homeId, 
+          teamName: homeInfo.teamName, 
+          userId: homeInfo.userId, 
+          score: homeScore, 
+          categoryValues: homeInfo.categoryValues,
+          roster: homeInfo.roster
+        },
+        away: { 
+          teamId: awayId, 
+          teamName: awayInfo.teamName, 
+          userId: awayInfo.userId, 
+          score: awayScore, 
+          categoryValues: awayInfo.categoryValues,
+          roster: awayInfo.roster
+        },
         categoryResults,
       });
     }

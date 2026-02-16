@@ -55,8 +55,22 @@ interface MatchupData {
   matchups: {
     week: number;
     matchups: {
-      home: { teamId: number; teamName: string; userId: number | null; score: number; categoryValues: Record<string, number> };
-      away: { teamId: number; teamName: string; userId: number | null; score: number; categoryValues: Record<string, number> };
+      home: { 
+        teamId: number; 
+        teamName: string; 
+        userId: number | null; 
+        score: number; 
+        categoryValues: Record<string, number>;
+        roster: { slotPos: string; player: Player | null }[];
+      };
+      away: { 
+        teamId: number; 
+        teamName: string; 
+        userId: number | null; 
+        score: number; 
+        categoryValues: Record<string, number>;
+        roster: { slotPos: string; player: Player | null }[];
+      };
       categoryResults?: { cat: string; homeVal: number; awayVal: number; winner: "home" | "away" | "tie" }[];
     }[];
   }[];
@@ -64,6 +78,7 @@ interface MatchupData {
 
 function MatchupTab({ leagueId, league, user }: { leagueId: number; league: League; user: { id: number } | null }) {
   const [selectedWeek, setSelectedWeek] = useState(1);
+  const [expandedMatchup, setExpandedMatchup] = useState<number | null>(null);
 
   const { data, isLoading } = useQuery<MatchupData>({
     queryKey: ["/api/leagues", leagueId, "matchups"],
@@ -79,7 +94,11 @@ function MatchupTab({ leagueId, league, user }: { leagueId: number; league: Leag
       const userWeek = data.matchups.find(w =>
         w.matchups.some(m => m.home.userId === user.id || m.away.userId === user.id)
       );
-      if (userWeek) setSelectedWeek(userWeek.week);
+      if (userWeek) {
+        setSelectedWeek(userWeek.week);
+        const matchupIdx = userWeek.matchups.findIndex(m => m.home.userId === user.id || m.away.userId === user.id);
+        if (matchupIdx !== -1) setExpandedMatchup(matchupIdx);
+      }
     }
   }, [data, user]);
 
@@ -135,45 +154,89 @@ function MatchupTab({ leagueId, league, user }: { leagueId: number; league: Leag
           const homeWins = m.home.score > m.away.score;
           const awayWins = m.away.score > m.home.score;
           const tied = m.home.score === m.away.score;
+          const isExpanded = expandedMatchup === idx;
 
           return (
             <Card key={idx} className={`gradient-card rounded-xl border-0 overflow-hidden ${userInMatchup ? "ring-1 ring-blue-500/40" : ""}`}>
-              <div className="p-4">
+              <button 
+                className="w-full text-left p-4 hover:bg-white/[0.02] transition-colors"
+                onClick={() => setExpandedMatchup(isExpanded ? null : idx)}
+              >
                 <div className="flex items-center justify-between">
                   <div className="flex-1 text-left">
                     <p className={`font-semibold text-sm truncate ${homeWins ? "text-green-400" : "text-white"}`}>{m.home.teamName}</p>
-                    {m.home.userId === user?.id && <span className="text-[10px] text-blue-400">You</span>}
+                    {m.home.userId === user?.id && <span className="text-[10px] text-blue-400 font-bold uppercase">You</span>}
                   </div>
-                  <div className="flex items-center gap-2 px-3">
+                  <div className="flex items-center gap-2 px-3 shrink-0">
                     <span className={`text-lg font-bold ${homeWins ? "text-green-400" : tied ? "text-gray-400" : "text-white"}`}>
                       {isPoints ? m.home.score.toFixed(1) : m.home.score}
                     </span>
-                    <span className="text-gray-600 text-xs">vs</span>
+                    <span className="text-gray-600 text-[10px] font-bold uppercase tracking-wider">vs</span>
                     <span className={`text-lg font-bold ${awayWins ? "text-green-400" : tied ? "text-gray-400" : "text-white"}`}>
                       {isPoints ? m.away.score.toFixed(1) : m.away.score}
                     </span>
                   </div>
                   <div className="flex-1 text-right">
                     <p className={`font-semibold text-sm truncate ${awayWins ? "text-green-400" : "text-white"}`}>{m.away.teamName}</p>
-                    {m.away.userId === user?.id && <span className="text-[10px] text-blue-400">You</span>}
+                    {m.away.userId === user?.id && <span className="text-[10px] text-blue-400 font-bold uppercase">You</span>}
                   </div>
                 </div>
-              </div>
+              </button>
 
-              {m.categoryResults && (
-                <div className="border-t border-gray-700/50 px-4 py-2">
-                  <div className="grid grid-cols-3 gap-1 text-[11px]">
-                    {m.categoryResults.map((cr, ci) => (
-                      <div key={ci} className="flex items-center justify-between px-1.5 py-0.5 rounded">
-                        <span className={cr.winner === "home" ? "text-green-400 font-semibold" : "text-gray-400"}>
-                          {formatStatValue(cr.cat, cr.homeVal)}
-                        </span>
-                        <span className="text-gray-500 font-medium mx-1">{cr.cat}</span>
-                        <span className={cr.winner === "away" ? "text-green-400 font-semibold" : "text-gray-400"}>
-                          {formatStatValue(cr.cat, cr.awayVal)}
-                        </span>
+              {isExpanded && (
+                <div className="border-t border-gray-700/50 bg-black/20">
+                  {m.categoryResults && (
+                    <div className="px-4 py-2 bg-black/40 border-b border-gray-700/30">
+                      <div className="grid grid-cols-3 gap-y-1 text-[11px]">
+                        {m.categoryResults.map((cr, ci) => (
+                          <div key={ci} className="flex items-center justify-between px-1.5 py-0.5 rounded contents">
+                            <span className={`text-left ${cr.winner === "home" ? "text-green-400 font-bold" : "text-gray-400"}`}>
+                              {formatStatValue(cr.cat, cr.homeVal)}
+                            </span>
+                            <span className="text-gray-500 font-bold text-center text-[10px] uppercase tracking-tighter">{cr.cat}</span>
+                            <span className={`text-right ${cr.winner === "away" ? "text-green-400 font-bold" : "text-gray-400"}`}>
+                              {formatStatValue(cr.cat, cr.awayVal)}
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    </div>
+                  )}
+                  
+                  <div className="px-4 py-3 space-y-1">
+                    <div className="flex items-center justify-between text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-2">
+                      <span>{m.home.teamName} Lineup</span>
+                      <span>{m.away.teamName} Lineup</span>
+                    </div>
+                    {m.home.roster.map((hSlot, i) => {
+                      const aSlot = m.away.roster[i];
+                      const isBench = hSlot.slotPos === "BN" || hSlot.slotPos === "IL";
+                      if (isBench) return null; // Only show starters
+
+                      return (
+                        <div key={i} className="flex items-center gap-2 border-b border-gray-800/40 py-1.5 last:border-0">
+                          <div className="flex-1 min-w-0 flex items-center gap-2">
+                            <div className="w-6 text-[9px] text-gray-500 font-bold shrink-0">{hSlot.slotPos}</div>
+                            <div className="min-w-0">
+                              <p className="text-[11px] text-white font-medium truncate">{hSlot.player?.name || "Empty"}</p>
+                              {hSlot.player && <p className="text-[9px] text-gray-500">{hSlot.player.position} - {hSlot.player.teamAbbreviation}</p>}
+                            </div>
+                          </div>
+                          
+                          <div className="w-4 flex justify-center shrink-0">
+                            <div className="w-[1px] h-6 bg-gray-800" />
+                          </div>
+
+                          <div className="flex-1 min-w-0 flex items-center gap-2 justify-end text-right">
+                            <div className="min-w-0">
+                              <p className="text-[11px] text-white font-medium truncate">{aSlot.player?.name || "Empty"}</p>
+                              {aSlot.player && <p className="text-[9px] text-gray-500">{aSlot.player.teamAbbreviation} - {aSlot.player.position}</p>}
+                            </div>
+                            <div className="w-6 text-[9px] text-gray-500 font-bold shrink-0">{aSlot.slotPos}</div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
