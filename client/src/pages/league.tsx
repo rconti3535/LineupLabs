@@ -1492,9 +1492,32 @@ export default function LeaguePage() {
   const isPastDate = dailyDate < new Date().toISOString().split("T")[0];
 
   const handleSwapSelect = (index: number) => {
-    if (rosterStatView === "daily" && isPastDate) {
-      toast({ title: "Cannot edit past lineups", description: "You can only change today's or future lineups.", variant: "destructive" });
-      return;
+    if (rosterStatView === "daily") {
+      if (isPastDate) {
+        toast({ title: "Cannot edit past lineups", description: "You can only change today's or future lineups.", variant: "destructive" });
+        return;
+      }
+      
+      // Check for lock
+      const now = new Date();
+      const pstFormatter = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/Los_Angeles", hour: "2-digit", hour12: false
+      });
+      const pstHour = parseInt(pstFormatter.format(now));
+      const todayStr = now.toISOString().split('T')[0];
+      
+      if (league?.lineupLockType === "Weekly" && dailyDate === todayStr) {
+        const dayOfWeek = now.getDay();
+        if (dayOfWeek === 1) { // Monday
+          if (pstHour >= 16) {
+            toast({ title: "Lineup Locked", description: "Weekly lineups lock at Monday's game start (4 PM PST).", variant: "destructive" });
+            return;
+          }
+        } else if (dayOfWeek === 0 || dayOfWeek > 1) { // Tue-Sun
+          toast({ title: "Lineup Locked", description: "Weekly lineups are locked until next Monday at 2 AM PST.", variant: "destructive" });
+          return;
+        }
+      }
     }
     if (selectedSwapIndex === null) {
       const targets = getSwapTargets(rosterEntries, index, rosterSlots);

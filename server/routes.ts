@@ -295,6 +295,128 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get daily lineup for a team on a date
+  app.get("/api/leagues/:id/daily-lineup", async (req, res) => {
+    try {
+      const leagueId = parseInt(req.params.id);
+      const teamId = parseInt(req.query.teamId as string);
+      const date = req.query.date as string;
+      
+      const lineup = await storage.getDailyLineup(leagueId, teamId, date);
+      res.json(lineup);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch daily lineup" });
+    }
+  });
+
+  // Check if player is locked for a league/date
+  app.get("/api/leagues/:id/player-lock", async (req, res) => {
+    try {
+      const leagueId = parseInt(req.params.id);
+      const league = await storage.getLeague(leagueId);
+      if (!league) return res.status(404).json({ message: "League not found" });
+
+      const playerId = parseInt(req.query.playerId as string);
+      const date = req.query.date as string; // YYYY-MM-DD
+      
+      const lockType = league.lineupLockType || "Daily";
+      const now = new Date();
+      
+      // PST Time Handling
+      const pstFormatter = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/Los_Angeles",
+        year: "numeric", month: "2-digit", day: "2-digit",
+        hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false
+      });
+      
+      const parts = pstFormatter.formatToParts(now);
+      const getPST = (type: string) => parts.find(p => p.type === type)?.value || "0";
+      const pstHour = parseInt(getPST("hour"));
+      
+      // In a real app, we'd check MLB game times.
+      // For this implementation, we'll assume games start at 4pm PST (16:00)
+      // and unlock at 2am PST (02:00) the next day.
+      
+      let isLocked = false;
+      const todayStr = now.toISOString().split('T')[0];
+      
+      if (lockType === "Daily") {
+        if (date < todayStr) {
+          isLocked = true;
+        } else if (date === todayStr) {
+          // If it's today, lock after 4pm PST, unlock after 2am PST (which is actually "next day" 2am)
+          // Simplified: Lock between 4pm PST and 2am PST
+          if (pstHour >= 16 || pstHour < 2) {
+            isLocked = true;
+          }
+        }
+      } else if (lockType === "Weekly") {
+        // Weekly lock: Locks when Monday games start
+        const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ...
+        if (date < todayStr) {
+          isLocked = true;
+        } else if (date === todayStr) {
+          // If it's Monday after 4pm, or any other day until next Monday 2am
+          if (dayOfWeek === 1) { // Monday
+            if (pstHour >= 16) isLocked = true;
+          } else if (dayOfWeek === 0 || dayOfWeek > 1) { // Tue-Sun
+            isLocked = true;
+          }
+          // Reset at Mon 2am
+          if (dayOfWeek === 1 && pstHour < 2) isLocked = false;
+        }
+      }
+      
+      res.json({ isLocked });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to check lock status" });
+    }
+  });
+
+  // Swap daily lineup slots
+  app.post("/api/leagues/:id/daily-lineup/swap", async (req, res) => {
+    try {
+      const leagueId = parseInt(req.params.id);
+      const { teamId, date, slotIndexA, slotIndexB } = req.body;
+      
+      // Check lock first
+      const league = await storage.getLeague(leagueId);
+      if (!league) return res.status(404).json({ message: "League not found" });
+      
+      const now = new Date();
+      const todayStr = now.toISOString().split('T')[0];
+      if (date < todayStr) {
+        return res.status(400).json({ message: "Cannot edit past lineups" });
+      }
+      
+      const pstFormatter = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/Los_Angeles", hour: "2-digit", hour12: false
+      });
+      const pstHour = parseInt(pstFormatter.format(now));
+      
+      if (league.lineupLockType === "Daily" && date === todayStr && (pstHour >= 16 || pstHour < 2)) {
+        return res.status(400).json({ message: "Lineup is currently locked" });
+      }
+
+      const currentLineup = await storage.getDailyLineup(leagueId, teamId, date);
+      const entryA = currentLineup.find(e => e.slotIndex === slotIndexA);
+      const entryB = currentLineup.find(e => e.slotIndex === slotIndexB);
+      
+      const newEntries = [];
+      if (entryA) {
+        newEntries.push({ ...entryA, slotIndex: slotIndexB });
+      }
+      if (entryB) {
+        newEntries.push({ ...entryB, slotIndex: slotIndexA });
+      }
+      
+      await storage.saveDailyLineup(newEntries);
+      res.json({ message: "Lineup updated" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to swap lineup slots" });
+    }
+  });
+
   // Search players
   app.get("/api/players", async (req, res) => {
     try {
@@ -312,7 +434,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to search players" });
     }
   });
-
   // Get player by ID
   app.get("/api/players/:id", async (req, res) => {
     try {
