@@ -1100,6 +1100,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const pick = await storage.addPlayerToTeam(leagueId, userTeam.id, playerId, assignedSlot);
+      
+      await storage.createTransaction({
+        leagueId,
+        teamId: userTeam.id,
+        type: 'add',
+        playerId,
+      });
+
       res.json({ pick, player });
     } catch (error) {
       res.status(500).json({ message: "Failed to add player" });
@@ -1147,6 +1155,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const pick = await storage.addPlayerToTeam(leagueId, userTeam.id, addPlayerId, rosterSlot);
+      
+      await storage.createTransaction({
+        leagueId,
+        teamId: userTeam.id,
+        type: 'drop',
+        playerId: droppedPlayerId,
+      });
+      await storage.createTransaction({
+        leagueId,
+        teamId: userTeam.id,
+        type: 'add',
+        playerId: addPlayerId,
+      });
+
       res.json({ pick, player, message: "Player added and dropped successfully" });
     } catch (error) {
       res.status(500).json({ message: "Failed to add/drop player" });
@@ -1181,6 +1203,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         waiverExpiresAt: getWaiverExpirationPST(),
         status: "active",
         createdAt: new Date().toISOString(),
+      });
+
+      await storage.createTransaction({
+        leagueId,
+        teamId: userTeam.id,
+        type: 'drop',
+        playerId: droppedPlayerId,
       });
 
       res.json({ message: "Player dropped successfully — on waivers for 2 days" });
