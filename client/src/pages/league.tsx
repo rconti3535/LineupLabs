@@ -1438,7 +1438,7 @@ export default function LeaguePage() {
                             {posEntries.map(entry => {
                               const p = entry.player as Record<string, unknown> | null;
                               return (
-                                <tr key={entry.slotIndex} className={getRowClass(entry.slotIndex)} onClick={() => swapTargets.includes(entry.slotIndex) ? handleSwapSelect(entry.slotIndex) : undefined}>
+                                <tr key={entry.slotIndex} className={getRowClass(entry.slotIndex)}>
                                   <td className="py-1.5 pl-1">
                                     <button
                                       onClick={() => handleSwapSelect(entry.slotIndex)}
@@ -1474,7 +1474,7 @@ export default function LeaguePage() {
                             {benchPosEntries.map(entry => {
                               const p = entry.player as Record<string, unknown> | null;
                               return (
-                                <tr key={entry.slotIndex} className={getRowClass(entry.slotIndex)} onClick={() => swapTargets.includes(entry.slotIndex) ? handleSwapSelect(entry.slotIndex) : undefined}>
+                                <tr key={entry.slotIndex} className={getRowClass(entry.slotIndex)}>
                                   <td className="py-1.5 pl-1">
                                     <button
                                       onClick={() => handleSwapSelect(entry.slotIndex)}
@@ -1524,7 +1524,7 @@ export default function LeaguePage() {
                             {pitchEntries.map(entry => {
                               const p = entry.player as Record<string, unknown> | null;
                               return (
-                                <tr key={entry.slotIndex} className={getRowClass(entry.slotIndex)} onClick={() => swapTargets.includes(entry.slotIndex) ? handleSwapSelect(entry.slotIndex) : undefined}>
+                                <tr key={entry.slotIndex} className={getRowClass(entry.slotIndex)}>
                                   <td className="py-1.5 pl-1">
                                     <button
                                       onClick={() => handleSwapSelect(entry.slotIndex)}
@@ -1560,7 +1560,7 @@ export default function LeaguePage() {
                             {benchPitchEntries.map(entry => {
                               const p = entry.player as Record<string, unknown> | null;
                               return (
-                                <tr key={entry.slotIndex} className={getRowClass(entry.slotIndex)} onClick={() => swapTargets.includes(entry.slotIndex) ? handleSwapSelect(entry.slotIndex) : undefined}>
+                                <tr key={entry.slotIndex} className={getRowClass(entry.slotIndex)}>
                                   <td className="py-1.5 pl-1">
                                     <button
                                       onClick={() => handleSwapSelect(entry.slotIndex)}
@@ -1604,7 +1604,6 @@ export default function LeaguePage() {
                                 className={`flex items-center gap-2 py-1.5 rounded px-1 transition-colors ${
                                   isSelected ? "bg-blue-900/30 ring-1 ring-blue-500/50" : isTarget ? "bg-green-900/20 ring-1 ring-green-500/30 cursor-pointer" : ""
                                 }`}
-                                onClick={() => isTarget ? handleSwapSelect(entry.slotIndex) : undefined}
                               >
                                 <button
                                   onClick={() => handleSwapSelect(entry.slotIndex)}
