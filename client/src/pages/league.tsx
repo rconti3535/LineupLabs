@@ -1384,13 +1384,11 @@ export default function LeaguePage() {
                   >
                     <ChevronLeft className="w-5 h-5" />
                   </button>
-                  <div className="bg-gray-800/50 rounded-lg px-6 py-2 text-center min-w-[200px] border border-gray-700/50">
+                  <div className="text-center">
                     <span className="text-sm font-semibold text-white">
                       {new Date(dailyDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
+                      {dailyDate === new Date().toISOString().split("T")[0] && " (TODAY)"}
                     </span>
-                    {dailyDate === new Date().toISOString().split("T")[0] && (
-                      <span className="ml-2 text-[10px] text-green-400 font-bold uppercase tracking-wider">Today</span>
-                    )}
                   </div>
                   <button
                     onClick={() => {
