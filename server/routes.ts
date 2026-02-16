@@ -395,9 +395,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      const draftPicks = await storage.getDraftPicksByLeague(leagueId);
-      const teamPicks = draftPicks.filter(dp => dp.teamId === teamId);
-      const playerIds = teamPicks.map(dp => dp.playerId);
+      const dailyLineup = await storage.getDailyLineup(leagueId, teamId, date);
+      const lineupPlayerIds = dailyLineup
+        .filter((d: any) => d.playerId != null)
+        .map((d: any) => d.playerId);
+
+      let playerIds = lineupPlayerIds;
+      if (playerIds.length === 0) {
+        const draftPicks = await storage.getDraftPicksByLeague(leagueId);
+        const teamPicks = draftPicks.filter(dp => dp.teamId === teamId);
+        playerIds = teamPicks.map(dp => dp.playerId);
+      }
+
       const players = await storage.getPlayersByIds(playerIds);
 
       const gameTimes = await getPlayerGameTimes(
