@@ -2016,8 +2016,8 @@ export default function LeaguePage() {
                           <thead>
                             <tr className="border-b border-gray-700">
                               <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-9 pl-1">Pos</th>
-                              <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[70px]">Game</th>
                               <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[140px]">Player</th>
+                              <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[70px]">Game</th>
                               {leagueHittingCats.map(stat => (
                                 <th key={stat} className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>{stat}</th>
                               ))}
@@ -2046,6 +2046,18 @@ export default function LeaguePage() {
                                       {entry.slotPos}
                                     </button>
                                   </td>
+                                  <td className="py-1.5 pr-2">
+                                    {p ? (
+                                      <div className="cursor-pointer" onClick={() => isDraftCompleted && p && handleSwapSelect(entry.slotIndex)}>
+                                        <p className="text-white text-xs font-medium truncate max-w-[130px]">{p.name as string}</p>
+                                        <p className="text-gray-500 text-[10px]">{p.position as string} — {(p.teamAbbreviation || p.team) as string}</p>
+                                      </div>
+                                    ) : (
+                                      <div className="cursor-pointer" onClick={() => isDraftCompleted && handleSwapSelect(entry.slotIndex)}>
+                                        <p className="text-gray-600 text-xs italic">Empty</p>
+                                      </div>
+                                    )}
+                                  </td>
                                   <td className="py-1.5">
                                     {gt ? (
                                       <div className="text-[9px] leading-tight">
@@ -2062,18 +2074,6 @@ export default function LeaguePage() {
                                       </div>
                                     ) : (
                                       <span className="text-gray-600">-</span>
-                                    )}
-                                  </td>
-                                  <td className="py-1.5 pr-2">
-                                    {p ? (
-                                      <div className="cursor-pointer" onClick={() => isDraftCompleted && p && handleSwapSelect(entry.slotIndex)}>
-                                        <p className="text-white text-xs font-medium truncate max-w-[130px]">{p.name as string}</p>
-                                        <p className="text-gray-500 text-[10px]">{p.position as string} — {(p.teamAbbreviation || p.team) as string}</p>
-                                      </div>
-                                    ) : (
-                                      <div className="cursor-pointer" onClick={() => isDraftCompleted && handleSwapSelect(entry.slotIndex)}>
-                                        <p className="text-gray-600 text-xs italic">Empty</p>
-                                      </div>
                                     )}
                                   </td>
                                   {leagueHittingCats.map(stat => (
@@ -2104,6 +2104,12 @@ export default function LeaguePage() {
                                       {entry.slotPos}
                                     </button>
                                   </td>
+                                  <td className="py-1.5 pr-2">
+                                    <div className="cursor-pointer" onClick={() => isDraftCompleted && p && handleSwapSelect(entry.slotIndex)}>
+                                      <p className="text-white text-xs font-medium truncate max-w-[130px]">{p?.name as string}</p>
+                                      <p className="text-gray-500 text-[10px]">{p?.position as string} — {(p?.teamAbbreviation || p?.team) as string}</p>
+                                    </div>
+                                  </td>
                                   <td className="py-1.5">
                                     {gt ? (
                                       <div className="text-[9px] leading-tight">
@@ -2121,12 +2127,6 @@ export default function LeaguePage() {
                                     ) : (
                                       <span className="text-gray-600">-</span>
                                     )}
-                                  </td>
-                                  <td className="py-1.5 pr-2">
-                                    <div className="cursor-pointer" onClick={() => isDraftCompleted && p && handleSwapSelect(entry.slotIndex)}>
-                                      <p className="text-white text-xs font-medium truncate max-w-[130px]">{p?.name as string}</p>
-                                      <p className="text-gray-500 text-[10px]">{p?.position as string} — {(p?.teamAbbreviation || p?.team) as string}</p>
-                                    </div>
                                   </td>
                                   {leagueHittingCats.map(stat => (
                                     <td key={stat} className={`${STAT_COL} text-gray-500 opacity-60`}>{p ? (p[`${statPrefix}${stat}`] as string ?? "-") : "-"}</td>
@@ -2147,8 +2147,8 @@ export default function LeaguePage() {
                           <thead>
                             <tr className="border-b border-gray-700">
                               <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-9 pl-1">Pos</th>
-                              <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[70px]">Game</th>
                               <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[140px]">Player</th>
+                              <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[70px]">Game</th>
                               {leaguePitchingCats.map(stat => (
                                 <th key={stat} className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>{stat}</th>
                               ))}
@@ -2177,6 +2177,18 @@ export default function LeaguePage() {
                                       {entry.slotPos}
                                     </button>
                                   </td>
+                                  <td className="py-1.5 pr-2">
+                                    {p ? (
+                                      <div className="cursor-pointer" onClick={() => isDraftCompleted && p && handleSwapSelect(entry.slotIndex)}>
+                                        <p className="text-white text-xs font-medium truncate max-w-[130px]">{p.name as string}</p>
+                                        <p className="text-gray-500 text-[10px]">{p.position as string} — {(p.teamAbbreviation || p.team) as string}</p>
+                                      </div>
+                                    ) : (
+                                      <div className="cursor-pointer" onClick={() => isDraftCompleted && handleSwapSelect(entry.slotIndex)}>
+                                        <p className="text-gray-600 text-xs italic">Empty</p>
+                                      </div>
+                                    )}
+                                  </td>
                                   <td className="py-1.5">
                                     {gt ? (
                                       <div className="text-[9px] leading-tight">
@@ -2193,18 +2205,6 @@ export default function LeaguePage() {
                                       </div>
                                     ) : (
                                       <span className="text-gray-600">-</span>
-                                    )}
-                                  </td>
-                                  <td className="py-1.5 pr-2">
-                                    {p ? (
-                                      <div className="cursor-pointer" onClick={() => isDraftCompleted && p && handleSwapSelect(entry.slotIndex)}>
-                                        <p className="text-white text-xs font-medium truncate max-w-[130px]">{p.name as string}</p>
-                                        <p className="text-gray-500 text-[10px]">{p.position as string} — {(p.teamAbbreviation || p.team) as string}</p>
-                                      </div>
-                                    ) : (
-                                      <div className="cursor-pointer" onClick={() => isDraftCompleted && handleSwapSelect(entry.slotIndex)}>
-                                        <p className="text-gray-600 text-xs italic">Empty</p>
-                                      </div>
                                     )}
                                   </td>
                                   {leaguePitchingCats.map(stat => (
@@ -2235,6 +2235,12 @@ export default function LeaguePage() {
                                       {entry.slotPos}
                                     </button>
                                   </td>
+                                  <td className="py-1.5 pr-2">
+                                    <div className="cursor-pointer" onClick={() => isDraftCompleted && p && handleSwapSelect(entry.slotIndex)}>
+                                      <p className="text-white text-xs font-medium truncate max-w-[130px]">{p?.name as string}</p>
+                                      <p className="text-gray-500 text-[10px]">{p?.position as string} — {(p?.teamAbbreviation || p?.team) as string}</p>
+                                    </div>
+                                  </td>
                                   <td className="py-1.5">
                                     {gt ? (
                                       <div className="text-[9px] leading-tight">
@@ -2252,12 +2258,6 @@ export default function LeaguePage() {
                                     ) : (
                                       <span className="text-gray-600">-</span>
                                     )}
-                                  </td>
-                                  <td className="py-1.5 pr-2">
-                                    <div className="cursor-pointer" onClick={() => isDraftCompleted && p && handleSwapSelect(entry.slotIndex)}>
-                                      <p className="text-white text-xs font-medium truncate max-w-[130px]">{p?.name as string}</p>
-                                      <p className="text-gray-500 text-[10px]">{p?.position as string} — {(p?.teamAbbreviation || p?.team) as string}</p>
-                                    </div>
                                   </td>
                                   {leaguePitchingCats.map(stat => (
                                     <td key={stat} className={`${STAT_COL} text-gray-500 opacity-60`}>{p ? (p[`${statPrefix}${stat}`] as string ?? "-") : "-"}</td>
