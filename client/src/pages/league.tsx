@@ -966,12 +966,15 @@ export default function LeaguePage() {
       } else {
         const entryA = rosterEntries[selectedSwapIndex];
         const entryB = rosterEntries[index];
-        swapMutation.mutate({
+        const swapData = {
           pickIdA: entryA.pickId!,
           slotA: selectedSwapIndex,
           pickIdB: entryB.pickId,
           slotB: index,
-        });
+        };
+        setSelectedSwapIndex(null);
+        setSwapTargets([]);
+        swapMutation.mutate(swapData);
       }
     } else {
       setSelectedSwapIndex(null);

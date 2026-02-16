@@ -809,31 +809,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.swapRosterSlots(leagueId, userTeam.id, pickIdA, slotA, null, slotB);
       }
 
-      const today = new Date().toISOString().split("T")[0];
-      const futureDates = await storage.getFutureDailyLineupDates(leagueId, userTeam.id, today);
-      const todayLineup = await storage.getDailyLineup(leagueId, userTeam.id, today);
-      const datesToUpdate = todayLineup.length > 0 ? [today, ...futureDates] : futureDates;
-
-      for (const d of datesToUpdate) {
-        const dayLineup = await storage.getDailyLineup(leagueId, userTeam.id, d);
-        if (dayLineup.length === 0) continue;
-        const dayEntryA = dayLineup.find(e => e.slotIndex === slotA);
-        const dayEntryB = dayLineup.find(e => e.slotIndex === slotB);
-        if (!dayEntryA || !dayEntryB) continue;
-        const pIdA = dayEntryA.playerId;
-        const pIdB = dayEntryB.playerId;
-        await storage.deleteDailyLineup(leagueId, userTeam.id, d);
-        await storage.saveDailyLineup(dayLineup.map(e => {
-          if (e.slotIndex === slotA) {
-            return { leagueId, teamId: userTeam.id, date: d, slotIndex: e.slotIndex, slotPos: e.slotPos, playerId: pIdB };
-          }
-          if (e.slotIndex === slotB) {
-            return { leagueId, teamId: userTeam.id, date: d, slotIndex: e.slotIndex, slotPos: e.slotPos, playerId: pIdA };
-          }
-          return { leagueId, teamId: userTeam.id, date: d, slotIndex: e.slotIndex, slotPos: e.slotPos, playerId: e.playerId };
-        }));
-      }
-
       res.json({ message: "Roster swap successful" });
     } catch (error) {
       res.status(500).json({ message: "Failed to swap roster slots" });
