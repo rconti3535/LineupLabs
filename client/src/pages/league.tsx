@@ -1773,7 +1773,7 @@ export default function LeaguePage() {
     setEditDraftDate(league.draftDate || "");
     setEditSecondsPerPick(String(league.secondsPerPick || 60));
     setEditDraftOrder(league.draftOrder || "Random");
-    const sorted = [...(leagueTeams || [])].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999));
+    const sorted = [...(teams || [])].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999));
     setManualTeamOrder(sorted.map(t => t.id));
     setIsEditingDraft(true);
   };
@@ -3045,7 +3045,7 @@ export default function LeaguePage() {
                       className={editDraftOrder === "Manual" ? "bg-primary text-white" : "border-gray-700 text-gray-300"}
                       onClick={() => {
                         setEditDraftOrder("Manual");
-                        const sorted = [...(leagueTeams || [])].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999));
+                        const sorted = [...(teams || [])].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999));
                         setManualTeamOrder(sorted.map(t => t.id));
                       }}
                     >
@@ -3054,12 +3054,12 @@ export default function LeaguePage() {
                     </Button>
                   </div>
                 </div>
-                {editDraftOrder === "Manual" && leagueTeams && leagueTeams.length > 0 && (
+                {editDraftOrder === "Manual" && teams && teams.length > 0 && (
                   <div>
                     <label className="text-gray-400 text-xs block mb-2">Use arrows to set pick order</label>
                     <div className="space-y-1">
                       {manualTeamOrder.map((teamId, index) => {
-                        const team = leagueTeams.find(t => t.id === teamId);
+                        const team = teams.find(t => t.id === teamId);
                         if (!team) return null;
                         return (
                           <div key={teamId} className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-2">
@@ -3098,11 +3098,11 @@ export default function LeaguePage() {
                     </Button>
                   </div>
                 )}
-                {editDraftOrder === "Random" && leagueTeams && leagueTeams.length > 0 && (
+                {editDraftOrder === "Random" && teams && teams.length > 0 && (
                   <div>
                     <label className="text-gray-400 text-xs block mb-2">Current Draft Order</label>
                     <div className="space-y-1">
-                      {[...(leagueTeams || [])].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999)).map((team, index) => (
+                      {[...(teams || [])].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999)).map((team, index) => (
                         <div key={team.id} className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-2">
                           <span className="text-primary font-bold text-xs w-5">{index + 1}</span>
                           <span className="text-white text-sm flex-1">{team.name}</span>
@@ -3142,11 +3142,11 @@ export default function LeaguePage() {
                     <p className="text-white font-medium text-sm">{league.draftOrder || "Random"}</p>
                   </div>
                 </div>
-                {leagueTeams && leagueTeams.some(t => t.draftPosition) && (
+                {teams && teams.some(t => t.draftPosition) && (
                   <div>
                     <p className="text-gray-400 text-xs mb-2">Current Order</p>
                     <div className="space-y-1">
-                      {[...(leagueTeams || [])].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999)).map((team, index) => (
+                      {[...(teams || [])].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999)).map((team, index) => (
                         <div key={team.id} className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-1.5">
                           <span className="text-primary font-bold text-xs w-5">{index + 1}</span>
                           <span className="text-white text-sm">{team.name}</span>
@@ -3177,11 +3177,11 @@ export default function LeaguePage() {
                   <p className="text-white font-medium text-sm">{league.draftOrder || "Random"}</p>
                 </div>
               </div>
-              {leagueTeams && leagueTeams.some(t => t.draftPosition) && (
+              {teams && teams.some(t => t.draftPosition) && (
                 <div>
                   <p className="text-gray-400 text-xs mb-2">Current Order</p>
                   <div className="space-y-1">
-                    {[...(leagueTeams || [])].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999)).map((team, index) => (
+                    {[...(teams || [])].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999)).map((team, index) => (
                       <div key={team.id} className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-1.5">
                         <span className="text-primary font-bold text-xs w-5">{index + 1}</span>
                         <span className="text-white text-sm">{team.name}</span>
