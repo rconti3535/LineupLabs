@@ -1316,6 +1316,7 @@ export default function LeaguePage() {
   const [editScoringFormat, setEditScoringFormat] = useState("");
   const [editType, setEditType] = useState("");
   const [editStatus, setEditStatus] = useState("");
+  const [editLockType, setEditLockType] = useState("Daily");
   const [isEditingRoster, setIsEditingRoster] = useState(false);
   const [editRosterPositions, setEditRosterPositions] = useState<string[]>([]);
   const [editRosterCounts, setEditRosterCounts] = useState<Record<string, number>>({});
@@ -1597,6 +1598,7 @@ export default function LeaguePage() {
     setEditScoringFormat(league.scoringFormat || "Roto");
     setEditType(league.type || "Redraft");
     setEditStatus(league.isPublic ? "Public" : "Private");
+    setEditLockType(league.lineupLockType || "Daily");
     setIsEditing(true);
   };
 
@@ -1606,6 +1608,7 @@ export default function LeaguePage() {
       type: editType,
       status: editStatus,
       isPublic: editStatus === "Public",
+      lineupLockType: editLockType,
     });
   };
 
@@ -2280,6 +2283,18 @@ export default function LeaguePage() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div>
+                  <label className="text-gray-400 text-xs block mb-1">Lineup Lock</label>
+                  <Select value={editLockType} onValueChange={setEditLockType}>
+                    <SelectTrigger className="bg-gray-800 border-gray-700 text-white text-sm h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Daily">Daily Lock (at game start)</SelectItem>
+                      <SelectItem value="Weekly">Weekly Lock (Mon game start)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-4">
@@ -2302,6 +2317,13 @@ export default function LeaguePage() {
                   <div>
                     <p className="text-gray-400 text-xs">Status</p>
                     <p className="text-white font-medium text-sm">{league.isPublic ? "Public" : "Private"}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-blue-400" />
+                  <div>
+                    <p className="text-gray-400 text-xs">Lineup Lock</p>
+                    <p className="text-white font-medium text-sm">{league.lineupLockType || "Daily"}</p>
                   </div>
                 </div>
               </div>

@@ -36,6 +36,7 @@ export const leagues = pgTable("leagues", {
   draftOrder: text("draft_order").default("Random"),
   draftStatus: text("draft_status").default("pending"),
   draftPickStartedAt: text("draft_pick_started_at"),
+  lineupLockType: text("lineup_lock_type").default("Daily"), // Daily, Weekly
   seasonWeeks: integer("season_weeks").default(27),
   createdBy: integer("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
