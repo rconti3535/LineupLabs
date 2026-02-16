@@ -2016,6 +2016,7 @@ export default function LeaguePage() {
                           <thead>
                             <tr className="border-b border-gray-700">
                               <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-9 pl-1">Pos</th>
+                              <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[70px]">Game</th>
                               <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[140px]">Player</th>
                               {leagueHittingCats.map(stat => (
                                 <th key={stat} className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>{stat}</th>
@@ -2025,6 +2026,10 @@ export default function LeaguePage() {
                           <tbody>
                             {posEntries.map(entry => {
                               const p = entry.player as Record<string, unknown> | null;
+                              const gt = rosterStatView === "daily" && gameTimesData && p 
+                                ? gameTimesData.find(g => g.playerId === (p.id as number)) 
+                                : null;
+
                               return (
                                 <tr key={entry.slotIndex} className={getRowClass(entry.slotIndex)}>
                                   <td className="py-1.5 pl-1">
@@ -2041,17 +2046,29 @@ export default function LeaguePage() {
                                       {entry.slotPos}
                                     </button>
                                   </td>
+                                  <td className="py-1.5">
+                                    {gt ? (
+                                      <div className="text-[9px] leading-tight">
+                                        {!gt.gameTime ? (
+                                          <p className="text-gray-500 italic">No Game</p>
+                                        ) : (
+                                          <p className="text-gray-400">
+                                            {gt.isHome ? "vs" : "@"} {gt.opponent}
+                                            <br />
+                                            {new Date(gt.gameTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                                            {gt.isLocked ? " 🔒" : ""}
+                                          </p>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span className="text-gray-600">-</span>
+                                    )}
+                                  </td>
                                   <td className="py-1.5 pr-2">
                                     {p ? (
                                       <div className="cursor-pointer" onClick={() => isDraftCompleted && p && handleSwapSelect(entry.slotIndex)}>
                                         <p className="text-white text-xs font-medium truncate max-w-[130px]">{p.name as string}</p>
                                         <p className="text-gray-500 text-[10px]">{p.position as string} — {(p.teamAbbreviation || p.team) as string}</p>
-                                        {rosterStatView === "daily" && gameTimesData && (() => {
-                                          const gt = gameTimesData.find(g => g.playerId === (p.id as number));
-                                          if (!gt) return null;
-                                          if (!gt.gameTime) return <p className="text-gray-500 text-[10px] italic">No Game</p>;
-                                          return <p className="text-[10px] text-gray-400">{gt.isHome ? "vs" : "@"} {gt.opponent} {new Date(gt.gameTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}{gt.isLocked ? " 🔒" : ""}</p>;
-                                        })()}
                                       </div>
                                     ) : (
                                       <div className="cursor-pointer" onClick={() => isDraftCompleted && handleSwapSelect(entry.slotIndex)}>
@@ -2067,6 +2084,10 @@ export default function LeaguePage() {
                             })}
                             {benchPosEntries.map(entry => {
                               const p = entry.player as Record<string, unknown> | null;
+                              const gt = rosterStatView === "daily" && gameTimesData && p 
+                                ? gameTimesData.find(g => g.playerId === (p.id as number)) 
+                                : null;
+
                               return (
                                 <tr key={entry.slotIndex} className={getRowClass(entry.slotIndex)}>
                                   <td className="py-1.5 pl-1">
@@ -2083,16 +2104,28 @@ export default function LeaguePage() {
                                       {entry.slotPos}
                                     </button>
                                   </td>
+                                  <td className="py-1.5">
+                                    {gt ? (
+                                      <div className="text-[9px] leading-tight">
+                                        {!gt.gameTime ? (
+                                          <p className="text-gray-500 italic">No Game</p>
+                                        ) : (
+                                          <p className="text-gray-400">
+                                            {gt.isHome ? "vs" : "@"} {gt.opponent}
+                                            <br />
+                                            {new Date(gt.gameTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                                            {gt.isLocked ? " 🔒" : ""}
+                                          </p>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span className="text-gray-600">-</span>
+                                    )}
+                                  </td>
                                   <td className="py-1.5 pr-2">
                                     <div className="cursor-pointer" onClick={() => isDraftCompleted && p && handleSwapSelect(entry.slotIndex)}>
                                       <p className="text-white text-xs font-medium truncate max-w-[130px]">{p?.name as string}</p>
                                       <p className="text-gray-500 text-[10px]">{p?.position as string} — {(p?.teamAbbreviation || p?.team) as string}</p>
-                                      {rosterStatView === "daily" && gameTimesData && p && (() => {
-                                        const gt = gameTimesData.find(g => g.playerId === (p.id as number));
-                                        if (!gt) return null;
-                                        if (!gt.gameTime) return <p className="text-gray-500 text-[10px] italic">No Game</p>;
-                                        return <p className="text-[10px] text-gray-400">{gt.isHome ? "vs" : "@"} {gt.opponent} {new Date(gt.gameTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}{gt.isLocked ? " 🔒" : ""}</p>;
-                                      })()}
                                     </div>
                                   </td>
                                   {leagueHittingCats.map(stat => (
@@ -2114,6 +2147,7 @@ export default function LeaguePage() {
                           <thead>
                             <tr className="border-b border-gray-700">
                               <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-9 pl-1">Pos</th>
+                              <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[70px]">Game</th>
                               <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[140px]">Player</th>
                               {leaguePitchingCats.map(stat => (
                                 <th key={stat} className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>{stat}</th>
@@ -2123,6 +2157,10 @@ export default function LeaguePage() {
                           <tbody>
                             {pitchEntries.map(entry => {
                               const p = entry.player as Record<string, unknown> | null;
+                              const gt = rosterStatView === "daily" && gameTimesData && p 
+                                ? gameTimesData.find(g => g.playerId === (p.id as number)) 
+                                : null;
+
                               return (
                                 <tr key={entry.slotIndex} className={getRowClass(entry.slotIndex)}>
                                   <td className="py-1.5 pl-1">
@@ -2139,17 +2177,29 @@ export default function LeaguePage() {
                                       {entry.slotPos}
                                     </button>
                                   </td>
+                                  <td className="py-1.5">
+                                    {gt ? (
+                                      <div className="text-[9px] leading-tight">
+                                        {!gt.gameTime ? (
+                                          <p className="text-gray-500 italic">No Game</p>
+                                        ) : (
+                                          <p className="text-gray-400">
+                                            {gt.isHome ? "vs" : "@"} {gt.opponent}
+                                            <br />
+                                            {new Date(gt.gameTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                                            {gt.isLocked ? " 🔒" : ""}
+                                          </p>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span className="text-gray-600">-</span>
+                                    )}
+                                  </td>
                                   <td className="py-1.5 pr-2">
                                     {p ? (
                                       <div className="cursor-pointer" onClick={() => isDraftCompleted && p && handleSwapSelect(entry.slotIndex)}>
                                         <p className="text-white text-xs font-medium truncate max-w-[130px]">{p.name as string}</p>
                                         <p className="text-gray-500 text-[10px]">{p.position as string} — {(p.teamAbbreviation || p.team) as string}</p>
-                                        {rosterStatView === "daily" && gameTimesData && (() => {
-                                          const gt = gameTimesData.find(g => g.playerId === (p.id as number));
-                                          if (!gt) return null;
-                                          if (!gt.gameTime) return <p className="text-gray-500 text-[10px] italic">No Game</p>;
-                                          return <p className="text-[10px] text-gray-400">{gt.isHome ? "vs" : "@"} {gt.opponent} {new Date(gt.gameTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}{gt.isLocked ? " 🔒" : ""}</p>;
-                                        })()}
                                       </div>
                                     ) : (
                                       <div className="cursor-pointer" onClick={() => isDraftCompleted && handleSwapSelect(entry.slotIndex)}>
@@ -2165,6 +2215,10 @@ export default function LeaguePage() {
                             })}
                             {benchPitchEntries.map(entry => {
                               const p = entry.player as Record<string, unknown> | null;
+                              const gt = rosterStatView === "daily" && gameTimesData && p 
+                                ? gameTimesData.find(g => g.playerId === (p.id as number)) 
+                                : null;
+
                               return (
                                 <tr key={entry.slotIndex} className={getRowClass(entry.slotIndex)}>
                                   <td className="py-1.5 pl-1">
@@ -2181,16 +2235,28 @@ export default function LeaguePage() {
                                       {entry.slotPos}
                                     </button>
                                   </td>
+                                  <td className="py-1.5">
+                                    {gt ? (
+                                      <div className="text-[9px] leading-tight">
+                                        {!gt.gameTime ? (
+                                          <p className="text-gray-500 italic">No Game</p>
+                                        ) : (
+                                          <p className="text-gray-400">
+                                            {gt.isHome ? "vs" : "@"} {gt.opponent}
+                                            <br />
+                                            {new Date(gt.gameTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                                            {gt.isLocked ? " 🔒" : ""}
+                                          </p>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span className="text-gray-600">-</span>
+                                    )}
+                                  </td>
                                   <td className="py-1.5 pr-2">
                                     <div className="cursor-pointer" onClick={() => isDraftCompleted && p && handleSwapSelect(entry.slotIndex)}>
                                       <p className="text-white text-xs font-medium truncate max-w-[130px]">{p?.name as string}</p>
                                       <p className="text-gray-500 text-[10px]">{p?.position as string} — {(p?.teamAbbreviation || p?.team) as string}</p>
-                                      {rosterStatView === "daily" && gameTimesData && p && (() => {
-                                        const gt = gameTimesData.find(g => g.playerId === (p.id as number));
-                                        if (!gt) return null;
-                                        if (!gt.gameTime) return <p className="text-gray-500 text-[10px] italic">No Game</p>;
-                                        return <p className="text-[10px] text-gray-400">{gt.isHome ? "vs" : "@"} {gt.opponent} {new Date(gt.gameTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}{gt.isLocked ? " 🔒" : ""}</p>;
-                                      })()}
                                     </div>
                                   </td>
                                   {leaguePitchingCats.map(stat => (
