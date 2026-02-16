@@ -3054,40 +3054,51 @@ export default function LeaguePage() {
                     </Button>
                   </div>
                 </div>
-                {editDraftOrder === "Manual" && teams && teams.length > 0 && (
+                {editDraftOrder === "Manual" && (
                   <div>
                     <label className="text-gray-400 text-xs block mb-2">Use arrows to set pick order</label>
                     <div className="space-y-1">
-                      {manualTeamOrder.map((teamId, index) => {
-                        const team = teams.find(t => t.id === teamId);
-                        if (!team) return null;
-                        return (
-                          <div key={teamId} className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-2">
-                            <span className="text-primary font-bold text-xs w-5">{index + 1}</span>
-                            <span className="text-white text-sm flex-1">{team.name}</span>
-                            <div className="flex gap-1">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-6 w-6 p-0 text-gray-400 hover:text-white"
-                                onClick={() => moveTeamUp(index)}
-                                disabled={index === 0}
-                              >
-                                <ChevronUp className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-6 w-6 p-0 text-gray-400 hover:text-white"
-                                onClick={() => moveTeamDown(index)}
-                                disabled={index === manualTeamOrder.length - 1}
-                              >
-                                <ChevronDown className="w-4 h-4" />
-                              </Button>
+                      {(() => {
+                        const maxSlots = league.maxTeams || league.numberOfTeams || 12;
+                        const slots = [];
+                        for (let i = 0; i < maxSlots; i++) {
+                          const teamId = manualTeamOrder[i];
+                          const team = teamId ? teams?.find(t => t.id === teamId) : undefined;
+                          slots.push(
+                            <div key={teamId || `open-${i}`} className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-2">
+                              <span className="text-primary font-bold text-xs w-5">{i + 1}</span>
+                              {team ? (
+                                <span className="text-white text-sm flex-1">{team.name}{team.isCpu ? " (CPU)" : ""}</span>
+                              ) : (
+                                <span className="text-gray-500 text-sm flex-1 italic">Open Slot</span>
+                              )}
+                              {team && (
+                                <div className="flex gap-1">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-6 w-6 p-0 text-gray-400 hover:text-white"
+                                    onClick={() => moveTeamUp(i)}
+                                    disabled={i === 0 || !manualTeamOrder[i]}
+                                  >
+                                    <ChevronUp className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-6 w-6 p-0 text-gray-400 hover:text-white"
+                                    onClick={() => moveTeamDown(i)}
+                                    disabled={i >= manualTeamOrder.length - 1 || !manualTeamOrder[i]}
+                                  >
+                                    <ChevronDown className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              )}
                             </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        }
+                        return slots;
+                      })()}
                     </div>
                     <Button
                       size="sm"
@@ -3098,16 +3109,29 @@ export default function LeaguePage() {
                     </Button>
                   </div>
                 )}
-                {editDraftOrder === "Random" && teams && teams.length > 0 && (
+                {editDraftOrder === "Random" && (
                   <div>
                     <label className="text-gray-400 text-xs block mb-2">Current Draft Order</label>
                     <div className="space-y-1">
-                      {[...(teams || [])].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999)).map((team, index) => (
-                        <div key={team.id} className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-2">
-                          <span className="text-primary font-bold text-xs w-5">{index + 1}</span>
-                          <span className="text-white text-sm flex-1">{team.name}</span>
-                        </div>
-                      ))}
+                      {(() => {
+                        const maxSlots = league.maxTeams || league.numberOfTeams || 12;
+                        const sorted = [...(teams || [])].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999));
+                        const slots = [];
+                        for (let i = 0; i < maxSlots; i++) {
+                          const team = sorted[i];
+                          slots.push(
+                            <div key={team?.id || `open-${i}`} className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-2">
+                              <span className="text-primary font-bold text-xs w-5">{i + 1}</span>
+                              {team ? (
+                                <span className="text-white text-sm flex-1">{team.name}{team.isCpu ? " (CPU)" : ""}</span>
+                              ) : (
+                                <span className="text-gray-500 text-sm flex-1 italic">Open Slot</span>
+                              )}
+                            </div>
+                          );
+                        }
+                        return slots;
+                      })()}
                     </div>
                     <Button
                       size="sm"
@@ -3146,12 +3170,23 @@ export default function LeaguePage() {
                   <div>
                     <p className="text-gray-400 text-xs mb-2">Current Order</p>
                     <div className="space-y-1">
-                      {[...(teams || [])].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999)).map((team, index) => (
-                        <div key={team.id} className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-1.5">
-                          <span className="text-primary font-bold text-xs w-5">{index + 1}</span>
-                          <span className="text-white text-sm">{team.name}</span>
-                        </div>
-                      ))}
+                      {(() => {
+                        const maxSlots = league.maxTeams || league.numberOfTeams || 12;
+                        const sorted = [...(teams || [])].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999));
+                        return Array.from({ length: maxSlots }, (_, i) => {
+                          const team = sorted[i];
+                          return (
+                            <div key={team?.id || `open-${i}`} className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-1.5">
+                              <span className="text-primary font-bold text-xs w-5">{i + 1}</span>
+                              {team ? (
+                                <span className="text-white text-sm">{team.name}{team.isCpu ? " (CPU)" : ""}</span>
+                              ) : (
+                                <span className="text-gray-500 text-sm italic">Open Slot</span>
+                              )}
+                            </div>
+                          );
+                        });
+                      })()}
                     </div>
                   </div>
                 )}
@@ -3181,12 +3216,23 @@ export default function LeaguePage() {
                 <div>
                   <p className="text-gray-400 text-xs mb-2">Current Order</p>
                   <div className="space-y-1">
-                    {[...(teams || [])].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999)).map((team, index) => (
-                      <div key={team.id} className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-1.5">
-                        <span className="text-primary font-bold text-xs w-5">{index + 1}</span>
-                        <span className="text-white text-sm">{team.name}</span>
-                      </div>
-                    ))}
+                    {(() => {
+                      const maxSlots = league.maxTeams || league.numberOfTeams || 12;
+                      const sorted = [...(teams || [])].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999));
+                      return Array.from({ length: maxSlots }, (_, i) => {
+                        const team = sorted[i];
+                        return (
+                          <div key={team?.id || `open-${i}`} className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-1.5">
+                            <span className="text-primary font-bold text-xs w-5">{i + 1}</span>
+                            {team ? (
+                              <span className="text-white text-sm">{team.name}{team.isCpu ? " (CPU)" : ""}</span>
+                            ) : (
+                              <span className="text-gray-500 text-sm italic">Open Slot</span>
+                            )}
+                          </div>
+                        );
+                      });
+                    })()}
                   </div>
                 </div>
               )}
