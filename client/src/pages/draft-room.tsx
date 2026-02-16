@@ -1045,28 +1045,34 @@ export default function DraftRoom() {
           </DialogHeader>
           <div className="space-y-3 mt-2">
             <Button
-              onClick={() => {
-                setShowTeamWarning(false);
-                setLocation(`/league/${leagueId}`);
-              }}
-              variant="outline"
-              className="w-full border-gray-600 text-gray-200 hover:bg-gray-800 hover:text-white gap-2 h-11"
+              onClick={() => draftControlMutation.mutate({ action: "start" })}
+              disabled={draftControlMutation.isPending}
+              className="w-full bg-green-600 hover:bg-green-700 text-white gap-2 h-11"
             >
-              <Settings className="w-4 h-4" />
-              Go to Settings & Change Team Count
+              <Play className="w-4 h-4" />
+              {draftControlMutation.isPending ? "Starting..." : `Start Draft with ${currentTeamCount} ${currentTeamCount === 1 ? "Team" : "Teams"}`}
             </Button>
             <Button
               onClick={() => draftControlMutation.mutate({ action: "start", fillWithCpu: true })}
               disabled={draftControlMutation.isPending}
-              className="w-full bg-green-600 hover:bg-green-700 text-white gap-2 h-11"
+              variant="outline"
+              className="w-full border-gray-600 text-gray-200 hover:bg-gray-800 hover:text-white gap-2 h-11"
             >
               <Bot className="w-4 h-4" />
-              {draftControlMutation.isPending ? "Starting..." : `Start Draft — CPU Drafts ${teamsShort} Empty ${teamsShort === 1 ? "Team" : "Teams"}`}
+              {draftControlMutation.isPending ? "Starting..." : `Fill ${teamsShort} Empty ${teamsShort === 1 ? "Spot" : "Spots"} with CPU`}
+            </Button>
+            <Button
+              onClick={() => {
+                setShowTeamWarning(false);
+                setLocation(`/league/${leagueId}`);
+              }}
+              variant="ghost"
+              className="w-full text-gray-400 hover:text-white gap-2 h-9 text-xs"
+            >
+              <Settings className="w-4 h-4" />
+              Go to Settings & Change Team Count
             </Button>
           </div>
-          <p className="text-gray-500 text-xs text-center mt-1">
-            CPU teams will auto-draft the best available players each round.
-          </p>
         </DialogContent>
       </Dialog>
     </div>
