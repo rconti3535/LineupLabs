@@ -1371,7 +1371,7 @@ export default function LeaguePage() {
                 {selectedSwapIndex !== null && (
                   <p className="text-blue-400 text-xs mb-3 px-1">Tap a highlighted slot to swap players</p>
                 )}
-                <div className="flex items-center justify-center mb-3 gap-1">
+                <div className="flex items-center justify-center mb-3 gap-3">
                   <button
                     onClick={() => {
                       const d = new Date(dailyDate + "T12:00:00");
@@ -1380,16 +1380,16 @@ export default function LeaguePage() {
                       setSelectedSwapIndex(null);
                       setSwapTargets([]);
                     }}
-                    className="p-0.5 text-gray-400 hover:text-white transition-colors"
+                    className="p-1 text-gray-400 hover:text-white transition-colors"
                   >
-                    <ChevronLeft className="w-4 h-4" />
+                    <ChevronLeft className="w-5 h-5" />
                   </button>
-                  <div className="bg-gray-800/50 rounded px-2 py-0.5 text-center">
-                    <span className="text-[11px] font-medium text-white">
-                      {new Date(dailyDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                  <div className="bg-gray-800/50 rounded-lg px-6 py-2 text-center min-w-[200px] border border-gray-700/50">
+                    <span className="text-sm font-semibold text-white">
+                      {new Date(dailyDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
                     </span>
                     {dailyDate === new Date().toISOString().split("T")[0] && (
-                      <span className="ml-1 text-[9px] text-green-400 font-medium">Today</span>
+                      <span className="ml-2 text-[10px] text-green-400 font-bold uppercase tracking-wider">Today</span>
                     )}
                   </div>
                   <button
@@ -1400,9 +1400,9 @@ export default function LeaguePage() {
                       setSelectedSwapIndex(null);
                       setSwapTargets([]);
                     }}
-                    className="p-0.5 text-gray-400 hover:text-white transition-colors"
+                    className="p-1 text-gray-400 hover:text-white transition-colors"
                   >
-                    <ChevronRight className="w-4 h-4" />
+                    <ChevronRight className="w-5 h-5" />
                   </button>
                 </div>
                 {rosterStatView === "daily" && dailyLineupLoading && (
