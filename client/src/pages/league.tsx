@@ -1659,6 +1659,7 @@ export default function LeaguePage() {
   const saveSettings = () => {
     updateMutation.mutate({
       maxTeams: parseInt(editMaxTeams),
+      numberOfTeams: parseInt(editMaxTeams),
       type: editType,
       status: editStatus,
       isPublic: editStatus === "Public",

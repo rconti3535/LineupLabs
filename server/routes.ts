@@ -217,7 +217,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (action === "start" && fillWithCpu) {
         const existingTeams = await storage.getTeamsByLeagueId(id);
-        const targetTeams = league.numberOfTeams || league.maxTeams || 12;
+        const targetTeams = league.maxTeams || league.numberOfTeams || 12;
         const cpuNeeded = targetTeams - existingTeams.length;
         for (let i = 0; i < cpuNeeded; i++) {
           await storage.createTeam({

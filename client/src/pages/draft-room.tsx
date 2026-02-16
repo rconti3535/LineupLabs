@@ -163,7 +163,7 @@ export default function DraftRoom() {
   const isDraftCompleted = serverDraftStatus === "completed";
   const rosterPositions = league?.rosterPositions || [];
   const totalRounds = rosterPositions.length;
-  const numTeams = teams?.length || league?.numberOfTeams || league?.maxTeams || 12;
+  const numTeams = teams?.length || league?.maxTeams || league?.numberOfTeams || 12;
   const myTeam = teams?.find((t) => t.userId === user?.id);
 
   const nextOverall = draftPicks.length + 1;
@@ -195,7 +195,7 @@ export default function DraftRoom() {
     },
   });
 
-  const targetTeamCount = league?.numberOfTeams || league?.maxTeams || 12;
+  const targetTeamCount = league?.maxTeams || league?.numberOfTeams || 12;
   const currentTeamCount = teams?.length || 0;
   const teamsShort = targetTeamCount - currentTeamCount;
   const hasEnoughTeams = currentTeamCount >= targetTeamCount;

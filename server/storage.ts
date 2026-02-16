@@ -159,6 +159,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateLeague(id: number, data: Partial<InsertLeague>): Promise<League | undefined> {
+    if (data.maxTeams !== undefined && data.numberOfTeams === undefined) {
+      data.numberOfTeams = data.maxTeams;
+    }
+    if (data.numberOfTeams !== undefined && data.maxTeams === undefined) {
+      data.maxTeams = data.numberOfTeams;
+    }
     const [league] = await db
       .update(leagues)
       .set(data)
