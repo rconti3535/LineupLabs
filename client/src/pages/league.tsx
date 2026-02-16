@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Users, Trophy, Calendar, TrendingUp, Pencil, Trash2, AlertTriangle, ArrowUpDown, Search, Plus, X, ChevronDown, Menu, Clock } from "lucide-react";
+import { ArrowLeft, Users, Trophy, Calendar, TrendingUp, Pencil, Trash2, AlertTriangle, ArrowUpDown, Search, Plus, X, ChevronDown, ChevronLeft, ChevronRight, Menu, Clock } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -780,7 +780,11 @@ export default function LeaguePage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedSwapIndex, setSelectedSwapIndex] = useState<number | null>(null);
   const [swapTargets, setSwapTargets] = useState<number[]>([]);
-  const [rosterStatView, setRosterStatView] = useState<"2025stats" | "2026stats" | "2026proj">("2025stats");
+  const [rosterStatView, setRosterStatView] = useState<"2025stats" | "2026stats" | "2026proj" | "daily">("2025stats");
+  const [dailyDate, setDailyDate] = useState(() => {
+    const now = new Date();
+    return now.toISOString().split("T")[0];
+  });
   const { toast } = useToast();
 
   const { data: league, isLoading: leagueLoading } = useQuery<League>({
@@ -859,8 +863,58 @@ export default function LeaguePage() {
     },
   });
 
+  const { data: dailyLineupData, isLoading: dailyLineupLoading } = useQuery<any[]>({
+    queryKey: ["/api/leagues", leagueId, "daily-lineup", dailyDate, myTeam?.id],
+    queryFn: async () => {
+      if (!myTeam?.id) return [];
+      const res = await fetch(`/api/leagues/${leagueId}/daily-lineup?teamId=${myTeam.id}&date=${dailyDate}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: rosterStatView === "daily" && !!myTeam?.id && leagueId !== null,
+  });
+
+  const saveDailyLineupMut = useMutation({
+    mutationFn: async (data: { slotA: number; slotB: number }) => {
+      await apiRequest("POST", `/api/leagues/${leagueId}/daily-lineup/swap`, {
+        teamId: myTeam?.id,
+        date: dailyDate,
+        slotIndexA: data.slotA,
+        slotIndexB: data.slotB,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "daily-lineup", dailyDate, myTeam?.id] });
+      setSelectedSwapIndex(null);
+      setSwapTargets([]);
+      toast({ title: "Daily lineup updated" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Failed to update lineup", description: err.message, variant: "destructive" });
+      setSelectedSwapIndex(null);
+      setSwapTargets([]);
+    },
+  });
+
   const rosterSlots = league?.rosterPositions || [];
-  const rosterEntries = assignPlayersToRosterWithPicks(rosterSlots, myRosteredPlayers, myPicks);
+
+  const dailyRosterEntries = (() => {
+    if (rosterStatView !== "daily" || !dailyLineupData || dailyLineupData.length === 0) return null;
+    const playerMap = new Map(myRosteredPlayers.map(p => [p.id, p]));
+    return rosterSlots.map((slotPos, idx) => {
+      const lineupEntry = dailyLineupData.find((d: any) => d.slotIndex === idx);
+      const player = lineupEntry ? playerMap.get(lineupEntry.playerId) : undefined;
+      return {
+        slotPosition: slotPos,
+        slotIndex: idx,
+        player: player || null,
+        playerId: lineupEntry?.playerId || null,
+        pickId: lineupEntry?.id || null,
+      } as RosterEntry;
+    });
+  })();
+
+  const rosterEntries = dailyRosterEntries || assignPlayersToRosterWithPicks(rosterSlots, myRosteredPlayers, myPicks);
 
   const needsInit = league?.draftStatus === "completed" && myPicks.length > 0 && !myPicks.some(p => p.rosterSlot !== null && p.rosterSlot !== undefined);
 
@@ -898,14 +952,18 @@ export default function LeaguePage() {
       setSelectedSwapIndex(null);
       setSwapTargets([]);
     } else if (swapTargets.includes(index)) {
-      const entryA = rosterEntries[selectedSwapIndex];
-      const entryB = rosterEntries[index];
-      swapMutation.mutate({
-        pickIdA: entryA.pickId!,
-        slotA: selectedSwapIndex,
-        pickIdB: entryB.pickId,
-        slotB: index,
-      });
+      if (rosterStatView === "daily") {
+        saveDailyLineupMut.mutate({ slotA: selectedSwapIndex, slotB: index });
+      } else {
+        const entryA = rosterEntries[selectedSwapIndex];
+        const entryB = rosterEntries[index];
+        swapMutation.mutate({
+          pickIdA: entryA.pickId!,
+          slotA: selectedSwapIndex,
+          pickIdB: entryB.pickId,
+          slotB: index,
+        });
+      }
     } else {
       setSelectedSwapIndex(null);
       setSwapTargets([]);
@@ -1267,7 +1325,7 @@ export default function LeaguePage() {
 
             const STAT_COL = "w-[42px] text-center text-[11px] shrink-0";
 
-            const statPrefix = rosterStatView === "2026proj" ? "proj" : rosterStatView === "2026stats" ? "s26" : "stat";
+            const statPrefix = rosterStatView === "2026proj" ? "proj" : (rosterStatView === "2026stats" || rosterStatView === "daily") ? "s26" : "stat";
 
             const getRowClass = (idx: number) => {
               if (selectedSwapIndex === idx) return "border-b border-blue-500/50 bg-blue-900/30";
@@ -1298,11 +1356,12 @@ export default function LeaguePage() {
                         Cancel Swap
                       </Button>
                     )}
-                    <Select value={rosterStatView} onValueChange={(v) => setRosterStatView(v as "2025stats" | "2026stats" | "2026proj")}>
+                    <Select value={rosterStatView} onValueChange={(v) => { setRosterStatView(v as "2025stats" | "2026stats" | "2026proj" | "daily"); setSelectedSwapIndex(null); setSwapTargets([]); }}>
                       <SelectTrigger className="h-6 w-[110px] text-[10px] bg-gray-800/50 border-gray-700 text-gray-400 hover:text-gray-200 transition-colors">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="bg-gray-800 border-gray-700">
+                        <SelectItem value="daily" className="text-[10px] text-gray-200">Daily</SelectItem>
                         <SelectItem value="2025stats" className="text-[10px] text-gray-200">2025 Stats</SelectItem>
                         <SelectItem value="2026stats" className="text-[10px] text-gray-200">2026 Stats</SelectItem>
                         <SelectItem value="2026proj" className="text-[10px] text-gray-200">2026 Projections</SelectItem>
@@ -1312,6 +1371,45 @@ export default function LeaguePage() {
                 </div>
                 {selectedSwapIndex !== null && (
                   <p className="text-blue-400 text-xs mb-3 px-1">Tap a highlighted slot to swap players</p>
+                )}
+                {rosterStatView === "daily" && (
+                  <div className="flex items-center justify-between mb-3 bg-gray-800/50 rounded-lg px-3 py-2">
+                    <button
+                      onClick={() => {
+                        const d = new Date(dailyDate + "T12:00:00");
+                        d.setDate(d.getDate() - 1);
+                        setDailyDate(d.toISOString().split("T")[0]);
+                        setSelectedSwapIndex(null);
+                        setSwapTargets([]);
+                      }}
+                      className="p-1 text-gray-400 hover:text-white transition-colors"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <div className="text-center">
+                      <span className="text-sm font-semibold text-white">
+                        {new Date(dailyDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
+                      </span>
+                      {dailyDate === new Date().toISOString().split("T")[0] && (
+                        <span className="ml-2 text-[10px] text-green-400 font-medium">Today</span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => {
+                        const d = new Date(dailyDate + "T12:00:00");
+                        d.setDate(d.getDate() + 1);
+                        setDailyDate(d.toISOString().split("T")[0]);
+                        setSelectedSwapIndex(null);
+                        setSwapTargets([]);
+                      }}
+                      className="p-1 text-gray-400 hover:text-white transition-colors"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  </div>
+                )}
+                {rosterStatView === "daily" && dailyLineupLoading && (
+                  <div className="text-center text-gray-400 text-xs py-4">Loading daily lineup...</div>
                 )}
                 <div className="space-y-5">
                   {posEntries.length > 0 && (

@@ -1,5 +1,5 @@
 import { 
-  users, leagues, teams, players, activities, draftPicks, playerAdp, waivers, waiverClaims,
+  users, leagues, teams, players, activities, draftPicks, playerAdp, waivers, waiverClaims, dailyLineups,
   type User, type InsertUser,
   type League, type InsertLeague,
   type Team, type InsertTeam,
@@ -8,7 +8,8 @@ import {
   type PlayerAdp, type InsertPlayerAdp,
   type Activity, type InsertActivity,
   type Waiver, type InsertWaiver,
-  type WaiverClaim, type InsertWaiverClaim
+  type WaiverClaim, type InsertWaiverClaim,
+  type DailyLineup, type InsertDailyLineup
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, ilike, or, and, sql, notInArray, asc, desc, inArray } from "drizzle-orm";
@@ -85,6 +86,12 @@ export interface IStorage {
   // Activities
   getActivitiesByUserId(userId: number): Promise<Activity[]>;
   createActivity(activity: InsertActivity): Promise<Activity>;
+
+  // Daily Lineups
+  getDailyLineup(leagueId: number, teamId: number, date: string): Promise<DailyLineup[]>;
+  saveDailyLineup(entries: InsertDailyLineup[]): Promise<void>;
+  deleteDailyLineup(leagueId: number, teamId: number, date: string): Promise<void>;
+  getDailyLineupDates(leagueId: number, teamId: number): Promise<string[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -644,6 +651,39 @@ export class DatabaseStorage implements IStorage {
 
   async deleteWaiverClaim(claimId: number): Promise<void> {
     await db.delete(waiverClaims).where(eq(waiverClaims.id, claimId));
+  }
+
+  async getDailyLineup(leagueId: number, teamId: number, date: string): Promise<DailyLineup[]> {
+    return await db.select().from(dailyLineups).where(
+      and(
+        eq(dailyLineups.leagueId, leagueId),
+        eq(dailyLineups.teamId, teamId),
+        eq(dailyLineups.date, date)
+      )
+    ).orderBy(asc(dailyLineups.slotIndex));
+  }
+
+  async saveDailyLineup(entries: InsertDailyLineup[]): Promise<void> {
+    if (entries.length === 0) return;
+    await db.insert(dailyLineups).values(entries);
+  }
+
+  async deleteDailyLineup(leagueId: number, teamId: number, date: string): Promise<void> {
+    await db.delete(dailyLineups).where(
+      and(
+        eq(dailyLineups.leagueId, leagueId),
+        eq(dailyLineups.teamId, teamId),
+        eq(dailyLineups.date, date)
+      )
+    );
+  }
+
+  async getDailyLineupDates(leagueId: number, teamId: number): Promise<string[]> {
+    const rows = await db.selectDistinct({ date: dailyLineups.date })
+      .from(dailyLineups)
+      .where(and(eq(dailyLineups.leagueId, leagueId), eq(dailyLineups.teamId, teamId)))
+      .orderBy(desc(dailyLineups.date));
+    return rows.map(r => r.date);
   }
 }
 

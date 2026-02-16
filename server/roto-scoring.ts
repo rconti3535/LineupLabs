@@ -108,11 +108,17 @@ export function computeRotoStandings(
   teams: Team[],
   draftPicks: DraftPick[],
   allPlayers: Map<number, Player>,
-  rosterPositions: string[]
+  rosterPositions: string[],
+  statPrefix: string = "s26"
 ): TeamStandings[] {
   const hittingCats = league.hittingCategories || ["R", "HR", "RBI", "SB", "AVG"];
   const pitchingCats = league.pitchingCategories || ["W", "SV", "K", "ERA", "WHIP"];
   const numTeams = teams.length;
+
+  const remapKey = (key: string): string => {
+    if (statPrefix === "stat") return key;
+    return key.replace(/^stat/, statPrefix);
+  };
 
   const teamStats: Map<number, Record<string, number>> = new Map();
 
@@ -163,7 +169,8 @@ export function computeRotoStandings(
       const accum = isPitcher ? pitchingAccum : hittingAccum;
 
       allStatKeys.forEach(key => {
-        const val = (player as Record<string, unknown>)[key];
+        const playerKey = remapKey(key);
+        const val = (player as Record<string, unknown>)[playerKey];
         if (typeof val === "number") {
           accum[key] = (accum[key] || 0) + val;
         } else if (typeof val === "string") {

@@ -199,7 +199,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const playerMap = new Map(playerList.map(p => [p.id, p]));
       const rosterPositions = league.rosterPositions || ["C", "1B", "2B", "3B", "SS", "OF", "OF", "OF", "UT", "SP", "SP", "RP", "RP", "BN", "BN", "IL"];
 
-      const standings = computeRotoStandings(league, teams, draftPicks, playerMap, rosterPositions);
+      const standings = computeRotoStandings(league, teams, draftPicks, playerMap, rosterPositions, "s26");
       res.json({
         standings,
         hittingCategories: league.hittingCategories || ["R", "HR", "RBI", "SB", "AVG"],
@@ -1233,6 +1233,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Import stats error:", error);
       res.status(500).json({ message: "Failed to start stats import" });
+    }
+  });
+
+  app.get("/api/leagues/:id/daily-lineup", async (req, res) => {
+    try {
+      const leagueId = parseInt(req.params.id);
+      const teamId = parseInt(req.query.teamId as string);
+      const date = req.query.date as string;
+      if (!teamId || !date) {
+        return res.status(400).json({ message: "teamId and date required" });
+      }
+
+      let lineup = await storage.getDailyLineup(leagueId, teamId, date);
+
+      if (lineup.length === 0) {
+        const league = await storage.getLeague(leagueId);
+        if (!league) return res.status(404).json({ message: "League not found" });
+        const rosterPositions = league.rosterPositions || [];
+
+        const dates = await storage.getDailyLineupDates(leagueId, teamId);
+        const previousDate = dates.find(d => d < date);
+
+        if (previousDate) {
+          const prevLineup = await storage.getDailyLineup(leagueId, teamId, previousDate);
+          const entries = prevLineup.map(e => ({
+            leagueId,
+            teamId,
+            date,
+            slotIndex: e.slotIndex,
+            slotPos: e.slotPos,
+            playerId: e.playerId,
+          }));
+          if (entries.length > 0) {
+            await storage.saveDailyLineup(entries);
+            lineup = await storage.getDailyLineup(leagueId, teamId, date);
+          }
+        } else {
+          const draftPicks = await storage.getDraftPicksByLeague(leagueId);
+          const teamPicks = draftPicks.filter(p => p.teamId === teamId);
+          const entries = rosterPositions.map((pos, idx) => {
+            const pick = teamPicks.find(p => p.rosterSlot === idx);
+            return {
+              leagueId,
+              teamId,
+              date,
+              slotIndex: idx,
+              slotPos: pos,
+              playerId: pick ? pick.playerId : null,
+            };
+          });
+          if (entries.length > 0) {
+            await storage.saveDailyLineup(entries);
+            lineup = await storage.getDailyLineup(leagueId, teamId, date);
+          }
+        }
+      }
+
+      res.json(lineup);
+    } catch (error) {
+      console.error("Get daily lineup error:", error);
+      res.status(500).json({ message: "Failed to fetch daily lineup" });
+    }
+  });
+
+  app.post("/api/leagues/:id/daily-lineup/swap", async (req, res) => {
+    try {
+      const leagueId = parseInt(req.params.id);
+      const { teamId, date, slotIndexA, slotIndexB } = req.body;
+      if (!teamId || !date || slotIndexA === undefined || slotIndexB === undefined) {
+        return res.status(400).json({ message: "teamId, date, slotIndexA, slotIndexB required" });
+      }
+
+      const lineup = await storage.getDailyLineup(leagueId, teamId, date);
+      const entryA = lineup.find(e => e.slotIndex === slotIndexA);
+      const entryB = lineup.find(e => e.slotIndex === slotIndexB);
+      if (!entryA || !entryB) {
+        return res.status(400).json({ message: "Invalid slot indices" });
+      }
+
+      await storage.deleteDailyLineup(leagueId, teamId, date);
+      const updated = lineup.map(e => {
+        if (e.slotIndex === slotIndexA) {
+          return { leagueId, teamId, date, slotIndex: e.slotIndex, slotPos: e.slotPos, playerId: entryB.playerId };
+        }
+        if (e.slotIndex === slotIndexB) {
+          return { leagueId, teamId, date, slotIndex: e.slotIndex, slotPos: e.slotPos, playerId: entryA.playerId };
+        }
+        return { leagueId, teamId, date, slotIndex: e.slotIndex, slotPos: e.slotPos, playerId: e.playerId };
+      });
+      await storage.saveDailyLineup(updated);
+
+      const newLineup = await storage.getDailyLineup(leagueId, teamId, date);
+      res.json(newLineup);
+    } catch (error) {
+      console.error("Daily lineup swap error:", error);
+      res.status(500).json({ message: "Failed to swap daily lineup" });
     }
   });
 

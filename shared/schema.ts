@@ -261,6 +261,16 @@ export const waiverClaims = pgTable("waiver_claims", {
   createdAt: text("created_at").notNull(),
 });
 
+export const dailyLineups = pgTable("daily_lineups", {
+  id: serial("id").primaryKey(),
+  leagueId: integer("league_id").references(() => leagues.id).notNull(),
+  teamId: integer("team_id").references(() => teams.id).notNull(),
+  date: text("date").notNull(),
+  slotIndex: integer("slot_index").notNull(),
+  slotPos: text("slot_pos").notNull(),
+  playerId: integer("player_id").references(() => players.id),
+});
+
 export const insertWaiverSchema = createInsertSchema(waivers).omit({
   id: true,
 });
@@ -270,6 +280,10 @@ export const insertWaiverClaimSchema = createInsertSchema(waiverClaims).omit({
 });
 
 export const insertActivitySchema = createInsertSchema(activities).omit({
+  id: true,
+});
+
+export const insertDailyLineupSchema = createInsertSchema(dailyLineups).omit({
   id: true,
 });
 
@@ -291,3 +305,5 @@ export type Waiver = typeof waivers.$inferSelect;
 export type InsertWaiver = z.infer<typeof insertWaiverSchema>;
 export type WaiverClaim = typeof waiverClaims.$inferSelect;
 export type InsertWaiverClaim = z.infer<typeof insertWaiverClaimSchema>;
+export type DailyLineup = typeof dailyLineups.$inferSelect;
+export type InsertDailyLineup = z.infer<typeof insertDailyLineupSchema>;
