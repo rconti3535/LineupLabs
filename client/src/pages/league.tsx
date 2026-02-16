@@ -1337,6 +1337,14 @@ export default function LeaguePage() {
     const now = new Date();
     return now.toISOString().split("T")[0];
   });
+
+  const getMonday = (dateStr: string) => {
+    const d = new Date(dateStr + "T12:00:00");
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    d.setDate(d.getDate() + diff);
+    return d.toISOString().split("T")[0];
+  };
   const { toast } = useToast();
 
   const { data: league, isLoading: leagueLoading } = useQuery<League>({
@@ -1348,6 +1356,14 @@ export default function LeaguePage() {
     },
     enabled: leagueId !== null,
   });
+
+  const isWeeklyLock = league?.lineupLockType === "Weekly";
+
+  useEffect(() => {
+    if (isWeeklyLock) {
+      setDailyDate(prev => getMonday(prev));
+    }
+  }, [isWeeklyLock]);
 
   const { data: teams, isLoading: teamsLoading } = useQuery<Team[]>({
     queryKey: ["/api/teams/league", leagueId],
@@ -1450,7 +1466,7 @@ export default function LeaguePage() {
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "daily-lineup", dailyDate, myTeam?.id] });
       setSelectedSwapIndex(null);
       setSwapTargets([]);
-      toast({ title: "Daily lineup updated" });
+      toast({ title: isWeeklyLock ? "Weekly lineup updated" : "Daily lineup updated" });
     },
     onError: (err: Error) => {
       toast({ title: "Failed to update lineup", description: err.message, variant: "destructive" });
@@ -1971,7 +1987,7 @@ export default function LeaguePage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="bg-gray-800 border-gray-700">
-                        <SelectItem value="daily" className="text-[10px] text-gray-200">Daily</SelectItem>
+                        <SelectItem value="daily" className="text-[10px] text-gray-200">{isWeeklyLock ? "Weekly" : "Daily"}</SelectItem>
                         <SelectItem value="2025stats" className="text-[10px] text-gray-200">2025 Stats</SelectItem>
                         <SelectItem value="2026stats" className="text-[10px] text-gray-200">2026 Stats</SelectItem>
                         <SelectItem value="2026proj" className="text-[10px] text-gray-200">2026 Projections</SelectItem>
@@ -1987,7 +2003,7 @@ export default function LeaguePage() {
                     <button
                       onClick={() => {
                         const d = new Date(dailyDate + "T12:00:00");
-                        d.setDate(d.getDate() - 1);
+                        d.setDate(d.getDate() - (isWeeklyLock ? 7 : 1));
                         setDailyDate(d.toISOString().split("T")[0]);
                         setSelectedSwapIndex(null);
                         setSwapTargets([]);
@@ -1998,17 +2014,33 @@ export default function LeaguePage() {
                     </button>
                   </div>
                   <div className="min-w-[200px] text-center">
-                    <span className={`text-sm font-semibold ${isPastDate ? "text-gray-500" : "text-white"}`}>
-                      {new Date(dailyDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
-                      {dailyDate === new Date().toISOString().split("T")[0] && " (TODAY)"}
-                      {isPastDate && " (LOCKED)"}
-                    </span>
+                    {isWeeklyLock ? (() => {
+                      const mon = new Date(dailyDate + "T12:00:00");
+                      const sun = new Date(mon);
+                      sun.setDate(sun.getDate() + 6);
+                      const todayStr = new Date().toISOString().split("T")[0];
+                      const isCurrentWeek = todayStr >= dailyDate && todayStr <= sun.toISOString().split("T")[0];
+                      const isPastWeek = sun.toISOString().split("T")[0] < todayStr;
+                      return (
+                        <span className={`text-sm font-semibold ${isPastWeek ? "text-gray-500" : "text-white"}`}>
+                          {mon.toLocaleDateString("en-US", { month: "short", day: "numeric" })} - {sun.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                          {isCurrentWeek && " (THIS WEEK)"}
+                          {isPastWeek && " (LOCKED)"}
+                        </span>
+                      );
+                    })() : (
+                      <span className={`text-sm font-semibold ${isPastDate ? "text-gray-500" : "text-white"}`}>
+                        {new Date(dailyDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
+                        {dailyDate === new Date().toISOString().split("T")[0] && " (TODAY)"}
+                        {isPastDate && " (LOCKED)"}
+                      </span>
+                    )}
                   </div>
                   <div className="w-10 flex justify-start">
                     <button
                       onClick={() => {
                         const d = new Date(dailyDate + "T12:00:00");
-                        d.setDate(d.getDate() + 1);
+                        d.setDate(d.getDate() + (isWeeklyLock ? 7 : 1));
                         setDailyDate(d.toISOString().split("T")[0]);
                         setSelectedSwapIndex(null);
                         setSwapTargets([]);
@@ -2020,7 +2052,7 @@ export default function LeaguePage() {
                   </div>
                 </div>
                 {rosterStatView === "daily" && dailyLineupLoading && (
-                  <div className="text-center text-gray-400 text-xs py-4">Loading daily lineup...</div>
+                  <div className="text-center text-gray-400 text-xs py-4">{isWeeklyLock ? "Loading weekly lineup..." : "Loading daily lineup..."}</div>
                 )}
                 <div className="space-y-5">
                   {posEntries.length > 0 && (
