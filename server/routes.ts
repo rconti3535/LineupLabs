@@ -1287,6 +1287,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/leagues/:id/transactions", async (req, res) => {
+    try {
+      const leagueId = parseInt(req.params.id);
+      const transactions = await storage.getTransactionsByLeague(leagueId);
+      const transactionsWithDetails = await Promise.all(transactions.map(async (t) => {
+        const team = await storage.getTeam(t.teamId);
+        const teamB = t.teamBId ? await storage.getTeam(t.teamBId) : null;
+        const player = t.playerId ? await storage.getPlayer(t.playerId) : null;
+        const playerB = t.playerBId ? await storage.getPlayer(t.playerBId) : null;
+        return {
+          ...t,
+          teamName: team?.name || "Unknown Team",
+          teamBName: teamB?.name,
+          playerName: player?.name,
+          playerBName: playerB?.name,
+          playerAvatar: player?.avatar,
+          playerBAvatar: playerB?.avatar,
+        };
+      }));
+      res.json(transactionsWithDetails);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch transactions" });
+    }
+  });
+
   app.delete("/api/leagues/:id/waiver-claim/:claimId", async (req, res) => {
     try {
       const leagueId = parseInt(req.params.id);

@@ -271,7 +271,52 @@ function MatchupTab({ leagueId, league, user }: { leagueId: number; league: Leag
   return <MatchupDisplay leagueId={leagueId} league={league} user={user} />;
 }
 
+function TransactionsList({ leagueId }: { leagueId: number }) {
+  const { data: transactions, isLoading } = useQuery<any[]>({
+    queryKey: ["/api/leagues", leagueId, "transactions"],
+  });
+
+  if (isLoading) {
+    return <div className="space-y-2 py-4">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}</div>;
+  }
+
+  if (!transactions || transactions.length === 0) {
+    return <p className="text-gray-500 text-xs text-center py-8">No recent transactions</p>;
+  }
+
+  return (
+    <div className="space-y-3 py-2">
+      {transactions.map((t) => (
+        <div key={t.id} className="flex items-center gap-3 p-3 rounded-xl bg-gray-800/40 border border-gray-700/50">
+          <div className="w-10 h-10 rounded-full bg-gray-700 shrink-0 overflow-hidden flex items-center justify-center">
+            {t.playerAvatar ? (
+              <img src={t.playerAvatar} alt={t.playerName} className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-gray-500 text-xs font-bold">{t.playerName?.[0]}</span>
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="text-xs font-semibold text-white truncate">{t.playerName}</p>
+              <span className="text-[10px] text-gray-500 shrink-0">
+                {new Date(t.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+              </span>
+            </div>
+            <p className="text-[10px] text-gray-400">
+              <span className="text-blue-400 font-medium">{t.teamName}</span>
+              {t.type === 'add' ? ' added ' : t.type === 'drop' ? ' dropped ' : ' traded '}
+              {t.playerName}
+              {t.type === 'trade' && ` to ${t.teamBName} for ${t.playerBName}`}
+            </p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function StandingsTab({ leagueId, league, teamsLoading, teams, user }: { leagueId: number; league: League; teamsLoading: boolean; teams: Team[] | undefined; user: { id: number } | null }) {
+  const [standingsSubTab, setStandingsSubTab] = useState<"standings" | "transactions">("standings");
   const { data: standingsData, isLoading } = useQuery<StandingsData>({
     queryKey: ["/api/leagues", leagueId, "standings"],
     queryFn: async () => {

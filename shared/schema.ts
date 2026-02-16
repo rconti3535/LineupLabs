@@ -208,6 +208,25 @@ export const activities = pgTable("activities", {
   avatar: text("avatar"),
 });
 
+export const leagueTransactions = pgTable("league_transactions", {
+  id: serial("id").primaryKey(),
+  leagueId: integer("league_id").references(() => leagues.id).notNull(),
+  teamId: integer("team_id").references(() => teams.id).notNull(),
+  teamBId: integer("team_b_id").references(() => teams.id), // For trades
+  type: text("type").notNull(), // 'add', 'drop', 'trade'
+  playerId: integer("player_id").references(() => players.id),
+  playerBId: integer("player_b_id").references(() => players.id), // For trades
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertLeagueTransactionSchema = createInsertSchema(leagueTransactions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type LeagueTransaction = typeof leagueTransactions.$inferSelect;
+export type InsertLeagueTransaction = z.infer<typeof insertLeagueTransactionSchema>;
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   leagues: true,

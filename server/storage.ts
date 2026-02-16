@@ -737,6 +737,18 @@ export class DatabaseStorage implements IStorage {
   async deleteMatchupsByLeague(leagueId: number): Promise<void> {
     await db.delete(leagueMatchups).where(eq(leagueMatchups.leagueId, leagueId));
   }
+
+  // Transactions
+  async getTransactionsByLeague(leagueId: number): Promise<LeagueTransaction[]> {
+    return await db.select().from(leagueTransactions)
+      .where(eq(leagueTransactions.leagueId, leagueId))
+      .orderBy(desc(leagueTransactions.createdAt));
+  }
+
+  async createTransaction(transaction: InsertLeagueTransaction): Promise<LeagueTransaction> {
+    const [newTransaction] = await db.insert(leagueTransactions).values(transaction).returning();
+    return newTransaction;
+  }
 }
 
 export const storage = new DatabaseStorage();
