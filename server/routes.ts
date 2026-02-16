@@ -1310,7 +1310,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Cannot modify past lineups" });
       }
 
-      const lineup = await storage.getDailyLineup(leagueId, teamId, date);
+      let lineup = await storage.getDailyLineup(leagueId, teamId, date);
+
+      if (lineup.length === 0) {
+        const league = await storage.getLeague(leagueId);
+        if (!league) return res.status(404).json({ message: "League not found" });
+        const rosterPositions = league.rosterPositions || [];
+        const dates = await storage.getDailyLineupDates(leagueId, teamId);
+        const previousDate = dates.find(d => d < date);
+        if (previousDate) {
+          const prevLineup = await storage.getDailyLineup(leagueId, teamId, previousDate);
+          const entries = prevLineup.map(e => ({
+            leagueId, teamId, date,
+            slotIndex: e.slotIndex, slotPos: e.slotPos, playerId: e.playerId,
+          }));
+          if (entries.length > 0) {
+            await storage.saveDailyLineup(entries);
+            lineup = await storage.getDailyLineup(leagueId, teamId, date);
+          }
+        } else {
+          const draftPicks = await storage.getDraftPicksByLeague(leagueId);
+          const teamPicks = draftPicks.filter(p => p.teamId === teamId);
+          const entries = rosterPositions.map((pos, idx) => {
+            const pick = teamPicks.find(p => p.rosterSlot === idx);
+            return { leagueId, teamId, date, slotIndex: idx, slotPos: pos, playerId: pick ? pick.playerId : null };
+          });
+          if (entries.length > 0) {
+            await storage.saveDailyLineup(entries);
+            lineup = await storage.getDailyLineup(leagueId, teamId, date);
+          }
+        }
+      }
+
       const entryA = lineup.find(e => e.slotIndex === slotIndexA);
       const entryB = lineup.find(e => e.slotIndex === slotIndexB);
       if (!entryA || !entryB) {

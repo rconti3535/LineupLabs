@@ -958,7 +958,11 @@ export default function LeaguePage() {
       setSwapTargets([]);
     } else if (swapTargets.includes(index)) {
       if (rosterStatView === "daily") {
-        saveDailyLineupMut.mutate({ slotA: selectedSwapIndex, slotB: index });
+        const slotA = selectedSwapIndex;
+        setSelectedSwapIndex(null);
+        setSwapTargets([]);
+        saveDailyLineupMut.mutate({ slotA, slotB: index });
+        return;
       } else {
         const entryA = rosterEntries[selectedSwapIndex];
         const entryB = rosterEntries[index];
