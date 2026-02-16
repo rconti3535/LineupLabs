@@ -56,6 +56,7 @@ export const teams = pgTable("teams", {
   logo: text("logo"),
   nextOpponent: text("next_opponent"),
   isCpu: boolean("is_cpu").default(false),
+  draftPosition: integer("draft_position"),
 });
 
 export const players = pgTable("players", {
