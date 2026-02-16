@@ -1,0 +1,97 @@
+You are working inside an existing fantasy sports application.
+
+Before writing any code, first analyze the current implementation for:
+
+How Roto scoring is stored in the database
+
+How the League model stores scoring settings
+
+How standings are calculated
+
+Whether a matchup system already exists
+
+How league creation and league settings forms are structured
+
+Do not assume variable names. Use existing patterns.
+
+Current behavior:
+
+Only Roto scoring exists.
+
+Roto works correctly.
+
+League creation allows selecting scoring format (currently only Roto).
+
+League settings allows editing scoring format (currently only Roto).
+
+Goal:
+Add support for additional scoring formats without breaking Roto:
+
+Head to Head Points
+
+Head to Head Each Category
+
+Head to Head Most Categories
+
+Season Points
+
+High-level requirements:
+
+League Storage
+Allow leagues to store which scoring format they use.
+Default existing leagues to Roto.
+Do not break existing leagues.
+
+Standings Logic
+Standings should change dynamically depending on scoring format.
+
+Head to Head Points:
+
+Weekly matchups
+
+Winner determined by total fantasy points
+
+Standings track wins, losses, ties, points for, points against
+
+Head to Head Each Category:
+
+Weekly matchup
+
+Compare each scoring category individually
+
+Standings track category wins, losses, ties
+
+Head to Head Most Categories:
+
+Weekly matchup
+
+Team that wins more categories gets 1 win
+
+Standings track wins, losses, ties only
+
+Season Points:
+
+No weekly matchups
+
+Rank by total cumulative fantasy points
+
+UI
+Update league creation and league settings to allow selecting the new scoring formats.
+Standings page should automatically adapt columns based on format.
+Do not redesign UI unnecessarily.
+
+Architecture
+Do not refactor unrelated code.
+Do not rewrite Roto logic.
+Extend the current scoring system in a modular way consistent with existing structure.
+
+Before implementing:
+Briefly explain:
+
+Where scoring format is stored
+
+How standings are currently calculated
+
+What minimal changes are required
+
+Then implement incrementally.
