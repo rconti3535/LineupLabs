@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertLeagueSchema, insertTeamSchema, insertUserSchema, insertDraftPickSchema, type Player } from "@shared/schema";
 import { computeRotoStandings } from "./roto-scoring";
+import { computeStandings } from "./scoring";
 
 function getWaiverExpirationPST(): string {
   const now = new Date();
@@ -199,13 +200,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const playerMap = new Map(playerList.map(p => [p.id, p]));
       const rosterPositions = league.rosterPositions || ["C", "1B", "2B", "3B", "SS", "OF", "OF", "OF", "UT", "SP", "SP", "RP", "RP", "BN", "BN", "IL"];
 
-      const standings = computeRotoStandings(league, teams, draftPicks, playerMap, rosterPositions, "s26");
-      res.json({
-        standings,
-        hittingCategories: league.hittingCategories || ["R", "HR", "RBI", "SB", "AVG"],
-        pitchingCategories: league.pitchingCategories || ["W", "SV", "K", "ERA", "WHIP"],
-        numTeams: teams.length,
-      });
+      const result = computeStandings(league, teams, draftPicks, playerMap, rosterPositions);
+      res.json(result);
     } catch (error) {
       res.status(500).json({ message: "Failed to compute standings" });
     }
