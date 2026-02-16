@@ -35,7 +35,7 @@ export default function CreateLeague() {
     resolver: zodResolver(createLeagueSchema),
     defaultValues: {
       name: "",
-      type: "Redraft",
+      type: "Best Ball",
       numberOfTeams: 12,
       scoringFormat: "Roto",
       isPublic: false,
@@ -122,44 +122,20 @@ export default function CreateLeague() {
               )}
             />
 
-            {/* League Type */}
+            {/* League Type (Hidden - Best Ball only) */}
             <FormField
               control={form.control}
               name="type"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-white">League Type</FormLabel>
+                <FormItem className="hidden">
                   <FormControl>
                     <RadioGroup
                       onValueChange={field.onChange}
                       defaultValue={field.value}
-                      className="space-y-3"
                     >
-                      <div className="flex items-center space-x-3 p-4 rounded-lg sleeper-card-bg border sleeper-border">
-                        <RadioGroupItem value="Redraft" id="redraft" className="text-blue-400" />
-                        <Label htmlFor="redraft" className="text-white cursor-pointer flex-1">
-                          <div>
-                            <div className="font-medium">Redraft</div>
-                            <div className="text-sm text-gray-400">
-                              Draft new teams each season
-                            </div>
-                          </div>
-                        </Label>
-                      </div>
-                      <div className="flex items-center space-x-3 p-4 rounded-lg sleeper-card-bg border sleeper-border">
-                        <RadioGroupItem value="Best Ball" id="bestball" className="text-blue-400" />
-                        <Label htmlFor="bestball" className="text-white cursor-pointer flex-1">
-                          <div>
-                            <div className="font-medium">Best Ball</div>
-                            <div className="text-sm text-gray-400">
-                              Draft only — no lineup management, waivers, or trades. Optimal lineups calculated at season end.
-                            </div>
-                          </div>
-                        </Label>
-                      </div>
+                      <RadioGroupItem value="Best Ball" />
                     </RadioGroup>
                   </FormControl>
-                  <FormMessage />
                 </FormItem>
               )}
             />
