@@ -76,7 +76,14 @@ interface MatchupData {
   }[];
 }
 
-function MatchupTab({ leagueId, league, user }: { leagueId: number; league: League; user: { id: number } | null }) {
+interface MatchupDisplayProps {
+  leagueId: number;
+  league: League;
+  user: { id: number } | null;
+  title?: string;
+}
+
+function MatchupDisplay({ leagueId, league, user, title }: MatchupDisplayProps) {
   const [selectedWeek, setSelectedWeek] = useState(1);
   const [expandedMatchup, setExpandedMatchup] = useState<number | null>(null);
 
@@ -136,6 +143,7 @@ function MatchupTab({ leagueId, league, user }: { leagueId: number; league: Leag
 
   return (
     <div>
+      {title && <h3 className="text-white font-semibold mb-4">{title}</h3>}
       <div className="flex items-center justify-between mb-4">
         <Button
           variant="ghost"
@@ -259,7 +267,11 @@ function MatchupTab({ leagueId, league, user }: { leagueId: number; league: Leag
   );
 }
 
-function StandingsTab({ leagueId, league, teamsLoading, teams }: { leagueId: number; league: League; teamsLoading: boolean; teams: Team[] | undefined }) {
+function MatchupTab({ leagueId, league, user }: { leagueId: number; league: League; user: { id: number } | null }) {
+  return <MatchupDisplay leagueId={leagueId} league={league} user={user} />;
+}
+
+function StandingsTab({ leagueId, league, teamsLoading, teams, user }: { leagueId: number; league: League; teamsLoading: boolean; teams: Team[] | undefined; user: { id: number } | null }) {
   const { data: standingsData, isLoading } = useQuery<StandingsData>({
     queryKey: ["/api/leagues", leagueId, "standings"],
     queryFn: async () => {
@@ -387,83 +399,91 @@ function StandingsTab({ leagueId, league, teamsLoading, teams }: { leagueId: num
 
   if (format === "H2H Points" || format === "H2H Most Categories") {
     return (
-      <Card className="gradient-card rounded-xl p-4 border-0">
-        <h3 className="text-white font-semibold mb-3">{format} Standings</h3>
-        <div className="overflow-x-auto hide-scrollbar -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
-          <table className="w-full" style={{ minWidth: "440px" }}>
-            <thead>
-              <tr className="border-b border-gray-700">
-                <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 sticky left-0 bg-[#1a1d26] z-10 w-[140px] pl-1">Team</th>
-                <th className="text-center text-[10px] text-green-400 font-semibold uppercase pb-1.5 w-[40px]">W</th>
-                <th className="text-center text-[10px] text-red-400 font-semibold uppercase pb-1.5 w-[40px]">L</th>
-                <th className="text-center text-[10px] text-gray-400 font-semibold uppercase pb-1.5 w-[40px]">T</th>
-                <th className="text-center text-[10px] text-yellow-400 font-semibold uppercase pb-1.5 w-[50px]">PCT</th>
-                <th className="text-center text-[10px] text-blue-400 font-semibold uppercase pb-1.5 w-[60px]">PF</th>
-                <th className="text-center text-[10px] text-gray-400 font-semibold uppercase pb-1.5 w-[60px]">PA</th>
-              </tr>
-            </thead>
-            <tbody>
-              {standings.map((team, idx) => {
-                const w = team.wins ?? 0;
-                const l = team.losses ?? 0;
-                const t = team.ties ?? 0;
-                const total = w + l + t;
-                const pct = total === 0 ? ".000" : (w / total).toFixed(3).replace(/^0/, "");
-                return (
-                  <tr key={team.teamId} className="border-b border-gray-800/50 hover:bg-white/[0.02]">
-                    {teamCell(team, idx)}
-                    <td className="text-center py-2"><p className="text-green-400 text-xs font-medium">{w}</p></td>
-                    <td className="text-center py-2"><p className="text-red-400 text-xs font-medium">{l}</p></td>
-                    <td className="text-center py-2"><p className="text-gray-400 text-xs font-medium">{t}</p></td>
-                    <td className="text-center py-2"><p className="text-yellow-400 text-xs font-bold">{pct}</p></td>
-                    <td className="text-center py-2"><p className="text-blue-400 text-xs font-medium">{(team.pointsFor ?? 0).toFixed(1)}</p></td>
-                    <td className="text-center py-2"><p className="text-gray-400 text-xs font-medium">{(team.pointsAgainst ?? 0).toFixed(1)}</p></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+      <div className="space-y-6">
+        <Card className="gradient-card rounded-xl p-4 border-0">
+          <h3 className="text-white font-semibold mb-3">{format} Standings</h3>
+          <div className="overflow-x-auto hide-scrollbar -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
+            <table className="w-full" style={{ minWidth: "440px" }}>
+              <thead>
+                <tr className="border-b border-gray-700">
+                  <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 sticky left-0 bg-[#1a1d26] z-10 w-[140px] pl-1">Team</th>
+                  <th className="text-center text-[10px] text-green-400 font-semibold uppercase pb-1.5 w-[40px]">W</th>
+                  <th className="text-center text-[10px] text-red-400 font-semibold uppercase pb-1.5 w-[40px]">L</th>
+                  <th className="text-center text-[10px] text-gray-400 font-semibold uppercase pb-1.5 w-[40px]">T</th>
+                  <th className="text-center text-[10px] text-yellow-400 font-semibold uppercase pb-1.5 w-[50px]">PCT</th>
+                  <th className="text-center text-[10px] text-blue-400 font-semibold uppercase pb-1.5 w-[60px]">PF</th>
+                  <th className="text-center text-[10px] text-gray-400 font-semibold uppercase pb-1.5 w-[60px]">PA</th>
+                </tr>
+              </thead>
+              <tbody>
+                {standings.map((team, idx) => {
+                  const w = team.wins ?? 0;
+                  const l = team.losses ?? 0;
+                  const t = team.ties ?? 0;
+                  const total = w + l + t;
+                  const pct = total === 0 ? ".000" : (w / total).toFixed(3).replace(/^0/, "");
+                  return (
+                    <tr key={team.teamId} className="border-b border-gray-800/50 hover:bg-white/[0.02]">
+                      {teamCell(team, idx)}
+                      <td className="text-center py-2"><p className="text-green-400 text-xs font-medium">{w}</p></td>
+                      <td className="text-center py-2"><p className="text-red-400 text-xs font-medium">{l}</p></td>
+                      <td className="text-center py-2"><p className="text-gray-400 text-xs font-medium">{t}</p></td>
+                      <td className="text-center py-2"><p className="text-yellow-400 text-xs font-bold">{pct}</p></td>
+                      <td className="text-center py-2"><p className="text-blue-400 text-xs font-medium">{(team.pointsFor ?? 0).toFixed(1)}</p></td>
+                      <td className="text-center py-2"><p className="text-gray-400 text-xs font-medium">{(team.pointsAgainst ?? 0).toFixed(1)}</p></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+
+        <MatchupDisplay leagueId={leagueId} league={league} user={user} title="League Matchups" />
+      </div>
     );
   }
 
   if (format === "H2H Each Category") {
     return (
-      <Card className="gradient-card rounded-xl p-4 border-0">
-        <h3 className="text-white font-semibold mb-3">H2H Each Category Standings</h3>
-        <div className="overflow-x-auto hide-scrollbar -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
-          <table className="w-full" style={{ minWidth: "400px" }}>
-            <thead>
-              <tr className="border-b border-gray-700">
-                <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 sticky left-0 bg-[#1a1d26] z-10 w-[140px] pl-1">Team</th>
-                <th className="text-center text-[10px] text-green-400 font-semibold uppercase pb-1.5 w-[48px]">CAT W</th>
-                <th className="text-center text-[10px] text-red-400 font-semibold uppercase pb-1.5 w-[48px]">CAT L</th>
-                <th className="text-center text-[10px] text-gray-400 font-semibold uppercase pb-1.5 w-[48px]">CAT T</th>
-                <th className="text-center text-[10px] text-yellow-400 font-semibold uppercase pb-1.5 w-[50px]">PCT</th>
-              </tr>
-            </thead>
-            <tbody>
-              {standings.map((team, idx) => {
-                const w = team.categoryWins ?? 0;
-                const l = team.categoryLosses ?? 0;
-                const t = team.categoryTies ?? 0;
-                const total = w + l + t;
-                const pct = total === 0 ? ".000" : (w / total).toFixed(3).replace(/^0/, "");
-                return (
-                  <tr key={team.teamId} className="border-b border-gray-800/50 hover:bg-white/[0.02]">
-                    {teamCell(team, idx)}
-                    <td className="text-center py-2"><p className="text-green-400 text-xs font-medium">{w}</p></td>
-                    <td className="text-center py-2"><p className="text-red-400 text-xs font-medium">{l}</p></td>
-                    <td className="text-center py-2"><p className="text-gray-400 text-xs font-medium">{t}</p></td>
-                    <td className="text-center py-2"><p className="text-yellow-400 text-xs font-bold">{pct}</p></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+      <div className="space-y-6">
+        <Card className="gradient-card rounded-xl p-4 border-0">
+          <h3 className="text-white font-semibold mb-3">H2H Each Category Standings</h3>
+          <div className="overflow-x-auto hide-scrollbar -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
+            <table className="w-full" style={{ minWidth: "400px" }}>
+              <thead>
+                <tr className="border-b border-gray-700">
+                  <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 sticky left-0 bg-[#1a1d26] z-10 w-[140px] pl-1">Team</th>
+                  <th className="text-center text-[10px] text-green-400 font-semibold uppercase pb-1.5 w-[48px]">CAT W</th>
+                  <th className="text-center text-[10px] text-red-400 font-semibold uppercase pb-1.5 w-[48px]">CAT L</th>
+                  <th className="text-center text-[10px] text-gray-400 font-semibold uppercase pb-1.5 w-[48px]">CAT T</th>
+                  <th className="text-center text-[10px] text-yellow-400 font-semibold uppercase pb-1.5 w-[50px]">PCT</th>
+                </tr>
+              </thead>
+              <tbody>
+                {standings.map((team, idx) => {
+                  const w = team.categoryWins ?? 0;
+                  const l = team.categoryLosses ?? 0;
+                  const t = team.categoryTies ?? 0;
+                  const total = w + l + t;
+                  const pct = total === 0 ? ".000" : (w / total).toFixed(3).replace(/^0/, "");
+                  return (
+                    <tr key={team.teamId} className="border-b border-gray-800/50 hover:bg-white/[0.02]">
+                      {teamCell(team, idx)}
+                      <td className="text-center py-2"><p className="text-green-400 text-xs font-medium">{w}</p></td>
+                      <td className="text-center py-2"><p className="text-red-400 text-xs font-medium">{l}</p></td>
+                      <td className="text-center py-2"><p className="text-gray-400 text-xs font-medium">{t}</p></td>
+                      <td className="text-center py-2"><p className="text-yellow-400 text-xs font-bold">{pct}</p></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+
+        <MatchupDisplay leagueId={leagueId} league={league} user={user} title="League Matchups" />
+      </div>
     );
   }
 
