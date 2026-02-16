@@ -124,6 +124,16 @@ function MatchupTab({ leagueId, league, user }: { leagueId: number; league: Leag
   const currentWeekData = data.matchups.find(w => w.week === selectedWeek);
   const isPoints = data.format === "H2H Points";
 
+  const SEASON_START = new Date(2026, 2, 23);
+  const getWeekDates = (week: number) => {
+    const mon = new Date(SEASON_START);
+    mon.setDate(mon.getDate() + (week - 1) * 7);
+    const sun = new Date(mon);
+    sun.setDate(sun.getDate() + 6);
+    const fmt = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    return `${fmt(mon)} - ${fmt(sun)}`;
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
@@ -136,7 +146,10 @@ function MatchupTab({ leagueId, league, user }: { leagueId: number; league: Leag
         >
           <ChevronLeft className="w-5 h-5" />
         </Button>
-        <span className="text-white font-semibold text-sm">Week {selectedWeek} of {totalWeeks}</span>
+        <div className="text-center">
+          <span className="text-white font-semibold text-sm">Week {selectedWeek} of {totalWeeks}</span>
+          <div className="text-gray-400 text-xs">{getWeekDates(selectedWeek)}</div>
+        </div>
         <Button
           variant="ghost"
           size="icon"

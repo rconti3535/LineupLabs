@@ -64,7 +64,7 @@ async function generateLeagueMatchups(leagueId: number): Promise<void> {
     ids.splice(1, 0, last);
   }
 
-  const seasonWeeks = league.seasonWeeks || 22;
+  const seasonWeeks = league.seasonWeeks || 27;
   const matchupsToInsert: InsertLeagueMatchup[] = [];
 
   for (let week = 1; week <= seasonWeeks; week++) {
@@ -277,7 +277,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const playerMap = new Map(playerList.map(p => [p.id, p]));
       const rosterPositions = league.rosterPositions || ["C", "1B", "2B", "3B", "SS", "OF", "OF", "OF", "UT", "SP", "SP", "RP", "RP", "BN", "BN", "IL"];
 
-      const dbMatchups = await storage.getMatchupsByLeague(id);
+      let dbMatchups = await storage.getMatchupsByLeague(id);
+      if (dbMatchups.length === 0 && league.draftStatus === "completed") {
+        await generateLeagueMatchups(id);
+        dbMatchups = await storage.getMatchupsByLeague(id);
+      }
       const persistedMatchups = dbMatchups.map(m => ({
         week: m.week,
         teamAId: m.teamAId,
