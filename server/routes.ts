@@ -163,6 +163,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (league.createdBy !== userId) {
         return res.status(403).json({ message: "Only the commissioner can update league settings" });
       }
+      if (updates.pointValues !== undefined) {
+        if (typeof updates.pointValues === "string") {
+          try {
+            const parsed = JSON.parse(updates.pointValues);
+            if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+              return res.status(400).json({ message: "pointValues must be a JSON object of stat: number pairs" });
+            }
+            for (const [k, v] of Object.entries(parsed)) {
+              if (typeof v !== "number") {
+                return res.status(400).json({ message: `pointValues.${k} must be a number` });
+              }
+            }
+          } catch {
+            return res.status(400).json({ message: "pointValues must be valid JSON" });
+          }
+        } else if (updates.pointValues !== null) {
+          return res.status(400).json({ message: "pointValues must be a JSON string or null" });
+        }
+      }
       const updated = await storage.updateLeague(id, updates);
       res.json(updated);
     } catch (error) {

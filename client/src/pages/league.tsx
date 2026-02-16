@@ -1328,6 +1328,7 @@ export default function LeaguePage() {
   const [isEditingScoring, setIsEditingScoring] = useState(false);
   const [editHittingCategories, setEditHittingCategories] = useState<string[]>([]);
   const [editPitchingCategories, setEditPitchingCategories] = useState<string[]>([]);
+  const [editPointValues, setEditPointValues] = useState<Record<string, number>>({});
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedSwapIndex, setSelectedSwapIndex] = useState<number | null>(null);
   const [swapTargets, setSwapTargets] = useState<number[]>([]);
@@ -1648,22 +1649,35 @@ export default function LeaguePage() {
     CG: "Complete Games", SHO: "Shutouts", BSV: "Blown Saves", "K/9": "K per 9",
   };
 
+  const DEFAULT_POINT_VALUES: Record<string, number> = {
+    R: 1, HR: 4, RBI: 1, SB: 2, H: 0.5, "2B": 1, "3B": 2, BB: 1, HBP: 1, TB: 0.5, CS: -1,
+    W: 5, SV: 5, K: 1, QS: 3, HLD: 2, SO: 1, L: -2, CG: 3, SHO: 5, BSV: -2,
+  };
+
+  const HITTING_POINT_STATS = ["R", "HR", "RBI", "SB", "H", "2B", "3B", "BB", "HBP", "TB", "CS"];
+  const PITCHING_POINT_STATS = ["W", "SV", "K", "QS", "HLD", "SO", "L", "CG", "SHO", "BSV"];
+
   const startEditingScoring = () => {
     if (!league) return;
     setEditScoringFormat(league.scoringFormat || "Roto");
     setEditHittingCategories(league.hittingCategories || ["R", "HR", "RBI", "SB", "AVG"]);
     setEditPitchingCategories(league.pitchingCategories || ["W", "SV", "K", "ERA", "WHIP"]);
+    const existingPV = league.pointValues ? (() => { try { return JSON.parse(league.pointValues); } catch { return {}; } })() : {};
+    setEditPointValues({ ...DEFAULT_POINT_VALUES, ...existingPV });
     setIsEditingScoring(true);
   };
 
   const saveScoringSettings = () => {
+    const isPointsFormat = editScoringFormat === "H2H Points" || editScoringFormat === "Season Points";
     updateMutation.mutate({
       scoringFormat: editScoringFormat,
       hittingCategories: editHittingCategories,
       pitchingCategories: editPitchingCategories,
+      ...(isPointsFormat ? { pointValues: JSON.stringify(editPointValues) } : {}),
     }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "standings"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "matchups"] });
       },
     });
     setIsEditingScoring(false);
@@ -2545,6 +2559,51 @@ export default function LeaguePage() {
                     </div>
                   </>
                 )}
+                {(editScoringFormat === "H2H Points" || editScoringFormat === "Season Points") && (
+                  <>
+                    <div>
+                      <label className="text-white text-sm font-medium block mb-2">Hitting Point Values</label>
+                      <div className="space-y-2">
+                        {HITTING_POINT_STATS.map(stat => (
+                          <div key={stat} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2">
+                            <span className="text-gray-300 text-sm">{STAT_LABELS[stat] || stat} ({stat})</span>
+                            <input
+                              type="number"
+                              step="0.5"
+                              value={editPointValues[stat] ?? DEFAULT_POINT_VALUES[stat] ?? 0}
+                              onChange={(e) => setEditPointValues(prev => ({ ...prev, [stat]: parseFloat(e.target.value) || 0 }))}
+                              className="w-20 bg-gray-700 border border-gray-600 text-white text-sm text-center rounded px-2 py-1 focus:border-blue-500 focus:outline-none"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-white text-sm font-medium block mb-2">Pitching Point Values</label>
+                      <div className="space-y-2">
+                        {PITCHING_POINT_STATS.map(stat => (
+                          <div key={stat} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2">
+                            <span className="text-gray-300 text-sm">{STAT_LABELS[stat] || stat} ({stat})</span>
+                            <input
+                              type="number"
+                              step="0.5"
+                              value={editPointValues[stat] ?? DEFAULT_POINT_VALUES[stat] ?? 0}
+                              onChange={(e) => setEditPointValues(prev => ({ ...prev, [stat]: parseFloat(e.target.value) || 0 }))}
+                              className="w-20 bg-gray-700 border border-gray-600 text-white text-sm text-center rounded px-2 py-1 focus:border-green-500 focus:outline-none"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditPointValues({ ...DEFAULT_POINT_VALUES })}
+                      className="text-xs text-blue-400 hover:text-blue-300 underline"
+                    >
+                      Reset to defaults
+                    </button>
+                  </>
+                )}
               </div>
             ) : (
               <div className="space-y-4">
@@ -2579,6 +2638,33 @@ export default function LeaguePage() {
                     </div>
                   </>
                 )}
+                {["H2H Points", "Season Points"].includes(league.scoringFormat || "Roto") && (() => {
+                  const pv = league.pointValues ? (() => { try { return { ...DEFAULT_POINT_VALUES, ...JSON.parse(league.pointValues) }; } catch { return DEFAULT_POINT_VALUES; } })() : DEFAULT_POINT_VALUES;
+                  return (
+                    <>
+                      <div>
+                        <p className="text-gray-400 text-xs mb-2">Hitting Point Values</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {HITTING_POINT_STATS.map(stat => (
+                            <span key={stat} className="px-2 py-1 bg-blue-600/20 text-blue-400 rounded text-xs font-medium">
+                              {stat}: {pv[stat] ?? 0}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-gray-400 text-xs mb-2">Pitching Point Values</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {PITCHING_POINT_STATS.map(stat => (
+                            <span key={stat} className="px-2 py-1 bg-green-600/20 text-green-400 rounded text-xs font-medium">
+                              {stat}: {pv[stat] ?? 0}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             )
           ) : (
@@ -2614,6 +2700,33 @@ export default function LeaguePage() {
                   </div>
                 </>
               )}
+              {["H2H Points", "Season Points"].includes(league.scoringFormat || "Roto") && (() => {
+                const pv = league.pointValues ? (() => { try { return { ...DEFAULT_POINT_VALUES, ...JSON.parse(league.pointValues) }; } catch { return DEFAULT_POINT_VALUES; } })() : DEFAULT_POINT_VALUES;
+                return (
+                  <>
+                    <div>
+                      <p className="text-gray-400 text-xs mb-2">Hitting Point Values</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {HITTING_POINT_STATS.map(stat => (
+                          <span key={stat} className="px-2 py-1 bg-blue-600/20 text-blue-400 rounded text-xs font-medium">
+                            {stat}: {pv[stat] ?? 0}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-gray-400 text-xs mb-2">Pitching Point Values</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {PITCHING_POINT_STATS.map(stat => (
+                          <span key={stat} className="px-2 py-1 bg-green-600/20 text-green-400 rounded text-xs font-medium">
+                            {stat}: {pv[stat] ?? 0}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           )}
         </Card>

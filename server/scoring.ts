@@ -44,10 +44,25 @@ function isActiveSlot(slotPos: string): boolean {
   return slotPos !== "BN" && slotPos !== "IL";
 }
 
-const COUNTING_STAT_POINTS: Record<string, number> = {
+export const DEFAULT_POINT_VALUES: Record<string, number> = {
   R: 1, HR: 4, RBI: 1, SB: 2, H: 0.5, "2B": 1, "3B": 2, BB: 1, HBP: 1, TB: 0.5, CS: -1,
   W: 5, SV: 5, K: 1, QS: 3, HLD: 2, SO: 1, L: -2, CG: 3, SHO: 5, BSV: -2,
 };
+
+function getPointValues(league: League): Record<string, number> {
+  if (league.pointValues) {
+    try {
+      const parsed = JSON.parse(league.pointValues);
+      if (typeof parsed === "object" && parsed !== null) {
+        return { ...DEFAULT_POINT_VALUES, ...parsed };
+      }
+    } catch {}
+  }
+  return DEFAULT_POINT_VALUES;
+}
+
+const HITTING_POINT_STATS = ["R", "HR", "RBI", "SB", "H", "2B", "3B", "BB", "HBP", "TB", "CS"];
+const PITCHING_POINT_STATS = ["W", "SV", "K", "QS", "HLD", "SO", "L", "CG", "SHO", "BSV"];
 
 function computeTeamFantasyPoints(
   league: League,
@@ -55,9 +70,11 @@ function computeTeamFantasyPoints(
   allPlayers: Map<number, Player>,
   rosterPositions: string[],
 ): { total: number; categoryValues: Record<string, number> } {
-  const hittingCats = league.hittingCategories || ["R", "HR", "RBI", "SB", "AVG"];
-  const pitchingCats = league.pitchingCategories || ["W", "SV", "K", "ERA", "WHIP"];
+  const isPointsFormat = league.scoringFormat === "H2H Points" || league.scoringFormat === "Season Points";
+  const hittingCats = isPointsFormat ? HITTING_POINT_STATS : (league.hittingCategories || ["R", "HR", "RBI", "SB", "AVG"]);
+  const pitchingCats = isPointsFormat ? PITCHING_POINT_STATS : (league.pitchingCategories || ["W", "SV", "K", "ERA", "WHIP"]);
 
+  const pointValues = getPointValues(league);
   const categoryValues: Record<string, number> = {};
   let total = 0;
 
@@ -104,7 +121,7 @@ function computeTeamFantasyPoints(
     const key = statMap[cat];
     const val = key ? (hittingAccum[key] || 0) : 0;
     categoryValues[`h_${cat}`] = val;
-    const pts = (COUNTING_STAT_POINTS[cat] || 0) * val;
+    const pts = (pointValues[cat] || 0) * val;
     total += pts;
   }
 
@@ -116,7 +133,7 @@ function computeTeamFantasyPoints(
     const key = statMap[cat];
     const val = key ? (pitchingAccum[key] || 0) : 0;
     categoryValues[`p_${cat}`] = val;
-    const pts = (COUNTING_STAT_POINTS[cat] || 0) * val;
+    const pts = (pointValues[cat] || 0) * val;
     total += pts;
   }
 
