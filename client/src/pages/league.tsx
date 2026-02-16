@@ -2056,7 +2056,7 @@ export default function LeaguePage() {
 
       {activeTab === "players" && !showSettings && <PlayersTab leagueId={leagueId!} league={league!} user={user} />}
 
-      {activeTab === "standings" && !showSettings && <StandingsTab leagueId={leagueId!} league={league!} teamsLoading={teamsLoading} teams={teams} />}
+      {activeTab === "standings" && !showSettings && <StandingsTab leagueId={leagueId!} league={league!} teamsLoading={teamsLoading} teams={teams} user={user} />}
 
       {showSettings && (
         <>
