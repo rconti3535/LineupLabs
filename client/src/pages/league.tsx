@@ -1845,10 +1845,14 @@ export default function LeaguePage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Roto">Roto</SelectItem>
+                      <SelectItem value="H2H Points">H2H Points</SelectItem>
+                      <SelectItem value="H2H Each Category">H2H Each Category</SelectItem>
+                      <SelectItem value="H2H Most Categories">H2H Most Categories</SelectItem>
+                      <SelectItem value="Season Points">Season Points</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                {editScoringFormat === "Roto" && (
+                {(editScoringFormat === "Roto" || editScoringFormat === "H2H Each Category" || editScoringFormat === "H2H Most Categories") && (
                   <>
                     <div>
                       <label className="text-white text-sm font-medium block mb-2">Hitting Categories</label>
@@ -1902,7 +1906,7 @@ export default function LeaguePage() {
                     <p className="text-white font-medium text-sm">{league.scoringFormat || "Roto"}</p>
                   </div>
                 </div>
-                {(league.scoringFormat || "Roto") === "Roto" && (
+                {["Roto", "H2H Each Category", "H2H Most Categories"].includes(league.scoringFormat || "Roto") && (
                   <>
                     <div>
                       <p className="text-gray-400 text-xs mb-2">Hitting Categories</p>
@@ -1937,7 +1941,7 @@ export default function LeaguePage() {
                   <p className="text-white font-medium text-sm">{league.scoringFormat || "Roto"}</p>
                 </div>
               </div>
-              {(league.scoringFormat || "Roto") === "Roto" && (
+              {["Roto", "H2H Each Category", "H2H Most Categories"].includes(league.scoringFormat || "Roto") && (
                 <>
                   <div>
                     <p className="text-gray-400 text-xs mb-2">Hitting Categories</p>
