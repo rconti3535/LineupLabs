@@ -1385,37 +1385,41 @@ export default function LeaguePage() {
                   <p className="text-blue-400 text-xs mb-3 px-1">Tap a highlighted slot to swap players</p>
                 )}
                 <div className="flex items-center justify-center mb-3 gap-3">
-                  <button
-                    onClick={() => {
-                      const d = new Date(dailyDate + "T12:00:00");
-                      d.setDate(d.getDate() - 1);
-                      setDailyDate(d.toISOString().split("T")[0]);
-                      setSelectedSwapIndex(null);
-                      setSwapTargets([]);
-                    }}
-                    className="p-1 text-gray-400 hover:text-white transition-colors"
-                  >
-                    <ChevronLeft className="w-5 h-5" />
-                  </button>
-                  <div className="text-center">
+                  <div className="w-10 flex justify-end">
+                    <button
+                      onClick={() => {
+                        const d = new Date(dailyDate + "T12:00:00");
+                        d.setDate(d.getDate() - 1);
+                        setDailyDate(d.toISOString().split("T")[0]);
+                        setSelectedSwapIndex(null);
+                        setSwapTargets([]);
+                      }}
+                      className="p-1 text-gray-400 hover:text-white transition-colors"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <div className="min-w-[200px] text-center">
                     <span className={`text-sm font-semibold ${isPastDate ? "text-gray-500" : "text-white"}`}>
                       {new Date(dailyDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
                       {dailyDate === new Date().toISOString().split("T")[0] && " (TODAY)"}
                       {isPastDate && " (LOCKED)"}
                     </span>
                   </div>
-                  <button
-                    onClick={() => {
-                      const d = new Date(dailyDate + "T12:00:00");
-                      d.setDate(d.getDate() + 1);
-                      setDailyDate(d.toISOString().split("T")[0]);
-                      setSelectedSwapIndex(null);
-                      setSwapTargets([]);
-                    }}
-                    className="p-1 text-gray-400 hover:text-white transition-colors"
-                  >
-                    <ChevronRight className="w-5 h-5" />
-                  </button>
+                  <div className="w-10 flex justify-start">
+                    <button
+                      onClick={() => {
+                        const d = new Date(dailyDate + "T12:00:00");
+                        d.setDate(d.getDate() + 1);
+                        setDailyDate(d.toISOString().split("T")[0]);
+                        setSelectedSwapIndex(null);
+                        setSwapTargets([]);
+                      }}
+                      className="p-1 text-gray-400 hover:text-white transition-colors"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  </div>
                 </div>
                 {rosterStatView === "daily" && dailyLineupLoading && (
                   <div className="text-center text-gray-400 text-xs py-4">Loading daily lineup...</div>
