@@ -54,6 +54,10 @@ Key API routes:
 - `GET /api/leagues/:id/my-claims?userId=` — fetch user's outstanding waiver claims with player info
 - `POST /api/leagues/:id/waiver-claim` — submit a waiver claim on a player
 - `DELETE /api/leagues/:id/waiver-claim/:claimId?userId=` — cancel a pending waiver claim
+- `GET /api/leagues/:id/daily-lineup?teamId=&date=` — fetch daily lineup for a team on a date
+- `GET /api/leagues/:id/player-lock?playerId=&date=` — check if a player is locked (Daily: per-player game start; Weekly: first Monday game start)
+- `GET /api/leagues/:id/game-times?teamId=&date=` — fetch real MLB game times for all players on a team for a given date (uses MLB Stats API)
+- `POST /api/leagues/:id/daily-lineup/swap` — swap two players in a daily lineup (validates per-player game time locks)
 
 ### Data Storage
 - **Database**: PostgreSQL (via Neon serverless driver `@neondatabase/serverless`)

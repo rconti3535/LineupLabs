@@ -1425,6 +1425,17 @@ export default function LeaguePage() {
     enabled: rosterStatView === "daily" && !!myTeam?.id && leagueId !== null,
   });
 
+  const { data: gameTimesData } = useQuery<{ playerId: number; gameTime: string | null; opponent: string | null; isHome: boolean; status: string | null; isLocked: boolean }[]>({
+    queryKey: ["/api/leagues", leagueId, "game-times", myTeam?.id, dailyDate],
+    queryFn: async () => {
+      if (!myTeam?.id) return [];
+      const res = await fetch(`/api/leagues/${leagueId}/game-times?teamId=${myTeam.id}&date=${dailyDate}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: rosterStatView === "daily" && !!myTeam?.id && leagueId !== null,
+  });
+
   const saveDailyLineupMut = useMutation({
     mutationFn: async (data: { slotA: number; slotB: number }) => {
       await apiRequest("POST", `/api/leagues/${leagueId}/daily-lineup/swap`, {
@@ -1497,25 +1508,14 @@ export default function LeaguePage() {
         toast({ title: "Cannot edit past lineups", description: "You can only change today's or future lineups.", variant: "destructive" });
         return;
       }
-      
-      // Check for lock
-      const now = new Date();
-      const pstFormatter = new Intl.DateTimeFormat("en-US", {
-        timeZone: "America/Los_Angeles", hour: "2-digit", hour12: false
-      });
-      const pstHour = parseInt(pstFormatter.format(now));
-      const todayStr = now.toISOString().split('T')[0];
-      
-      if (league?.lineupLockType === "Weekly" && dailyDate === todayStr) {
-        const dayOfWeek = now.getDay();
-        if (dayOfWeek === 1) { // Monday
-          if (pstHour >= 16) {
-            toast({ title: "Lineup Locked", description: "Weekly lineups lock at Monday's game start (4 PM PST).", variant: "destructive" });
+      if (gameTimesData) {
+        const entry = rosterEntries[index];
+        if (entry?.player) {
+          const gt = gameTimesData.find(g => g.playerId === (entry.player as any).id);
+          if (gt?.isLocked) {
+            toast({ title: "Player Locked", description: "This player's game has already started.", variant: "destructive" });
             return;
           }
-        } else if (dayOfWeek === 0 || dayOfWeek > 1) { // Tue-Sun
-          toast({ title: "Lineup Locked", description: "Weekly lineups are locked until next Monday at 2 AM PST.", variant: "destructive" });
-          return;
         }
       }
     }
@@ -2046,6 +2046,12 @@ export default function LeaguePage() {
                                       <div className="cursor-pointer" onClick={() => isDraftCompleted && p && handleSwapSelect(entry.slotIndex)}>
                                         <p className="text-white text-xs font-medium truncate max-w-[130px]">{p.name as string}</p>
                                         <p className="text-gray-500 text-[10px]">{p.position as string} — {(p.teamAbbreviation || p.team) as string}</p>
+                                        {rosterStatView === "daily" && gameTimesData && (() => {
+                                          const gt = gameTimesData.find(g => g.playerId === (p.id as number));
+                                          if (!gt) return null;
+                                          if (!gt.gameTime) return <p className="text-gray-500 text-[10px] italic">No Game</p>;
+                                          return <p className="text-[10px] text-gray-400">{gt.isHome ? "vs" : "@"} {gt.opponent} {new Date(gt.gameTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}{gt.isLocked ? " 🔒" : ""}</p>;
+                                        })()}
                                       </div>
                                     ) : (
                                       <div className="cursor-pointer" onClick={() => isDraftCompleted && handleSwapSelect(entry.slotIndex)}>
@@ -2081,6 +2087,12 @@ export default function LeaguePage() {
                                     <div className="cursor-pointer" onClick={() => isDraftCompleted && p && handleSwapSelect(entry.slotIndex)}>
                                       <p className="text-white text-xs font-medium truncate max-w-[130px]">{p?.name as string}</p>
                                       <p className="text-gray-500 text-[10px]">{p?.position as string} — {(p?.teamAbbreviation || p?.team) as string}</p>
+                                      {rosterStatView === "daily" && gameTimesData && p && (() => {
+                                        const gt = gameTimesData.find(g => g.playerId === (p.id as number));
+                                        if (!gt) return null;
+                                        if (!gt.gameTime) return <p className="text-gray-500 text-[10px] italic">No Game</p>;
+                                        return <p className="text-[10px] text-gray-400">{gt.isHome ? "vs" : "@"} {gt.opponent} {new Date(gt.gameTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}{gt.isLocked ? " 🔒" : ""}</p>;
+                                      })()}
                                     </div>
                                   </td>
                                   {leagueHittingCats.map(stat => (
@@ -2132,6 +2144,12 @@ export default function LeaguePage() {
                                       <div className="cursor-pointer" onClick={() => isDraftCompleted && p && handleSwapSelect(entry.slotIndex)}>
                                         <p className="text-white text-xs font-medium truncate max-w-[130px]">{p.name as string}</p>
                                         <p className="text-gray-500 text-[10px]">{p.position as string} — {(p.teamAbbreviation || p.team) as string}</p>
+                                        {rosterStatView === "daily" && gameTimesData && (() => {
+                                          const gt = gameTimesData.find(g => g.playerId === (p.id as number));
+                                          if (!gt) return null;
+                                          if (!gt.gameTime) return <p className="text-gray-500 text-[10px] italic">No Game</p>;
+                                          return <p className="text-[10px] text-gray-400">{gt.isHome ? "vs" : "@"} {gt.opponent} {new Date(gt.gameTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}{gt.isLocked ? " 🔒" : ""}</p>;
+                                        })()}
                                       </div>
                                     ) : (
                                       <div className="cursor-pointer" onClick={() => isDraftCompleted && handleSwapSelect(entry.slotIndex)}>
@@ -2167,6 +2185,12 @@ export default function LeaguePage() {
                                     <div className="cursor-pointer" onClick={() => isDraftCompleted && p && handleSwapSelect(entry.slotIndex)}>
                                       <p className="text-white text-xs font-medium truncate max-w-[130px]">{p?.name as string}</p>
                                       <p className="text-gray-500 text-[10px]">{p?.position as string} — {(p?.teamAbbreviation || p?.team) as string}</p>
+                                      {rosterStatView === "daily" && gameTimesData && p && (() => {
+                                        const gt = gameTimesData.find(g => g.playerId === (p.id as number));
+                                        if (!gt) return null;
+                                        if (!gt.gameTime) return <p className="text-gray-500 text-[10px] italic">No Game</p>;
+                                        return <p className="text-[10px] text-gray-400">{gt.isHome ? "vs" : "@"} {gt.opponent} {new Date(gt.gameTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}{gt.isLocked ? " 🔒" : ""}</p>;
+                                      })()}
                                     </div>
                                   </td>
                                   {leaguePitchingCats.map(stat => (
