@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { League, Team, DraftPick, Player } from "@shared/schema";
 import { assignPlayersToRosterWithPicks, getSwapTargets, type RosterEntry } from "@/lib/roster-utils";
 
-type Tab = "roster" | "players" | "standings";
+type Tab = "roster" | "matchup" | "players" | "standings";
 
 interface StandingsData {
   format: string;
@@ -48,6 +48,141 @@ function formatStatValue(cat: string, value: number): string {
   if (DECIMAL_STATS.includes(cat)) return value.toFixed(2);
   if (cat === "IP") return value.toFixed(1);
   return String(Math.round(value));
+}
+
+interface MatchupData {
+  format: string;
+  matchups: {
+    week: number;
+    matchups: {
+      home: { teamId: number; teamName: string; userId: number | null; score: number; categoryValues: Record<string, number> };
+      away: { teamId: number; teamName: string; userId: number | null; score: number; categoryValues: Record<string, number> };
+      categoryResults?: { cat: string; homeVal: number; awayVal: number; winner: "home" | "away" | "tie" }[];
+    }[];
+  }[];
+}
+
+function MatchupTab({ leagueId, league, user }: { leagueId: number; league: League; user: { id: number } | null }) {
+  const [selectedWeek, setSelectedWeek] = useState(1);
+
+  const { data, isLoading } = useQuery<MatchupData>({
+    queryKey: ["/api/leagues", leagueId, "matchups"],
+    queryFn: async () => {
+      const res = await fetch(`/api/leagues/${leagueId}/matchups`);
+      if (!res.ok) throw new Error("Failed to load matchups");
+      return res.json();
+    },
+  });
+
+  useEffect(() => {
+    if (data && user) {
+      const userWeek = data.matchups.find(w =>
+        w.matchups.some(m => m.home.userId === user.id || m.away.userId === user.id)
+      );
+      if (userWeek) setSelectedWeek(userWeek.week);
+    }
+  }, [data, user]);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        <Skeleton className="h-10 w-full bg-gray-800" />
+        <Skeleton className="h-32 w-full bg-gray-800" />
+        <Skeleton className="h-32 w-full bg-gray-800" />
+      </div>
+    );
+  }
+
+  if (!data || data.matchups.length === 0) {
+    return (
+      <Card className="gradient-card rounded-xl p-5 border-0">
+        <p className="text-gray-400 text-sm text-center">No matchups available yet. Complete the draft to see matchups.</p>
+      </Card>
+    );
+  }
+
+  const totalWeeks = data.matchups.length;
+  const currentWeekData = data.matchups.find(w => w.week === selectedWeek);
+  const isPoints = data.format === "H2H Points";
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <Button
+          variant="ghost"
+          size="icon"
+          disabled={selectedWeek <= 1}
+          onClick={() => setSelectedWeek(w => w - 1)}
+          className="h-8 w-8 text-gray-400 hover:text-white disabled:opacity-30"
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </Button>
+        <span className="text-white font-semibold text-sm">Week {selectedWeek} of {totalWeeks}</span>
+        <Button
+          variant="ghost"
+          size="icon"
+          disabled={selectedWeek >= totalWeeks}
+          onClick={() => setSelectedWeek(w => w + 1)}
+          className="h-8 w-8 text-gray-400 hover:text-white disabled:opacity-30"
+        >
+          <ChevronRight className="w-5 h-5" />
+        </Button>
+      </div>
+
+      <div className="space-y-3">
+        {currentWeekData?.matchups.map((m, idx) => {
+          const userInMatchup = user && (m.home.userId === user.id || m.away.userId === user.id);
+          const homeWins = m.home.score > m.away.score;
+          const awayWins = m.away.score > m.home.score;
+          const tied = m.home.score === m.away.score;
+
+          return (
+            <Card key={idx} className={`gradient-card rounded-xl border-0 overflow-hidden ${userInMatchup ? "ring-1 ring-blue-500/40" : ""}`}>
+              <div className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1 text-left">
+                    <p className={`font-semibold text-sm truncate ${homeWins ? "text-green-400" : "text-white"}`}>{m.home.teamName}</p>
+                    {m.home.userId === user?.id && <span className="text-[10px] text-blue-400">You</span>}
+                  </div>
+                  <div className="flex items-center gap-2 px-3">
+                    <span className={`text-lg font-bold ${homeWins ? "text-green-400" : tied ? "text-gray-400" : "text-white"}`}>
+                      {isPoints ? m.home.score.toFixed(1) : m.home.score}
+                    </span>
+                    <span className="text-gray-600 text-xs">vs</span>
+                    <span className={`text-lg font-bold ${awayWins ? "text-green-400" : tied ? "text-gray-400" : "text-white"}`}>
+                      {isPoints ? m.away.score.toFixed(1) : m.away.score}
+                    </span>
+                  </div>
+                  <div className="flex-1 text-right">
+                    <p className={`font-semibold text-sm truncate ${awayWins ? "text-green-400" : "text-white"}`}>{m.away.teamName}</p>
+                    {m.away.userId === user?.id && <span className="text-[10px] text-blue-400">You</span>}
+                  </div>
+                </div>
+              </div>
+
+              {m.categoryResults && (
+                <div className="border-t border-gray-700/50 px-4 py-2">
+                  <div className="grid grid-cols-3 gap-1 text-[11px]">
+                    {m.categoryResults.map((cr, ci) => (
+                      <div key={ci} className="flex items-center justify-between px-1.5 py-0.5 rounded">
+                        <span className={cr.winner === "home" ? "text-green-400 font-semibold" : "text-gray-400"}>
+                          {formatStatValue(cr.cat, cr.homeVal)}
+                        </span>
+                        <span className="text-gray-500 font-medium mx-1">{cr.cat}</span>
+                        <span className={cr.winner === "away" ? "text-green-400 font-semibold" : "text-gray-400"}>
+                          {formatStatValue(cr.cat, cr.awayVal)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 function StandingsTab({ leagueId, league, teamsLoading, teams }: { leagueId: number; league: League; teamsLoading: boolean; teams: Team[] | undefined }) {
@@ -1358,8 +1493,10 @@ export default function LeaguePage() {
     );
   }
 
+  const isH2H = league.scoringFormat?.startsWith("H2H");
   const tabs: { key: Tab; label: string }[] = [
     { key: "roster", label: "Roster" },
+    ...(isH2H ? [{ key: "matchup" as Tab, label: "Matchup" }] : []),
     { key: "players", label: "Players" },
     { key: "standings", label: "Standings" },
   ];
@@ -1820,6 +1957,8 @@ export default function LeaguePage() {
           )}
         </div>
       )}
+
+      {activeTab === "matchup" && !showSettings && <MatchupTab leagueId={leagueId!} league={league!} user={user} />}
 
       {activeTab === "players" && !showSettings && <PlayersTab leagueId={leagueId!} league={league!} user={user} />}
 

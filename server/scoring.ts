@@ -398,6 +398,111 @@ export function computeH2HMostCategoriesStandings(
   return results;
 }
 
+export interface MatchupPair {
+  home: {
+    teamId: number;
+    teamName: string;
+    userId: number | null;
+    score: number;
+    categoryValues: Record<string, number>;
+  };
+  away: {
+    teamId: number;
+    teamName: string;
+    userId: number | null;
+    score: number;
+    categoryValues: Record<string, number>;
+  };
+  categoryResults?: { cat: string; homeVal: number; awayVal: number; winner: "home" | "away" | "tie" }[];
+}
+
+export interface MatchupWeek {
+  week: number;
+  matchups: MatchupPair[];
+}
+
+export function computeMatchups(
+  league: League,
+  teams: Team[],
+  draftPicks: DraftPick[],
+  allPlayers: Map<number, Player>,
+  rosterPositions: string[],
+): MatchupWeek[] {
+  const format = league.scoringFormat || "Roto";
+  const isPoints = format === "H2H Points";
+
+  const hittingCats = league.hittingCategories || ["R", "HR", "RBI", "SB", "AVG"];
+  const pitchingCats = league.pitchingCategories || ["W", "SV", "K", "ERA", "WHIP"];
+  const allCats = [
+    ...hittingCats.map(c => ({ key: `h_${c}`, id: c, isHitting: true })),
+    ...pitchingCats.map(c => ({ key: `p_${c}`, id: c, isHitting: false })),
+  ];
+  const LOWER_IS_BETTER = new Set(["ERA", "WHIP", "K", "CS", "L", "BSV", "BB"]);
+
+  const teamScores = new Map<number, { total: number; categoryValues: Record<string, number>; teamName: string; userId: number | null }>();
+
+  if (isPoints) {
+    for (const team of teams) {
+      const teamPicks = draftPicks.filter(dp => dp.teamId === team.id);
+      const result = computeTeamFantasyPoints(league, teamPicks, allPlayers, rosterPositions);
+      teamScores.set(team.id, { total: result.total, categoryValues: result.categoryValues, teamName: team.name, userId: team.userId });
+    }
+  } else {
+    const rotoStandings = computeRotoStandings(league, teams, draftPicks, allPlayers, rosterPositions, "s26");
+    for (const s of rotoStandings) {
+      teamScores.set(s.teamId, { total: 0, categoryValues: s.categoryValues, teamName: s.teamName, userId: s.userId });
+    }
+  }
+
+  const weeks = generateRoundRobinMatchups(teams.map(t => t.id));
+  const result: MatchupWeek[] = [];
+
+  for (let wi = 0; wi < weeks.length; wi++) {
+    const matchups: MatchupPair[] = [];
+    for (const [homeId, awayId] of weeks[wi]) {
+      const homeData = teamScores.get(homeId);
+      const awayData = teamScores.get(awayId);
+      if (!homeData || !awayData) continue;
+
+      let homeScore = 0;
+      let awayScore = 0;
+      let categoryResults: MatchupPair["categoryResults"] = undefined;
+
+      if (isPoints) {
+        homeScore = homeData.total;
+        awayScore = awayData.total;
+      } else {
+        categoryResults = [];
+        for (const cat of allCats) {
+          const hv = homeData.categoryValues[cat.key] || 0;
+          const av = awayData.categoryValues[cat.key] || 0;
+          const lowerBetter = cat.isHitting
+            ? LOWER_IS_BETTER.has(cat.id) && ["K", "CS"].includes(cat.id)
+            : LOWER_IS_BETTER.has(cat.id);
+
+          let winner: "home" | "away" | "tie" = "tie";
+          if (hv !== av) {
+            winner = lowerBetter ? (hv < av ? "home" : "away") : (hv > av ? "home" : "away");
+          }
+          if (winner === "home") homeScore++;
+          else if (winner === "away") awayScore++;
+
+          categoryResults.push({ cat: cat.id, homeVal: hv, awayVal: av, winner });
+        }
+      }
+
+      matchups.push({
+        home: { teamId: homeId, teamName: homeData.teamName, userId: homeData.userId, score: homeScore, categoryValues: homeData.categoryValues },
+        away: { teamId: awayId, teamName: awayData.teamName, userId: awayData.userId, score: awayScore, categoryValues: awayData.categoryValues },
+        categoryResults,
+      });
+    }
+    result.push({ week: wi + 1, matchups });
+  }
+
+  return result;
+}
+
 export function computeStandings(
   league: League,
   teams: Team[],

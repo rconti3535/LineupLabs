@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertLeagueSchema, insertTeamSchema, insertUserSchema, insertDraftPickSchema, type Player } from "@shared/schema";
 import { computeRotoStandings } from "./roto-scoring";
-import { computeStandings } from "./scoring";
+import { computeStandings, computeMatchups } from "./scoring";
 
 function getWaiverExpirationPST(): string {
   const now = new Date();
@@ -204,6 +204,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(result);
     } catch (error) {
       res.status(500).json({ message: "Failed to compute standings" });
+    }
+  });
+
+  app.get("/api/leagues/:id/matchups", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const league = await storage.getLeague(id);
+      if (!league) {
+        return res.status(404).json({ message: "League not found" });
+      }
+      const format = league.scoringFormat || "Roto";
+      if (!format.startsWith("H2H")) {
+        return res.status(400).json({ message: "Matchups are only available for H2H leagues" });
+      }
+      const teams = await storage.getTeamsByLeagueId(id);
+      const draftPicks = await storage.getDraftPicksByLeague(id);
+      const playerIdSet = new Set(draftPicks.map(dp => dp.playerId));
+      const playerList = await storage.getPlayersByIds(Array.from(playerIdSet));
+      const playerMap = new Map(playerList.map(p => [p.id, p]));
+      const rosterPositions = league.rosterPositions || ["C", "1B", "2B", "3B", "SS", "OF", "OF", "OF", "UT", "SP", "SP", "RP", "RP", "BN", "BN", "IL"];
+
+      const matchups = computeMatchups(league, teams, draftPicks, playerMap, rosterPositions);
+      res.json({ format, matchups });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to compute matchups" });
     }
   });
 
