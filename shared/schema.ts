@@ -37,6 +37,7 @@ export const leagues = pgTable("leagues", {
   draftStatus: text("draft_status").default("pending"),
   draftPickStartedAt: text("draft_pick_started_at"),
   lineupLockType: text("lineup_lock_type").default("Daily"), // Daily, Weekly
+  pointValues: text("point_values"), // JSON string of custom point values for Points leagues
   seasonWeeks: integer("season_weeks").default(27),
   createdBy: integer("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
