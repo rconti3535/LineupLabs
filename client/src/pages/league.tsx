@@ -780,7 +780,7 @@ export default function LeaguePage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedSwapIndex, setSelectedSwapIndex] = useState<number | null>(null);
   const [swapTargets, setSwapTargets] = useState<number[]>([]);
-  const [rosterStatView, setRosterStatView] = useState<"2025stats" | "2026stats" | "2026proj" | "daily">("2025stats");
+  const [rosterStatView, setRosterStatView] = useState<"2025stats" | "2026stats" | "2026proj" | "daily">("daily");
   const [dailyDate, setDailyDate] = useState(() => {
     const now = new Date();
     return now.toISOString().split("T")[0];
