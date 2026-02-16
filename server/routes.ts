@@ -245,6 +245,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/leagues/:id/randomize-draft-order", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const league = await storage.getLeague(id);
+      if (!league) {
+        return res.status(404).json({ message: "League not found" });
+      }
+      const { userId } = req.body;
+      if (league.createdBy !== userId) {
+        return res.status(403).json({ message: "Only the commissioner can set draft order" });
+      }
+      const leagueTeams = await storage.getTeamsByLeagueId(id);
+      const shuffled = [...leagueTeams].sort(() => Math.random() - 0.5);
+      for (let i = 0; i < shuffled.length; i++) {
+        await storage.updateTeam(shuffled[i].id, { draftPosition: i + 1 } as any);
+      }
+      await storage.updateLeague(id, { draftOrder: "Random" });
+      const updatedTeams = await storage.getTeamsByLeagueId(id);
+      res.json(updatedTeams.sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999)));
+    } catch (error) {
+      res.status(500).json({ message: "Failed to randomize draft order" });
+    }
+  });
+
+  app.post("/api/leagues/:id/set-draft-order", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const league = await storage.getLeague(id);
+      if (!league) {
+        return res.status(404).json({ message: "League not found" });
+      }
+      const { userId, teamOrder } = req.body;
+      if (league.createdBy !== userId) {
+        return res.status(403).json({ message: "Only the commissioner can set draft order" });
+      }
+      if (!Array.isArray(teamOrder)) {
+        return res.status(400).json({ message: "teamOrder must be an array of team IDs" });
+      }
+      const leagueTeams = await storage.getTeamsByLeagueId(id);
+      const leagueTeamIds = new Set(leagueTeams.map(t => t.id));
+      const uniqueOrder = new Set(teamOrder);
+      if (uniqueOrder.size !== leagueTeams.length) {
+        return res.status(400).json({ message: "teamOrder must include all league teams exactly once" });
+      }
+      for (const tid of teamOrder) {
+        if (!leagueTeamIds.has(tid)) {
+          return res.status(400).json({ message: `Team ID ${tid} does not belong to this league` });
+        }
+      }
+      for (let i = 0; i < teamOrder.length; i++) {
+        await storage.updateTeam(teamOrder[i], { draftPosition: i + 1 } as any);
+      }
+      await storage.updateLeague(id, { draftOrder: "Manual" });
+      const updatedTeams = await storage.getTeamsByLeagueId(id);
+      res.json(updatedTeams.sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999)));
+    } catch (error) {
+      res.status(500).json({ message: "Failed to set draft order" });
+    }
+  });
+
   app.delete("/api/leagues/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);

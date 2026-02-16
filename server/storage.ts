@@ -36,6 +36,7 @@ export interface IStorage {
   getTeamsByLeagueId(leagueId: number): Promise<Team[]>;
   getTeam(id: number): Promise<Team | undefined>;
   createTeam(team: InsertTeam): Promise<Team>;
+  updateTeam(id: number, data: Partial<InsertTeam>): Promise<Team | undefined>;
   
   // Players
   getPlayers(): Promise<Player[]>;
@@ -206,6 +207,11 @@ export class DatabaseStorage implements IStorage {
       .values(insertTeam)
       .returning();
     return team;
+  }
+
+  async updateTeam(id: number, data: Partial<InsertTeam>): Promise<Team | undefined> {
+    const [team] = await db.update(teams).set(data).where(eq(teams.id, id)).returning();
+    return team || undefined;
   }
 
   async getPlayers(): Promise<Player[]> {

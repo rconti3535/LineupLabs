@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Users, Trophy, Calendar, TrendingUp, Pencil, Trash2, AlertTriangle, ArrowUpDown, Search, Plus, X, ChevronDown, ChevronLeft, ChevronRight, Menu, Clock, Settings } from "lucide-react";
+import { ArrowLeft, Users, Trophy, Calendar, TrendingUp, Pencil, Trash2, AlertTriangle, ArrowUpDown, Search, Plus, X, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Menu, Clock, Settings, Shuffle, GripVertical } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -1326,6 +1326,8 @@ export default function LeaguePage() {
   const [editDraftDate, setEditDraftDate] = useState("");
   const [editSecondsPerPick, setEditSecondsPerPick] = useState("");
   const [editDraftOrder, setEditDraftOrder] = useState("");
+  const [manualTeamOrder, setManualTeamOrder] = useState<number[]>([]);
+  const [isRandomizing, setIsRandomizing] = useState(false);
   const [isEditingScoring, setIsEditingScoring] = useState(false);
   const [editHittingCategories, setEditHittingCategories] = useState<string[]>([]);
   const [editPitchingCategories, setEditPitchingCategories] = useState<string[]>([]);
@@ -1771,7 +1773,53 @@ export default function LeaguePage() {
     setEditDraftDate(league.draftDate || "");
     setEditSecondsPerPick(String(league.secondsPerPick || 60));
     setEditDraftOrder(league.draftOrder || "Random");
+    const sorted = [...(leagueTeams || [])].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999));
+    setManualTeamOrder(sorted.map(t => t.id));
     setIsEditingDraft(true);
+  };
+
+  const handleRandomizeDraftOrder = async () => {
+    if (!league || !user) return;
+    setIsRandomizing(true);
+    try {
+      await apiRequest("POST", `/api/leagues/${leagueId}/randomize-draft-order`, { userId: user.id });
+      queryClient.invalidateQueries({ queryKey: ["/api/teams/league", leagueId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId] });
+      setEditDraftOrder("Random");
+      toast({ title: "Draft order randomized!" });
+    } catch (err) {
+      toast({ title: "Failed to randomize", variant: "destructive" });
+    }
+    setIsRandomizing(false);
+  };
+
+  const handleSaveManualOrder = async () => {
+    if (!league || !user) return;
+    try {
+      await apiRequest("POST", `/api/leagues/${leagueId}/set-draft-order`, {
+        userId: user.id,
+        teamOrder: manualTeamOrder,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/teams/league", leagueId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId] });
+      toast({ title: "Draft order saved!" });
+    } catch (err) {
+      toast({ title: "Failed to save draft order", variant: "destructive" });
+    }
+  };
+
+  const moveTeamUp = (index: number) => {
+    if (index <= 0) return;
+    const newOrder = [...manualTeamOrder];
+    [newOrder[index - 1], newOrder[index]] = [newOrder[index], newOrder[index - 1]];
+    setManualTeamOrder(newOrder);
+  };
+
+  const moveTeamDown = (index: number) => {
+    if (index >= manualTeamOrder.length - 1) return;
+    const newOrder = [...manualTeamOrder];
+    [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
+    setManualTeamOrder(newOrder);
   };
 
   const saveDraftSettings = () => {
@@ -2977,19 +3025,140 @@ export default function LeaguePage() {
                 </div>
                 <div>
                   <label className="text-gray-400 text-xs block mb-1">Draft Order</label>
-                  <Select value={editDraftOrder} onValueChange={setEditDraftOrder}>
-                    <SelectTrigger className="bg-gray-800 border-gray-700 text-white text-sm h-9">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Random">Random</SelectItem>
-                      <SelectItem value="Manual">Manual</SelectItem>
-                      <SelectItem value="Standings">Standings</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant={editDraftOrder === "Random" ? "default" : "outline"}
+                      className={editDraftOrder === "Random" ? "bg-primary text-white" : "border-gray-700 text-gray-300"}
+                      onClick={() => {
+                        setEditDraftOrder("Random");
+                        handleRandomizeDraftOrder();
+                      }}
+                      disabled={isRandomizing}
+                    >
+                      <Shuffle className="w-3.5 h-3.5 mr-1.5" />
+                      {isRandomizing ? "Shuffling..." : "Random"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={editDraftOrder === "Manual" ? "default" : "outline"}
+                      className={editDraftOrder === "Manual" ? "bg-primary text-white" : "border-gray-700 text-gray-300"}
+                      onClick={() => {
+                        setEditDraftOrder("Manual");
+                        const sorted = [...(leagueTeams || [])].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999));
+                        setManualTeamOrder(sorted.map(t => t.id));
+                      }}
+                    >
+                      <GripVertical className="w-3.5 h-3.5 mr-1.5" />
+                      Manual
+                    </Button>
+                  </div>
                 </div>
+                {editDraftOrder === "Manual" && leagueTeams && leagueTeams.length > 0 && (
+                  <div>
+                    <label className="text-gray-400 text-xs block mb-2">Use arrows to set pick order</label>
+                    <div className="space-y-1">
+                      {manualTeamOrder.map((teamId, index) => {
+                        const team = leagueTeams.find(t => t.id === teamId);
+                        if (!team) return null;
+                        return (
+                          <div key={teamId} className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-2">
+                            <span className="text-primary font-bold text-xs w-5">{index + 1}</span>
+                            <span className="text-white text-sm flex-1">{team.name}</span>
+                            <div className="flex gap-1">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 w-6 p-0 text-gray-400 hover:text-white"
+                                onClick={() => moveTeamUp(index)}
+                                disabled={index === 0}
+                              >
+                                <ChevronUp className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 w-6 p-0 text-gray-400 hover:text-white"
+                                onClick={() => moveTeamDown(index)}
+                                disabled={index === manualTeamOrder.length - 1}
+                              >
+                                <ChevronDown className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <Button
+                      size="sm"
+                      className="mt-2 bg-primary text-white w-full"
+                      onClick={handleSaveManualOrder}
+                    >
+                      Save Draft Order
+                    </Button>
+                  </div>
+                )}
+                {editDraftOrder === "Random" && leagueTeams && leagueTeams.length > 0 && (
+                  <div>
+                    <label className="text-gray-400 text-xs block mb-2">Current Draft Order</label>
+                    <div className="space-y-1">
+                      {[...(leagueTeams || [])].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999)).map((team, index) => (
+                        <div key={team.id} className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-2">
+                          <span className="text-primary font-bold text-xs w-5">{index + 1}</span>
+                          <span className="text-white text-sm flex-1">{team.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-2 border-gray-700 text-gray-300 w-full"
+                      onClick={handleRandomizeDraftOrder}
+                      disabled={isRandomizing}
+                    >
+                      <Shuffle className="w-3.5 h-3.5 mr-1.5" />
+                      {isRandomizing ? "Shuffling..." : "Re-Randomize"}
+                    </Button>
+                  </div>
+                )}
               </div>
             ) : (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-gray-400 text-xs">Draft Type</p>
+                    <p className="text-white font-medium text-sm">{league.draftType || "Snake"}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-xs">Draft Date</p>
+                    <p className="text-white font-medium text-sm">{league.draftDate ? new Date(league.draftDate).toLocaleDateString() : "TBD"}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-xs">Seconds Per Pick</p>
+                    <p className="text-white font-medium text-sm">{league.secondsPerPick || 60}s</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-xs">Draft Order</p>
+                    <p className="text-white font-medium text-sm">{league.draftOrder || "Random"}</p>
+                  </div>
+                </div>
+                {leagueTeams && leagueTeams.some(t => t.draftPosition) && (
+                  <div>
+                    <p className="text-gray-400 text-xs mb-2">Current Order</p>
+                    <div className="space-y-1">
+                      {[...(leagueTeams || [])].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999)).map((team, index) => (
+                        <div key={team.id} className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-1.5">
+                          <span className="text-primary font-bold text-xs w-5">{index + 1}</span>
+                          <span className="text-white text-sm">{team.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          ) : (
+            <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-gray-400 text-xs">Draft Type</p>
@@ -3008,25 +3177,19 @@ export default function LeaguePage() {
                   <p className="text-white font-medium text-sm">{league.draftOrder || "Random"}</p>
                 </div>
               </div>
-            )
-          ) : (
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-gray-400 text-xs">Draft Type</p>
-                <p className="text-white font-medium text-sm">{league.draftType || "Snake"}</p>
-              </div>
-              <div>
-                <p className="text-gray-400 text-xs">Draft Date</p>
-                <p className="text-white font-medium text-sm">{league.draftDate ? new Date(league.draftDate).toLocaleDateString() : "TBD"}</p>
-              </div>
-              <div>
-                <p className="text-gray-400 text-xs">Seconds Per Pick</p>
-                <p className="text-white font-medium text-sm">{league.secondsPerPick || 60}s</p>
-              </div>
-              <div>
-                <p className="text-gray-400 text-xs">Draft Order</p>
-                <p className="text-white font-medium text-sm">{league.draftOrder || "Random"}</p>
-              </div>
+              {leagueTeams && leagueTeams.some(t => t.draftPosition) && (
+                <div>
+                  <p className="text-gray-400 text-xs mb-2">Current Order</p>
+                  <div className="space-y-1">
+                    {[...(leagueTeams || [])].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999)).map((team, index) => (
+                      <div key={team.id} className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-1.5">
+                        <span className="text-primary font-bold text-xs w-5">{index + 1}</span>
+                        <span className="text-white text-sm">{team.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </Card>
