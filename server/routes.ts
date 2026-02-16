@@ -1272,6 +1272,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/adp/import", async (req, res) => {
+    try {
+      const { data, leagueType, scoringFormat, season, weight, userId, mode } = req.body;
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      if (!data || typeof data !== "string") {
+        return res.status(400).json({ message: "Missing 'data' field with tab-separated player ADP list" });
+      }
+      const lt = (leagueType as string) || "Redraft";
+      const sf = (scoringFormat as string) || "Roto";
+      const sn = parseInt(season) || 2026;
+      const w = Math.min(Math.max(parseInt(weight) || 100, 1), 1000);
+      const importMode = mode === "replace" ? "replace" : "merge";
+
+      const lines = data.split("\n").map((l: string) => l.trim()).filter((l: string) => l && !l.toLowerCase().startsWith("player"));
+      const results: { name: string; adp: number; matched: boolean; playerId?: number; playerName?: string }[] = [];
+
+      const allPlayers = await storage.getPlayers();
+      const nameMap = new Map<string, typeof allPlayers[0]>();
+      for (const p of allPlayers) {
+        nameMap.set(p.name.toLowerCase(), p);
+      }
+
+      const parsed: { name: string; adp: number; player?: typeof allPlayers[0] }[] = [];
+      for (const line of lines) {
+        const parts = line.split("\t");
+        if (parts.length < 2) continue;
+        const name = parts[0].trim();
+        const adp = parseInt(parts[1].trim());
+        if (!name || isNaN(adp)) continue;
+
+        const normalizedName = name.toLowerCase().replace(/\./g, "").replace(/\s+/g, " ");
+        let match = nameMap.get(normalizedName);
+        if (!match) {
+          const entries = Array.from(nameMap.entries());
+          for (let i = 0; i < entries.length; i++) {
+            const cleanKey = entries[i][0].replace(/\./g, "").replace(/\s+/g, " ");
+            if (cleanKey === normalizedName) {
+              match = entries[i][1];
+              break;
+            }
+          }
+        }
+        if (!match) {
+          const allP = Array.from(nameMap.values());
+          for (let i = 0; i < allP.length; i++) {
+            const pName = allP[i].name.toLowerCase().replace(/\./g, "").replace(/\s+/g, " ");
+            if (pName.includes(normalizedName) || normalizedName.includes(pName)) {
+              match = allP[i];
+              break;
+            }
+          }
+        }
+
+        parsed.push({ name, adp, player: match || undefined });
+        results.push({
+          name,
+          adp,
+          matched: !!match,
+          playerId: match?.id,
+          playerName: match?.name,
+        });
+      }
+
+      const matched = parsed.filter(p => p.player);
+      if (matched.length === 0) {
+        return res.json({ message: "No players matched", results, matchedCount: 0, totalCount: parsed.length });
+      }
+
+      const seenPlayerIds = new Set<number>();
+      const deduped = matched.filter(p => {
+        if (seenPlayerIds.has(p.player!.id)) return false;
+        seenPlayerIds.add(p.player!.id);
+        return true;
+      });
+
+      await storage.importAdpData(deduped.map(p => ({
+        playerId: p.player!.id,
+        adp: p.adp,
+      })), lt, sf, sn, w, importMode);
+
+      res.json({
+        message: `Imported ADP for ${matched.length} players`,
+        matchedCount: matched.length,
+        totalCount: parsed.length,
+        unmatchedCount: parsed.length - matched.length,
+        results,
+      });
+    } catch (error) {
+      console.error("ADP import error:", error);
+      res.status(500).json({ message: "Failed to import ADP data" });
+    }
+  });
+
   app.get("/api/leagues/:id/available-players", async (req, res) => {
     try {
       const leagueId = parseInt(req.params.id);

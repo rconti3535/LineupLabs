@@ -1,17 +1,57 @@
+import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { User, LogOut, Mail } from "lucide-react";
+import { User, LogOut, Mail, Upload, ChevronDown, ChevronUp } from "lucide-react";
 import { useLocation } from "wouter";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 export default function Profile() {
   const { user, isLoading, logout } = useAuth();
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
+  const [showAdpImport, setShowAdpImport] = useState(false);
+  const [adpText, setAdpText] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ matchedCount: number; totalCount: number; unmatchedCount: number; results: { name: string; adp: number; matched: boolean; playerName?: string }[] } | null>(null);
+  const [importMode, setImportMode] = useState<"merge" | "replace">("replace");
 
   const handleLogout = () => {
     logout();
     setLocation("/login");
+  };
+
+  const handleAdpImport = async () => {
+    if (!adpText.trim()) {
+      toast({ title: "Please paste ADP data first", variant: "destructive" });
+      return;
+    }
+    if (!user) {
+      toast({ title: "You must be logged in", variant: "destructive" });
+      return;
+    }
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const res = await apiRequest("POST", "/api/adp/import", {
+        data: adpText,
+        leagueType: "Redraft",
+        scoringFormat: "Roto",
+        season: 2026,
+        weight: 100,
+        userId: user.id,
+        mode: importMode,
+      });
+      const result = await res.json();
+      setImportResult(result);
+      toast({ title: result.message });
+    } catch (err) {
+      toast({ title: "Failed to import ADP data", variant: "destructive" });
+    } finally {
+      setImporting(false);
+    }
   };
 
   if (isLoading) {
@@ -55,7 +95,6 @@ export default function Profile() {
 
   return (
     <div className="px-4 py-6 space-y-6">
-      {/* User Profile Card */}
       <Card className="gradient-card rounded-xl p-6 border-0">
         <div className="flex items-center space-x-4 mb-6">
           <div className="w-16 h-16 primary-gradient rounded-full flex items-center justify-center">
@@ -70,7 +109,6 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* User Stats */}
         <div className="grid grid-cols-3 gap-4 text-center mb-6">
           <div>
             <div className="text-2xl font-bold text-white">0</div>
@@ -86,7 +124,6 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Logout Button */}
         <Button
           onClick={handleLogout}
           variant="destructive"
@@ -97,7 +134,6 @@ export default function Profile() {
         </Button>
       </Card>
 
-      {/* Additional Profile Sections */}
       <Card className="gradient-card rounded-xl p-6 border-0">
         <h2 className="text-lg font-semibold text-white mb-4">Account Settings</h2>
         <div className="space-y-3">
@@ -114,6 +150,74 @@ export default function Profile() {
             <span className="text-gray-400 text-sm">Open</span>
           </div>
         </div>
+      </Card>
+
+      <Card className="gradient-card rounded-xl p-6 border-0">
+        <button
+          onClick={() => setShowAdpImport(!showAdpImport)}
+          className="flex items-center justify-between w-full"
+        >
+          <div className="flex items-center gap-2">
+            <Upload className="w-5 h-5 text-blue-400" />
+            <h2 className="text-lg font-semibold text-white">Import ADP Data</h2>
+          </div>
+          {showAdpImport ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+        </button>
+
+        {showAdpImport && (
+          <div className="mt-4 space-y-3">
+            <p className="text-gray-400 text-xs">
+              Paste a tab-separated list of player names and ADP values. Each line should be: Player Name [tab] ADP Number
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setImportMode("replace")}
+                className={`flex-1 text-xs py-1.5 rounded-lg border ${importMode === "replace" ? "bg-blue-600 border-blue-500 text-white" : "bg-gray-800 border-gray-700 text-gray-400"}`}
+              >
+                Replace existing
+              </button>
+              <button
+                onClick={() => setImportMode("merge")}
+                className={`flex-1 text-xs py-1.5 rounded-lg border ${importMode === "merge" ? "bg-blue-600 border-blue-500 text-white" : "bg-gray-800 border-gray-700 text-gray-400"}`}
+              >
+                Merge with existing
+              </button>
+            </div>
+            <textarea
+              value={adpText}
+              onChange={(e) => setAdpText(e.target.value)}
+              placeholder={"Player Name\tADP\nShohei Ohtani\t1\nAaron Judge\t2"}
+              className="w-full h-40 bg-gray-800 border border-gray-700 rounded-lg p-3 text-white text-xs font-mono resize-y placeholder:text-gray-600"
+            />
+            <Button
+              onClick={handleAdpImport}
+              disabled={importing || !adpText.trim()}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {importing ? "Importing..." : "Import ADP Rankings"}
+            </Button>
+
+            {importResult && (
+              <div className="mt-3 space-y-2">
+                <div className="flex gap-3 text-xs">
+                  <span className="text-green-400">{importResult.matchedCount} matched</span>
+                  {importResult.unmatchedCount > 0 && (
+                    <span className="text-yellow-400">{importResult.unmatchedCount} unmatched</span>
+                  )}
+                  <span className="text-gray-400">{importResult.totalCount} total</span>
+                </div>
+                {importResult.unmatchedCount > 0 && (
+                  <div className="bg-gray-800/50 rounded-lg p-2 max-h-32 overflow-y-auto">
+                    <p className="text-yellow-400 text-[10px] font-semibold mb-1">Unmatched players:</p>
+                    {importResult.results.filter(r => !r.matched).map((r, i) => (
+                      <p key={i} className="text-gray-400 text-[10px]">{r.name} (ADP: {r.adp})</p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </Card>
     </div>
   );

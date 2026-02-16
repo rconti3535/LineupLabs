@@ -56,6 +56,7 @@ export interface IStorage {
   recalculateAdp(leagueType: string, scoringFormat: string, season: number): Promise<void>;
   getAdp(leagueType: string, scoringFormat: string, season: number, limit?: number, offset?: number): Promise<{ adpRecords: PlayerAdp[]; total: number }>;
   getPlayerAdp(playerId: number, leagueType: string, scoringFormat: string, season: number): Promise<PlayerAdp | undefined>;
+  importAdpData(entries: { playerId: number; adp: number }[], leagueType: string, scoringFormat: string, season: number, weight: number, mode?: string): Promise<void>;
   getCompletedLeaguesByType(leagueType: string, scoringFormat: string, season: number): Promise<League[]>;
 
   // Roster management
@@ -490,6 +491,63 @@ export class DatabaseStorage implements IStorage {
       )
     );
     return record || undefined;
+  }
+
+  async importAdpData(entries: { playerId: number; adp: number }[], leagueType: string, scoringFormat: string, season: number, weight: number, mode?: string): Promise<void> {
+    if (mode === "replace") {
+      await db.delete(playerAdp).where(
+        and(
+          eq(playerAdp.leagueType, leagueType),
+          eq(playerAdp.scoringFormat, scoringFormat),
+          eq(playerAdp.season, season)
+        )
+      );
+    }
+
+    for (const entry of entries) {
+      if (mode === "replace") {
+        await db.insert(playerAdp).values({
+          playerId: entry.playerId,
+          leagueType,
+          scoringFormat,
+          season,
+          adp: entry.adp,
+          draftCount: weight,
+          totalPositionSum: entry.adp * weight,
+        });
+      } else {
+        const existing = await db.select().from(playerAdp).where(
+          and(
+            eq(playerAdp.playerId, entry.playerId),
+            eq(playerAdp.leagueType, leagueType),
+            eq(playerAdp.scoringFormat, scoringFormat),
+            eq(playerAdp.season, season)
+          )
+        );
+
+        if (existing.length > 0) {
+          const rec = existing[0];
+          const newDraftCount = rec.draftCount + weight;
+          const newTotalSum = rec.totalPositionSum + (entry.adp * weight);
+          const newAdp = Math.round(newTotalSum / newDraftCount);
+          await db.update(playerAdp).set({
+            draftCount: newDraftCount,
+            totalPositionSum: newTotalSum,
+            adp: newAdp,
+          }).where(eq(playerAdp.id, rec.id));
+        } else {
+          await db.insert(playerAdp).values({
+            playerId: entry.playerId,
+            leagueType,
+            scoringFormat,
+            season,
+            adp: entry.adp,
+            draftCount: weight,
+            totalPositionSum: entry.adp * weight,
+          });
+        }
+      }
+    }
   }
 
   async getDraftPickById(id: number): Promise<DraftPick | undefined> {
