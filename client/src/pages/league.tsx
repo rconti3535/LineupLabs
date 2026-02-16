@@ -938,7 +938,13 @@ export default function LeaguePage() {
     },
   });
 
+  const isPastDate = dailyDate < new Date().toISOString().split("T")[0];
+
   const handleSwapSelect = (index: number) => {
+    if (rosterStatView === "daily" && isPastDate) {
+      toast({ title: "Cannot edit past lineups", description: "You can only change today's or future lineups.", variant: "destructive" });
+      return;
+    }
     if (selectedSwapIndex === null) {
       const targets = getSwapTargets(rosterEntries, index, rosterSlots);
       if (targets.length === 0) {
@@ -1385,9 +1391,10 @@ export default function LeaguePage() {
                     <ChevronLeft className="w-5 h-5" />
                   </button>
                   <div className="text-center">
-                    <span className="text-sm font-semibold text-white">
+                    <span className={`text-sm font-semibold ${isPastDate ? "text-gray-500" : "text-white"}`}>
                       {new Date(dailyDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
                       {dailyDate === new Date().toISOString().split("T")[0] && " (TODAY)"}
+                      {isPastDate && " (LOCKED)"}
                     </span>
                   </div>
                   <button

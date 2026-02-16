@@ -12,7 +12,7 @@ import {
   type DailyLineup, type InsertDailyLineup
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, ilike, or, and, sql, notInArray, asc, desc, inArray } from "drizzle-orm";
+import { eq, ilike, or, and, sql, notInArray, asc, desc, inArray, gte, gt } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -92,6 +92,8 @@ export interface IStorage {
   saveDailyLineup(entries: InsertDailyLineup[]): Promise<void>;
   deleteDailyLineup(leagueId: number, teamId: number, date: string): Promise<void>;
   getDailyLineupDates(leagueId: number, teamId: number): Promise<string[]>;
+  getFutureDailyLineupDates(leagueId: number, teamId: number, fromDate: string): Promise<string[]>;
+  deleteDailyLineupFromDate(leagueId: number, teamId: number, fromDate: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -684,6 +686,28 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(dailyLineups.leagueId, leagueId), eq(dailyLineups.teamId, teamId)))
       .orderBy(desc(dailyLineups.date));
     return rows.map(r => r.date);
+  }
+
+  async getFutureDailyLineupDates(leagueId: number, teamId: number, fromDate: string): Promise<string[]> {
+    const rows = await db.selectDistinct({ date: dailyLineups.date })
+      .from(dailyLineups)
+      .where(and(
+        eq(dailyLineups.leagueId, leagueId),
+        eq(dailyLineups.teamId, teamId),
+        gt(dailyLineups.date, fromDate)
+      ))
+      .orderBy(asc(dailyLineups.date));
+    return rows.map(r => r.date);
+  }
+
+  async deleteDailyLineupFromDate(leagueId: number, teamId: number, fromDate: string): Promise<void> {
+    await db.delete(dailyLineups).where(
+      and(
+        eq(dailyLineups.leagueId, leagueId),
+        eq(dailyLineups.teamId, teamId),
+        gte(dailyLineups.date, fromDate)
+      )
+    );
   }
 }
 

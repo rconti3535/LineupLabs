@@ -1305,6 +1305,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "teamId, date, slotIndexA, slotIndexB required" });
       }
 
+      const today = new Date().toISOString().split("T")[0];
+      if (date < today) {
+        return res.status(400).json({ message: "Cannot modify past lineups" });
+      }
+
       const lineup = await storage.getDailyLineup(leagueId, teamId, date);
       const entryA = lineup.find(e => e.slotIndex === slotIndexA);
       const entryB = lineup.find(e => e.slotIndex === slotIndexB);
@@ -1312,17 +1317,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid slot indices" });
       }
 
+      const playerIdA = entryA.playerId;
+      const playerIdB = entryB.playerId;
+
+      const applySwapToLineup = (dayLineup: typeof lineup, targetDate: string) => {
+        return dayLineup.map(e => {
+          if (e.slotIndex === slotIndexA) {
+            return { leagueId, teamId, date: targetDate, slotIndex: e.slotIndex, slotPos: e.slotPos, playerId: playerIdB };
+          }
+          if (e.slotIndex === slotIndexB) {
+            return { leagueId, teamId, date: targetDate, slotIndex: e.slotIndex, slotPos: e.slotPos, playerId: playerIdA };
+          }
+          return { leagueId, teamId, date: targetDate, slotIndex: e.slotIndex, slotPos: e.slotPos, playerId: e.playerId };
+        });
+      };
+
       await storage.deleteDailyLineup(leagueId, teamId, date);
-      const updated = lineup.map(e => {
-        if (e.slotIndex === slotIndexA) {
-          return { leagueId, teamId, date, slotIndex: e.slotIndex, slotPos: e.slotPos, playerId: entryB.playerId };
+      await storage.saveDailyLineup(applySwapToLineup(lineup, date));
+
+      const futureDates = await storage.getFutureDailyLineupDates(leagueId, teamId, date);
+      for (const futureDate of futureDates) {
+        const futureLineup = await storage.getDailyLineup(leagueId, teamId, futureDate);
+        const futureA = futureLineup.find(e => e.slotIndex === slotIndexA);
+        const futureB = futureLineup.find(e => e.slotIndex === slotIndexB);
+        if (futureA && futureB && futureA.playerId === playerIdA && futureB.playerId === playerIdB) {
+          await storage.deleteDailyLineup(leagueId, teamId, futureDate);
+          await storage.saveDailyLineup(applySwapToLineup(futureLineup, futureDate));
         }
-        if (e.slotIndex === slotIndexB) {
-          return { leagueId, teamId, date, slotIndex: e.slotIndex, slotPos: e.slotPos, playerId: entryA.playerId };
-        }
-        return { leagueId, teamId, date, slotIndex: e.slotIndex, slotPos: e.slotPos, playerId: e.playerId };
-      });
-      await storage.saveDailyLineup(updated);
+      }
 
       const newLineup = await storage.getDailyLineup(leagueId, teamId, date);
       res.json(newLineup);
