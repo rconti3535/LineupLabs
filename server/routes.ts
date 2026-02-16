@@ -1246,6 +1246,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       let lineup = await storage.getDailyLineup(leagueId, teamId, date);
+      const today = new Date().toISOString().split("T")[0];
+      const isPast = date < today;
 
       if (lineup.length === 0) {
         const league = await storage.getLeague(leagueId);
@@ -1255,9 +1257,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const dates = await storage.getDailyLineupDates(leagueId, teamId);
         const previousDate = dates.find(d => d < date);
 
+        let entries: Array<{ leagueId: number; teamId: number; date: string; slotIndex: number; slotPos: string; playerId: number | null }> = [];
+
         if (previousDate) {
           const prevLineup = await storage.getDailyLineup(leagueId, teamId, previousDate);
-          const entries = prevLineup.map(e => ({
+          entries = prevLineup.map(e => ({
             leagueId,
             teamId,
             date,
@@ -1265,14 +1269,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             slotPos: e.slotPos,
             playerId: e.playerId,
           }));
-          if (entries.length > 0) {
-            await storage.saveDailyLineup(entries);
-            lineup = await storage.getDailyLineup(leagueId, teamId, date);
-          }
         } else {
           const draftPicks = await storage.getDraftPicksByLeague(leagueId);
           const teamPicks = draftPicks.filter(p => p.teamId === teamId);
-          const entries = rosterPositions.map((pos, idx) => {
+          entries = rosterPositions.map((pos, idx) => {
             const pick = teamPicks.find(p => p.rosterSlot === idx);
             return {
               leagueId,
@@ -1283,9 +1283,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
               playerId: pick ? pick.playerId : null,
             };
           });
-          if (entries.length > 0) {
+        }
+
+        if (entries.length > 0) {
+          if (!isPast) {
             await storage.saveDailyLineup(entries);
             lineup = await storage.getDailyLineup(leagueId, teamId, date);
+          } else {
+            lineup = entries.map((e, i) => ({ id: -(i + 1), ...e }));
           }
         }
       }
