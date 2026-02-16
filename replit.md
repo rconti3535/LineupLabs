@@ -70,6 +70,7 @@ Key API routes:
 - **player_adp** — id, playerId (FK to players), leagueType, scoringFormat, season, adp (average draft position), draftCount, totalPositionSum. Recalculated when drafts complete. Undrafted players get position 9999.
 - **waivers** — id, leagueId (FK to leagues), playerId (FK to players), droppedByTeamId (FK to teams), waiverExpiresAt (ISO string), status (active/claimed/cleared), createdAt. 2-day waiver period for dropped players.
 - **waiver_claims** — id, waiverId (FK to waivers), teamId (FK to teams), dropPickId (nullable FK to draft_picks), createdAt. Teams submit claims on waiver players; first claim wins when waiver expires. dropPickId tracks which player to drop when roster is full.
+- **daily_lineups** — id, leagueId (FK to leagues), teamId (FK to teams), date (string YYYY-MM-DD), slotIndex (integer), slotPos (string), playerId (nullable FK to players). Tracks daily lineup assignments per team per date; initialized from previous day or draft picks when first accessed.
 - **activities** — user activity tracking
 
 ### Storage Layer
