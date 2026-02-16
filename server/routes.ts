@@ -101,6 +101,66 @@ async function recalculateAdpForLeague(league: { type: string | null; scoringFor
   await storage.recalculateAdp(leagueType, scoringFormat, season);
 }
 
+async function autoInitializeRosterSlots(leagueId: number): Promise<void> {
+  try {
+    const league = await storage.getLeague(leagueId);
+    if (!league) return;
+
+    const rosterPositions = league.rosterPositions || [];
+    const leagueTeams = await storage.getTeamsByLeagueId(leagueId);
+    const allPicks = await storage.getDraftPicksByLeague(leagueId);
+
+    for (const team of leagueTeams) {
+      const myPicks = allPicks.filter(p => p.teamId === team.id);
+      const allInitialized = myPicks.length > 0 && myPicks.every(p => p.rosterSlot !== null);
+      if (allInitialized) continue;
+
+      const playerObjects: (Player | undefined)[] = await Promise.all(
+        myPicks.map(p => storage.getPlayer(p.playerId))
+      );
+
+      const assigned = new Array<number | null>(rosterPositions.length).fill(null);
+      const usedPickIndices = new Set<number>();
+
+      for (let pass = 0; pass < 4; pass++) {
+        for (let pi = 0; pi < myPicks.length; pi++) {
+          if (usedPickIndices.has(pi)) continue;
+          const player = playerObjects[pi];
+          if (!player) continue;
+
+          for (let si = 0; si < rosterPositions.length; si++) {
+            if (assigned[si] !== null) continue;
+            const slot = rosterPositions[si];
+
+            if (pass === 0) {
+              if (slot === player.position || (slot === "OF" && ["OF", "LF", "CF", "RF"].includes(player.position))) {
+                assigned[si] = pi; usedPickIndices.add(pi); break;
+              }
+            } else if (pass === 1) {
+              if ((slot === "UT" && !["SP", "RP"].includes(player.position)) || (slot === "P" && ["SP", "RP"].includes(player.position))) {
+                assigned[si] = pi; usedPickIndices.add(pi); break;
+              }
+            } else if (pass === 2) {
+              if (slot === "BN") { assigned[si] = pi; usedPickIndices.add(pi); break; }
+            } else if (pass === 3) {
+              if (slot === "IL") { assigned[si] = pi; usedPickIndices.add(pi); break; }
+            }
+          }
+        }
+      }
+
+      for (let si = 0; si < rosterPositions.length; si++) {
+        const pi = assigned[si];
+        if (pi !== null) {
+          await storage.setRosterSlot(myPicks[pi].id, si);
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Auto-init roster slots error:", error);
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Get public leagues
   app.get("/api/leagues/public", async (req, res) => {
@@ -173,6 +233,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
       }
+
+      const draftHasStarted = league.draftStatus === "active" || league.draftStatus === "paused" || league.draftStatus === "completed";
+
+      if (draftHasStarted && updates.type !== undefined && updates.type !== league.type) {
+        return res.status(400).json({ message: "League type cannot be changed after the draft has started" });
+      }
+
+      if (draftHasStarted && updates.scoringFormat !== undefined && updates.scoringFormat !== league.scoringFormat) {
+        return res.status(400).json({ message: "Scoring format cannot be changed after the draft has started" });
+      }
+
+      if (draftHasStarted && updates.pointValues !== undefined && updates.pointValues !== league.pointValues) {
+        return res.status(400).json({ message: "Point values cannot be changed after the draft has started" });
+      }
+
+      if (updates.maxTeams !== undefined) {
+        const existingTeams = await storage.getTeamsByLeagueId(id);
+        if (updates.maxTeams < existingTeams.length) {
+          return res.status(400).json({ message: `Cannot reduce max teams below the current team count (${existingTeams.length})` });
+        }
+      }
+
       if (updates.pointValues !== undefined) {
         if (typeof updates.pointValues === "string") {
           try {
@@ -219,6 +301,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       if (!["start", "pause", "resume"].includes(action)) {
         return res.status(400).json({ message: "Invalid action" });
+      }
+
+      if (action === "start" && league.draftStatus === "completed") {
+        return res.status(400).json({ message: "Cannot restart a completed draft" });
       }
 
       if (action === "start" && fillWithCpu) {
@@ -910,6 +996,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.updateLeague(leagueId, { draftStatus: "completed", draftPickStartedAt: null });
         recalculateAdpForLeague(league).catch(e => console.error("ADP recalc error:", e));
         generateLeagueMatchups(leagueId).catch(e => console.error("Matchup gen error:", e));
+        autoInitializeRosterSlots(leagueId).catch(e => console.error("Roster init error:", e));
       } else {
         await storage.updateLeague(leagueId, { draftPickStartedAt: new Date().toISOString() });
       }
@@ -991,6 +1078,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.updateLeague(leagueId, { draftStatus: "completed", draftPickStartedAt: null });
         recalculateAdpForLeague(league).catch(e => console.error("ADP recalc error:", e));
         generateLeagueMatchups(leagueId).catch(e => console.error("Matchup gen error:", e));
+        autoInitializeRosterSlots(leagueId).catch(e => console.error("Roster init error:", e));
       } else {
         await storage.updateLeague(leagueId, { draftPickStartedAt: new Date().toISOString() });
       }
@@ -1140,6 +1228,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.updateLeague(leagueId, { draftStatus: "completed", draftPickStartedAt: null });
         recalculateAdpForLeague(league).catch(e => console.error("ADP recalc error:", e));
         generateLeagueMatchups(leagueId).catch(e => console.error("Matchup gen error:", e));
+        autoInitializeRosterSlots(leagueId).catch(e => console.error("Roster init error:", e));
       } else {
         await storage.updateLeague(leagueId, { draftPickStartedAt: new Date().toISOString() });
       }
@@ -1235,8 +1324,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const picks = await storage.getDraftPicksByLeague(leagueId);
       const myPicks = picks.filter(p => p.teamId === userTeam.id);
 
-      const alreadyInitialized = myPicks.some(p => p.rosterSlot !== null);
-      if (alreadyInitialized) {
+      const allInitialized = myPicks.length > 0 && myPicks.every(p => p.rosterSlot !== null);
+      if (allInitialized) {
         return res.json({ message: "Already initialized" });
       }
 
@@ -1959,6 +2048,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.updateLeague(league.id, { draftStatus: "completed", draftPickStartedAt: null });
           recalculateAdpForLeague(league).catch(e => console.error("ADP recalc error:", e));
           generateLeagueMatchups(league.id).catch(e => console.error("Matchup gen error:", e));
+          autoInitializeRosterSlots(league.id).catch(e => console.error("Roster init error:", e));
           continue;
         }
 
@@ -2039,6 +2129,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.updateLeague(league.id, { draftStatus: "completed", draftPickStartedAt: null });
           recalculateAdpForLeague(league).catch(e => console.error("ADP recalc error:", e));
           generateLeagueMatchups(league.id).catch(e => console.error("Matchup gen error:", e));
+          autoInitializeRosterSlots(league.id).catch(e => console.error("Roster init error:", e));
           continue;
         }
 
@@ -2056,6 +2147,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.updateLeague(league.id, { draftStatus: "completed", draftPickStartedAt: null });
           recalculateAdpForLeague(league).catch(e => console.error("ADP recalc error:", e));
           generateLeagueMatchups(league.id).catch(e => console.error("Matchup gen error:", e));
+          autoInitializeRosterSlots(league.id).catch(e => console.error("Roster init error:", e));
         } else {
           await storage.updateLeague(league.id, { draftPickStartedAt: new Date().toISOString() });
         }
