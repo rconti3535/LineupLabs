@@ -1332,19 +1332,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       };
 
-      await storage.deleteDailyLineup(leagueId, teamId, date);
+      await storage.deleteDailyLineupFromDate(leagueId, teamId, date);
       await storage.saveDailyLineup(applySwapToLineup(lineup, date));
-
-      const futureDates = await storage.getFutureDailyLineupDates(leagueId, teamId, date);
-      for (const futureDate of futureDates) {
-        const futureLineup = await storage.getDailyLineup(leagueId, teamId, futureDate);
-        const futureA = futureLineup.find(e => e.slotIndex === slotIndexA);
-        const futureB = futureLineup.find(e => e.slotIndex === slotIndexB);
-        if (futureA && futureB && futureA.playerId === playerIdA && futureB.playerId === playerIdB) {
-          await storage.deleteDailyLineup(leagueId, teamId, futureDate);
-          await storage.saveDailyLineup(applySwapToLineup(futureLineup, futureDate));
-        }
-      }
 
       const newLineup = await storage.getDailyLineup(leagueId, teamId, date);
       res.json(newLineup);
