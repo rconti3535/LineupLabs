@@ -1422,6 +1422,12 @@ export default function LeaguePage() {
     }
   }, [isWeeklyLock]);
 
+  useEffect(() => {
+    if (league?.type === "Best Ball") {
+      setRosterStatView("2026stats");
+    }
+  }, [league?.type]);
+
   const { data: teams, isLoading: teamsLoading } = useQuery<Team[]>({
     queryKey: ["/api/teams/league", leagueId],
     queryFn: async () => {
