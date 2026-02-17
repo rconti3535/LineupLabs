@@ -1618,6 +1618,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/adp/import-nfbc", async (req, res) => {
+    try {
+      const { importNfbcAdp } = await import("./import-nfbc-adp");
+      const result = await importNfbcAdp();
+      res.json({
+        message: `NFBC ADP import complete: ${result.matched} matched, ${result.unmatched} unmatched, ${result.total} total players`,
+        ...result,
+      });
+    } catch (error) {
+      console.error("NFBC ADP import error:", error);
+      res.status(500).json({ message: "Failed to import NFBC ADP data" });
+    }
+  });
+
   app.get("/api/leagues/:id/available-players", async (req, res) => {
     try {
       const leagueId = parseInt(req.params.id);
