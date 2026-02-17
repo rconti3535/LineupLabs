@@ -182,6 +182,7 @@ export class DatabaseStorage implements IStorage {
       await db.delete(waivers).where(eq(waivers.leagueId, id));
     }
 
+    await db.delete(dailyLineups).where(eq(dailyLineups.leagueId, id));
     await db.delete(leagueMatchups).where(eq(leagueMatchups.leagueId, id));
     await db.delete(draftPicks).where(eq(draftPicks.leagueId, id));
     await db.delete(teams).where(eq(teams.leagueId, id));
