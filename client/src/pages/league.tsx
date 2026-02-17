@@ -380,7 +380,7 @@ function StandingsTab({ leagueId, league, teamsLoading, teams, user }: { leagueI
     idx === 0 ? "text-yellow-400" : idx === 1 ? "text-gray-300" : idx === 2 ? "text-orange-400" : "text-gray-500";
 
   const emptyTeamCell = (slotIdx: number) => (
-    <td className="py-2 sticky left-0 bg-[#1a1d26] z-10 pl-1">
+    <td className="py-2 sticky left-0 bg-[#1a1d26] z-10 pl-1 w-[140px] border-r border-gray-800/50">
       <div className="flex items-center gap-2">
         <span className="text-xs font-bold w-5 text-center shrink-0 text-gray-600">{standings.length + slotIdx + 1}</span>
         <span className="text-gray-600 text-xs italic">Open Slot</span>
@@ -389,7 +389,7 @@ function StandingsTab({ leagueId, league, teamsLoading, teams, user }: { leagueI
   );
 
   const teamCell = (team: typeof standings[0], idx: number) => (
-    <td className="py-2 sticky left-0 bg-[#1a1d26] z-10 pl-1">
+    <td className="py-2 sticky left-0 bg-[#1a1d26] z-10 pl-1 w-[140px] border-r border-gray-800/50">
       <div className="flex items-center gap-2">
         <span className={`text-xs font-bold w-5 text-center shrink-0 ${rankClass(idx)}`}>{idx + 1}</span>
         <div className="min-w-0">
@@ -440,8 +440,8 @@ function StandingsTab({ leagueId, league, teamsLoading, teams, user }: { leagueI
               <table className="w-full" style={{ minWidth: minWidth + "px" }}>
                 <thead>
                   <tr className="border-b border-gray-700">
-                    <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 sticky left-0 bg-[#1a1d26] z-10 w-[140px] pl-1">Team</th>
-                    <th className="text-center text-[10px] text-yellow-400 font-bold uppercase pb-1.5 w-[48px]">PTS</th>
+                    <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 sticky left-0 bg-[#1a1d26] z-10 w-[140px] pl-1 border-r border-gray-800/50">Team</th>
+                    <th className="text-center text-[10px] text-yellow-400 font-bold uppercase pb-1.5 w-[48px] sticky left-[140px] bg-[#1a1d26] z-10">PTS</th>
                     {hittingCategories.map((cat, i) => (
                       <th key={`h_${cat}`} className={`text-center text-[10px] text-blue-400 font-semibold uppercase pb-1.5 w-[56px] ${i === 0 ? "border-l border-gray-700/50" : ""}`}>{cat}</th>
                     ))}
@@ -454,7 +454,7 @@ function StandingsTab({ leagueId, league, teamsLoading, teams, user }: { leagueI
                   {standings.map((team, idx) => (
                     <tr key={team.teamId} className="border-b border-gray-800/50 hover:bg-white/[0.02]">
                       {teamCell(team, idx)}
-                      <td className="text-center py-2">
+                      <td className="text-center py-2 sticky left-[140px] bg-[#1a1d26] z-10">
                         <p className="text-yellow-400 text-xs font-bold">{(team.totalPoints ?? 0).toFixed(1)}</p>
                       </td>
                       {hittingCategories.map((cat, i) => {
@@ -696,7 +696,7 @@ function StandingsTab({ leagueId, league, teamsLoading, teams, user }: { leagueI
                   {standings.map((team, idx) => (
                     <tr key={team.teamId} className="border-b border-gray-800/50 hover:bg-white/[0.02]">
                       {teamCell(team, idx)}
-                      <td className="text-center py-2">
+                      <td className="text-center py-2 sticky left-[140px] bg-[#1a1d26] z-10">
                         <p className="text-yellow-400 text-xs font-bold">{(team.totalPoints ?? 0).toFixed(1)}</p>
                       </td>
                     </tr>
