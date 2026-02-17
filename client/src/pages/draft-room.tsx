@@ -369,6 +369,9 @@ export default function DraftRoom() {
     if (!rosterPositions.length) return true;
     const isBestBallDraft = league?.type === "Best Ball";
     const maxRoster = league?.maxRosterSize || rosterPositions.length;
+    if (isBestBallDraft) {
+      return myDraftedPlayers.length < maxRoster;
+    }
     const INF_POS = ["1B", "2B", "3B", "SS"];
     const filledSlots = new Set<number>();
     for (const tp of myDraftedPlayers) {
@@ -376,7 +379,6 @@ export default function DraftRoom() {
         if (filledSlots.has(i)) return false;
         if (slot === tp.position) return true;
         if (slot === "OF" && ["OF", "LF", "CF", "RF"].includes(tp.position)) return true;
-        if (isBestBallDraft && slot === "OF" && ["DH", "UT"].includes(tp.position)) return true;
         if (slot === "INF" && INF_POS.includes(tp.position)) return true;
         return false;
       });
@@ -399,9 +401,6 @@ export default function DraftRoom() {
         }
       }
     }
-    if (isBestBallDraft && filledSlots.size >= rosterPositions.length && myDraftedPlayers.length < maxRoster) {
-      return true;
-    }
     for (let i = 0; i < rosterPositions.length; i++) {
       if (filledSlots.has(i)) continue;
       const slot = rosterPositions[i];
@@ -409,7 +408,6 @@ export default function DraftRoom() {
       if (slot === "UT" && !["SP", "RP"].includes(playerPos)) return true;
       if (slot === "P" && ["SP", "RP"].includes(playerPos)) return true;
       if (slot === "OF" && ["OF", "LF", "CF", "RF"].includes(playerPos)) return true;
-      if (isBestBallDraft && slot === "OF" && ["DH", "UT"].includes(playerPos)) return true;
       if (slot === "INF" && INF_POS.includes(playerPos)) return true;
       if (slot === playerPos) return true;
     }

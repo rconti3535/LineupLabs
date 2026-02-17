@@ -989,48 +989,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const isBestBallManual = league.type === "Best Ball";
-      const filledSlots = new Set<number>();
-      for (const tp of teamPlayers) {
-        const idx = rosterPositions.findIndex((slot, i) => {
-          if (filledSlots.has(i)) return false;
-          return canFitSlot(tp.position, slot, isBestBallManual) && slot !== "BN" && slot !== "IL" && slot !== "UT" && slot !== "P";
-        });
-        if (idx !== -1) filledSlots.add(idx);
-        else {
-          if (!["SP", "RP"].includes(tp.position)) {
-            const utilIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "UT");
-            if (utilIdx !== -1) filledSlots.add(utilIdx);
-            else {
-              const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
-              if (bnIdx !== -1) filledSlots.add(bnIdx);
-            }
-          } else {
-            const pIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "P");
-            if (pIdx !== -1) filledSlots.add(pIdx);
-            else {
-              const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
-              if (bnIdx !== -1) filledSlots.add(bnIdx);
-            }
-          }
-        }
-      }
       const maxRosterManual = getDraftRounds(league);
-      const scoringSlotsFilledManual = filledSlots.size >= rosterPositions.length;
-
-      const canFitPlayer = (playerPos: string): boolean => {
-        if (isBestBallManual && scoringSlotsFilledManual && teamPicks.length < maxRosterManual) return true;
-        for (let i = 0; i < rosterPositions.length; i++) {
-          if (filledSlots.has(i)) continue;
-          if (canFitSlot(playerPos, rosterPositions[i], isBestBallManual)) return true;
-        }
-        return false;
-      };
 
       if (teamPicks.length >= maxRosterManual) {
         return res.status(400).json({ message: "Your roster is full" });
       }
-      if (!canFitPlayer(player.position)) {
-        return res.status(400).json({ message: `No open roster slot for ${player.position}. You can only draft players at positions you have unfilled.` });
+
+      if (!isBestBallManual) {
+        const filledSlots = new Set<number>();
+        for (const tp of teamPlayers) {
+          const idx = rosterPositions.findIndex((slot, i) => {
+            if (filledSlots.has(i)) return false;
+            return canFitSlot(tp.position, slot, false) && slot !== "BN" && slot !== "IL" && slot !== "UT" && slot !== "P";
+          });
+          if (idx !== -1) filledSlots.add(idx);
+          else {
+            if (!["SP", "RP"].includes(tp.position)) {
+              const utilIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "UT");
+              if (utilIdx !== -1) filledSlots.add(utilIdx);
+              else {
+                const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
+                if (bnIdx !== -1) filledSlots.add(bnIdx);
+              }
+            } else {
+              const pIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "P");
+              if (pIdx !== -1) filledSlots.add(pIdx);
+              else {
+                const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
+                if (bnIdx !== -1) filledSlots.add(bnIdx);
+              }
+            }
+          }
+        }
+
+        const canFitPlayer = (playerPos: string): boolean => {
+          for (let i = 0; i < rosterPositions.length; i++) {
+            if (filledSlots.has(i)) continue;
+            if (canFitSlot(playerPos, rosterPositions[i], false)) return true;
+          }
+          return false;
+        };
+
+        if (!canFitPlayer(player.position)) {
+          return res.status(400).json({ message: `No open roster slot for ${player.position}. You can only draft players at positions you have unfilled.` });
+        }
       }
 
       const pick = await storage.createDraftPick({
@@ -1184,46 +1186,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (pl) teamPlayers.push({ position: pl.position });
       }
 
-      const filledSlots = new Set<number>();
-      for (const tp of teamPlayers) {
-        const idx = rosterPositions.findIndex((slot, i) => {
-          if (filledSlots.has(i)) return false;
-          if (slot === tp.position) return true;
-          if (slot === "OF" && ["OF", "LF", "CF", "RF"].includes(tp.position)) return true;
-          if (slot === "INF" && INF_POSITIONS.includes(tp.position)) return true;
-          return false;
-        });
-        if (idx !== -1) filledSlots.add(idx);
-        else {
-          if (!["SP", "RP"].includes(tp.position)) {
-            const utilIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "UT");
-            if (utilIdx !== -1) filledSlots.add(utilIdx);
-            else {
-              const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
-              if (bnIdx !== -1) filledSlots.add(bnIdx);
-            }
-          } else {
-            const pIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "P");
-            if (pIdx !== -1) filledSlots.add(pIdx);
-            else {
-              const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
-              if (bnIdx !== -1) filledSlots.add(bnIdx);
-            }
-          }
-        }
-      }
-
       const isBestBall = league.type === "Best Ball";
       const maxRoster = getDraftRounds(league);
-      const scoringSlotsAllFilled = filledSlots.size >= rosterPositions.length;
 
       const eligiblePositions: string[] = [];
 
-      if (isBestBall && scoringSlotsAllFilled) {
+      if (isBestBall) {
         for (const p of ["C", "1B", "2B", "3B", "SS", "OF", "SP", "RP", "DH"]) {
           eligiblePositions.push(p);
         }
       } else {
+        const filledSlots = new Set<number>();
+        for (const tp of teamPlayers) {
+          const idx = rosterPositions.findIndex((slot, i) => {
+            if (filledSlots.has(i)) return false;
+            if (slot === tp.position) return true;
+            if (slot === "OF" && ["OF", "LF", "CF", "RF"].includes(tp.position)) return true;
+            if (slot === "INF" && INF_POSITIONS.includes(tp.position)) return true;
+            return false;
+          });
+          if (idx !== -1) filledSlots.add(idx);
+          else {
+            if (!["SP", "RP"].includes(tp.position)) {
+              const utilIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "UT");
+              if (utilIdx !== -1) filledSlots.add(utilIdx);
+              else {
+                const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
+                if (bnIdx !== -1) filledSlots.add(bnIdx);
+              }
+            } else {
+              const pIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "P");
+              if (pIdx !== -1) filledSlots.add(pIdx);
+              else {
+                const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
+                if (bnIdx !== -1) filledSlots.add(bnIdx);
+              }
+            }
+          }
+        }
+
         const emptySlotPositions: string[] = [];
         for (let i = 0; i < rosterPositions.length; i++) {
           if (!filledSlots.has(i)) {
@@ -1267,7 +1268,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
 
-        if (hasBenchOrIL || (isBestBall && teamPicks.length < maxRoster)) {
+        if (hasBenchOrIL) {
           for (const p of ["C", "1B", "2B", "3B", "SS", "OF", "SP", "RP", "DH"]) {
             if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
           }
@@ -2149,41 +2150,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (pl) teamPlayers.push({ position: pl.position });
         }
 
-        const filledSlots = new Set<number>();
-        for (const tp of teamPlayers) {
-          const idx = rosterPositions.findIndex((slot, i) => {
-            if (filledSlots.has(i)) return false;
-            if (slot === tp.position) return true;
-            if (slot === "OF" && ["OF", "LF", "CF", "RF"].includes(tp.position)) return true;
-            if (slot === "INF" && INF_POSITIONS.includes(tp.position)) return true;
-            return false;
-          });
-          if (idx !== -1) filledSlots.add(idx);
-          else {
-            if (!["SP", "RP"].includes(tp.position)) {
-              const utilIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "UT");
-              if (utilIdx !== -1) filledSlots.add(utilIdx);
-              else {
-                const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
-                if (bnIdx !== -1) filledSlots.add(bnIdx);
-              }
-            } else {
-              const pIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "P");
-              if (pIdx !== -1) filledSlots.add(pIdx);
-              else {
-                const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
-                if (bnIdx !== -1) filledSlots.add(bnIdx);
-              }
-            }
-          }
-        }
-
         const isBestBallInterval = league.type === "Best Ball";
-        const scoringSlotsFilledInterval = filledSlots.size >= rosterPositions.length;
 
         let selectedPlayer = null;
 
-        if (isBestBallInterval && scoringSlotsFilledInterval) {
+        if (isBestBallInterval) {
           for (const p of ["C", "1B", "2B", "3B", "SS", "OF", "SP", "RP", "DH"]) {
             selectedPlayer = await storage.getBestAvailablePlayer(draftedPlayerIds, p);
             if (selectedPlayer) break;
@@ -2192,6 +2163,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
             selectedPlayer = await storage.getBestAvailablePlayer(draftedPlayerIds);
           }
         } else {
+          const filledSlots = new Set<number>();
+          for (const tp of teamPlayers) {
+            const idx = rosterPositions.findIndex((slot, i) => {
+              if (filledSlots.has(i)) return false;
+              if (slot === tp.position) return true;
+              if (slot === "OF" && ["OF", "LF", "CF", "RF"].includes(tp.position)) return true;
+              if (slot === "INF" && INF_POSITIONS.includes(tp.position)) return true;
+              return false;
+            });
+            if (idx !== -1) filledSlots.add(idx);
+            else {
+              if (!["SP", "RP"].includes(tp.position)) {
+                const utilIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "UT");
+                if (utilIdx !== -1) filledSlots.add(utilIdx);
+                else {
+                  const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
+                  if (bnIdx !== -1) filledSlots.add(bnIdx);
+                }
+              } else {
+                const pIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "P");
+                if (pIdx !== -1) filledSlots.add(pIdx);
+                else {
+                  const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
+                  if (bnIdx !== -1) filledSlots.add(bnIdx);
+                }
+              }
+            }
+          }
+
           const emptySlotPositions: string[] = [];
           for (let i = 0; i < rosterPositions.length; i++) {
             if (!filledSlots.has(i)) emptySlotPositions.push(rosterPositions[i]);
