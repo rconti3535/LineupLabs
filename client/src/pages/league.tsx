@@ -1729,9 +1729,10 @@ export default function LeaguePage() {
       });
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId] });
+    onSuccess: (updatedLeague: League) => {
+      queryClient.setQueryData(["/api/leagues", leagueId], updatedLeague);
       queryClient.invalidateQueries({ queryKey: ["/api/leagues/public"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "standings"] });
       setIsEditing(false);
       toast({ title: "Settings updated" });
     },
