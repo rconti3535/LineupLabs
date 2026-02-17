@@ -53,7 +53,7 @@ interface MLBPitchingStats {
 async function fetchPlayerStats(mlbId: number, season?: number): Promise<{ hitting: MLBHittingStats | null; pitching: MLBPitchingStats | null }> {
   try {
     const targetSeason = season || SEASON;
-    const url = `https://statsapi.mlb.com/api/v1/people/${mlbId}/stats?stats=season&season=${targetSeason}&group=hitting,pitching`;
+    const url = `https://statsapi.mlb.com/api/v1/people/${mlbId}/stats?stats=season&season=${targetSeason}&gameType=R&group=hitting,pitching`;
     const res = await fetch(url);
     if (!res.ok) return { hitting: null, pitching: null };
 
