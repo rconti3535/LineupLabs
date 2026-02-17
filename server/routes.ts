@@ -192,6 +192,14 @@ async function autoInitializeRosterSlots(leagueId: number): Promise<void> {
   }
 }
 
+const leagueDraftLocks = new Map<number, Promise<void>>();
+function withLeagueDraftLock<T>(leagueId: number, fn: () => Promise<T>): Promise<T> {
+  const prev = leagueDraftLocks.get(leagueId) || Promise.resolve();
+  const next = prev.then(fn, fn);
+  leagueDraftLocks.set(leagueId, next.then(() => {}, () => {}));
+  return next;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Get public leagues
   app.get("/api/leagues/public", async (req, res) => {
@@ -944,215 +952,191 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Make a draft pick
   app.post("/api/leagues/:id/draft-picks", async (req, res) => {
+    const leagueId = parseInt(req.params.id);
     try {
-      const leagueId = parseInt(req.params.id);
-      const league = await storage.getLeague(leagueId);
-      if (!league) {
-        return res.status(404).json({ message: "League not found" });
-      }
-      if (league.draftStatus !== "active") {
-        return res.status(400).json({ message: "Draft is not active" });
-      }
+      const result = await withLeagueDraftLock(leagueId, async () => {
+        const league = await storage.getLeague(leagueId);
+        if (!league) return { status: 404, body: { message: "League not found" } };
+        if (league.draftStatus !== "active") return { status: 400, body: { message: "Draft is not active" } };
 
-      const { userId, playerId } = req.body;
-      if (!userId || !playerId) {
-        return res.status(400).json({ message: "userId and playerId are required" });
-      }
+        const { userId, playerId } = req.body;
+        if (!userId || !playerId) return { status: 400, body: { message: "userId and playerId are required" } };
 
-      const rawLeagueTeams = await storage.getTeamsByLeagueId(leagueId);
-      const leagueTeams = [...rawLeagueTeams].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999));
-      const userTeam = leagueTeams.find(t => t.userId === userId);
-      if (!userTeam) {
-        return res.status(403).json({ message: "You don't have a team in this league" });
-      }
+        const rawLeagueTeams = await storage.getTeamsByLeagueId(leagueId);
+        const leagueTeams = [...rawLeagueTeams].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999));
+        const userTeam = leagueTeams.find(t => t.userId === userId);
+        if (!userTeam) return { status: 403, body: { message: "You don't have a team in this league" } };
 
-      const existingPicks = await storage.getDraftPicksByLeague(leagueId);
-      const totalRounds = getDraftRounds(league);
-      const numTeams = leagueTeams.length;
+        const existingPicks = await storage.getDraftPicksByLeague(leagueId);
+        const totalRounds = getDraftRounds(league);
+        const numTeams = leagueTeams.length;
 
-      const nextOverall = existingPicks.length + 1;
-      if (nextOverall > totalRounds * numTeams) {
-        return res.status(400).json({ message: "Draft is complete" });
-      }
+        const nextOverall = existingPicks.length + 1;
+        if (nextOverall > totalRounds * numTeams) return { status: 400, body: { message: "Draft is complete" } };
 
-      const round = Math.ceil(nextOverall / numTeams);
-      const pickInRound = ((nextOverall - 1) % numTeams) + 1;
-      const isEvenRound = round % 2 === 1;
-      const teamIndex = isEvenRound ? pickInRound - 1 : numTeams - pickInRound;
-      const expectedTeam = leagueTeams[teamIndex];
+        const round = Math.ceil(nextOverall / numTeams);
+        const pickInRound = ((nextOverall - 1) % numTeams) + 1;
+        const isEvenRound = round % 2 === 1;
+        const teamIndex = isEvenRound ? pickInRound - 1 : numTeams - pickInRound;
+        const expectedTeam = leagueTeams[teamIndex];
 
-      if (!expectedTeam || expectedTeam.id !== userTeam.id) {
-        return res.status(403).json({ message: "It's not your turn to pick" });
-      }
+        if (!expectedTeam || expectedTeam.id !== userTeam.id) return { status: 403, body: { message: "It's not your turn to pick" } };
 
-      const alreadyDrafted = existingPicks.some(p => p.playerId === playerId);
-      if (alreadyDrafted) {
-        return res.status(400).json({ message: "Player already drafted" });
-      }
+        const alreadyDrafted = existingPicks.some(p => p.playerId === playerId);
+        if (alreadyDrafted) return { status: 400, body: { message: "Player already drafted" } };
 
-      const player = await storage.getPlayer(playerId);
-      if (!player) {
-        return res.status(404).json({ message: "Player not found" });
-      }
+        const player = await storage.getPlayer(playerId);
+        if (!player) return { status: 404, body: { message: "Player not found" } };
 
-      const rosterPositions = league.rosterPositions || [];
-      const teamPicks = existingPicks.filter(p => p.teamId === userTeam.id);
-      const teamPlayers: { position: string }[] = [];
-      for (const tp of teamPicks) {
-        const pl = await storage.getPlayer(tp.playerId);
-        if (pl) teamPlayers.push({ position: pl.position });
-      }
+        const rosterPositions = league.rosterPositions || [];
+        const teamPicks = existingPicks.filter(p => p.teamId === userTeam.id);
+        const teamPlayers: { position: string }[] = [];
+        for (const tp of teamPicks) {
+          const pl = await storage.getPlayer(tp.playerId);
+          if (pl) teamPlayers.push({ position: pl.position });
+        }
 
-      const isBestBallManual = league.type === "Best Ball";
-      const maxRosterManual = getDraftRounds(league);
+        const isBestBallManual = league.type === "Best Ball";
+        const maxRosterManual = getDraftRounds(league);
 
-      if (teamPicks.length >= maxRosterManual) {
-        return res.status(400).json({ message: "Your roster is full" });
-      }
+        if (teamPicks.length >= maxRosterManual) return { status: 400, body: { message: "Your roster is full" } };
 
-      if (!isBestBallManual) {
-        const filledSlots = new Set<number>();
-        for (const tp of teamPlayers) {
-          const idx = rosterPositions.findIndex((slot, i) => {
-            if (filledSlots.has(i)) return false;
-            return canFitSlot(tp.position, slot, false) && slot !== "BN" && slot !== "IL" && slot !== "UT" && slot !== "P";
-          });
-          if (idx !== -1) filledSlots.add(idx);
-          else {
-            if (!["SP", "RP"].includes(tp.position)) {
-              const utilIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "UT");
-              if (utilIdx !== -1) filledSlots.add(utilIdx);
-              else {
-                const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
-                if (bnIdx !== -1) filledSlots.add(bnIdx);
-              }
-            } else {
-              const pIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "P");
-              if (pIdx !== -1) filledSlots.add(pIdx);
-              else {
-                const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
-                if (bnIdx !== -1) filledSlots.add(bnIdx);
+        if (!isBestBallManual) {
+          const filledSlots = new Set<number>();
+          for (const tp of teamPlayers) {
+            const idx = rosterPositions.findIndex((slot, i) => {
+              if (filledSlots.has(i)) return false;
+              return canFitSlot(tp.position, slot, false) && slot !== "BN" && slot !== "IL" && slot !== "UT" && slot !== "P";
+            });
+            if (idx !== -1) filledSlots.add(idx);
+            else {
+              if (!["SP", "RP"].includes(tp.position)) {
+                const utilIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "UT");
+                if (utilIdx !== -1) filledSlots.add(utilIdx);
+                else {
+                  const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
+                  if (bnIdx !== -1) filledSlots.add(bnIdx);
+                }
+              } else {
+                const pIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "P");
+                if (pIdx !== -1) filledSlots.add(pIdx);
+                else {
+                  const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
+                  if (bnIdx !== -1) filledSlots.add(bnIdx);
+                }
               }
             }
           }
-        }
 
-        const canFitPlayer = (playerPos: string): boolean => {
-          for (let i = 0; i < rosterPositions.length; i++) {
-            if (filledSlots.has(i)) continue;
-            if (canFitSlot(playerPos, rosterPositions[i], false)) return true;
+          const canFitPlayer = (playerPos: string): boolean => {
+            for (let i = 0; i < rosterPositions.length; i++) {
+              if (filledSlots.has(i)) continue;
+              if (canFitSlot(playerPos, rosterPositions[i], false)) return true;
+            }
+            return false;
+          };
+
+          if (!canFitPlayer(player.position)) {
+            return { status: 400, body: { message: `No open roster slot for ${player.position}. You can only draft players at positions you have unfilled.` } };
           }
-          return false;
-        };
-
-        if (!canFitPlayer(player.position)) {
-          return res.status(400).json({ message: `No open roster slot for ${player.position}. You can only draft players at positions you have unfilled.` });
         }
-      }
 
-      const pick = await storage.createDraftPick({
-        leagueId,
-        teamId: userTeam.id,
-        playerId,
-        overallPick: nextOverall,
-        round,
-        pickInRound,
+        const pick = await storage.createDraftPick({
+          leagueId,
+          teamId: userTeam.id,
+          playerId,
+          overallPick: nextOverall,
+          round,
+          pickInRound,
+        });
+
+        const totalPicks = totalRounds * numTeams;
+        if (nextOverall >= totalPicks) {
+          await storage.updateLeague(leagueId, { draftStatus: "completed", draftPickStartedAt: null });
+          recalculateAdpForLeague(league).catch(e => console.error("ADP recalc error:", e));
+          generateLeagueMatchups(leagueId).catch(e => console.error("Matchup gen error:", e));
+          autoInitializeRosterSlots(leagueId).catch(e => console.error("Roster init error:", e));
+        } else {
+          await storage.updateLeague(leagueId, { draftPickStartedAt: new Date().toISOString() });
+        }
+
+        return { status: 201, body: pick };
       });
-
-      const totalPicks = totalRounds * numTeams;
-      if (nextOverall >= totalPicks) {
-        await storage.updateLeague(leagueId, { draftStatus: "completed", draftPickStartedAt: null });
-        recalculateAdpForLeague(league).catch(e => console.error("ADP recalc error:", e));
-        generateLeagueMatchups(leagueId).catch(e => console.error("Matchup gen error:", e));
-        autoInitializeRosterSlots(leagueId).catch(e => console.error("Roster init error:", e));
-      } else {
-        await storage.updateLeague(leagueId, { draftPickStartedAt: new Date().toISOString() });
-      }
-
-      res.status(201).json(pick);
+      res.status(result.status).json(result.body);
     } catch (error) {
+      console.error("Draft pick error:", error);
       res.status(500).json({ message: "Failed to make draft pick" });
     }
   });
 
   // Commissioner assign: commissioner picks a player for the current pick
   app.post("/api/leagues/:id/commissioner-pick", async (req, res) => {
+    const leagueId = parseInt(req.params.id);
     try {
-      const leagueId = parseInt(req.params.id);
-      const league = await storage.getLeague(leagueId);
-      if (!league) {
-        return res.status(404).json({ message: "League not found" });
-      }
-      if (league.draftStatus !== "active" && league.draftStatus !== "paused") {
-        return res.status(400).json({ message: "Draft is not active or paused" });
-      }
-
-      const { commissionerId, playerId, targetOverall } = req.body;
-      if (!commissionerId || !playerId) {
-        return res.status(400).json({ message: "commissionerId and playerId are required" });
-      }
-      if (league.createdBy !== commissionerId) {
-        return res.status(403).json({ message: "Only the commissioner can assign players" });
-      }
-
-      const leagueTeams = await storage.getTeamsByLeagueId(leagueId);
-      const existingPicks = await storage.getDraftPicksByLeague(leagueId);
-      const totalRounds = getDraftRounds(league);
-      const numTeams = leagueTeams.length;
-
-      const existingPickForSlot = targetOverall ? existingPicks.find(p => p.overallPick === targetOverall) : null;
-
-      if (existingPickForSlot) {
-        const alreadyDrafted = existingPicks.some(p => p.playerId === playerId && p.overallPick !== targetOverall);
-        if (alreadyDrafted) {
-          return res.status(400).json({ message: "Player already drafted in another slot" });
+      const result = await withLeagueDraftLock(leagueId, async () => {
+        const league = await storage.getLeague(leagueId);
+        if (!league) return { status: 404, body: { message: "League not found" } };
+        if (league.draftStatus !== "active" && league.draftStatus !== "paused") {
+          return { status: 400, body: { message: "Draft is not active or paused" } };
         }
 
-        const pick = await storage.updateDraftPickPlayer(leagueId, targetOverall, playerId);
-        return res.status(200).json(pick);
-      }
+        const { commissionerId, playerId, targetOverall } = req.body;
+        if (!commissionerId || !playerId) return { status: 400, body: { message: "commissionerId and playerId are required" } };
+        if (league.createdBy !== commissionerId) return { status: 403, body: { message: "Only the commissioner can assign players" } };
 
-      const nextOverall = existingPicks.length + 1;
-      if (nextOverall > totalRounds * numTeams) {
-        return res.status(400).json({ message: "Draft is complete" });
-      }
+        const leagueTeams = await storage.getTeamsByLeagueId(leagueId);
+        const existingPicks = await storage.getDraftPicksByLeague(leagueId);
+        const totalRounds = getDraftRounds(league);
+        const numTeams = leagueTeams.length;
 
-      const round = Math.ceil(nextOverall / numTeams);
-      const pickInRound = ((nextOverall - 1) % numTeams) + 1;
-      const isEvenRound = round % 2 === 1;
-      const teamIndex = isEvenRound ? pickInRound - 1 : numTeams - pickInRound;
-      const expectedTeam = leagueTeams[teamIndex];
+        const existingPickForSlot = targetOverall ? existingPicks.find(p => p.overallPick === targetOverall) : null;
 
-      if (!expectedTeam) {
-        return res.status(400).json({ message: "Cannot determine team for this pick" });
-      }
+        if (existingPickForSlot) {
+          const alreadyDrafted = existingPicks.some(p => p.playerId === playerId && p.overallPick !== targetOverall);
+          if (alreadyDrafted) return { status: 400, body: { message: "Player already drafted in another slot" } };
 
-      const alreadyDrafted = existingPicks.some(p => p.playerId === playerId);
-      if (alreadyDrafted) {
-        return res.status(400).json({ message: "Player already drafted" });
-      }
+          const pick = await storage.updateDraftPickPlayer(leagueId, targetOverall, playerId);
+          return { status: 200, body: pick };
+        }
 
-      const pick = await storage.createDraftPick({
-        leagueId,
-        teamId: expectedTeam.id,
-        playerId,
-        overallPick: nextOverall,
-        round,
-        pickInRound,
+        const nextOverall = existingPicks.length + 1;
+        if (nextOverall > totalRounds * numTeams) return { status: 400, body: { message: "Draft is complete" } };
+
+        const round = Math.ceil(nextOverall / numTeams);
+        const pickInRound = ((nextOverall - 1) % numTeams) + 1;
+        const isEvenRound = round % 2 === 1;
+        const teamIndex = isEvenRound ? pickInRound - 1 : numTeams - pickInRound;
+        const expectedTeam = leagueTeams[teamIndex];
+
+        if (!expectedTeam) return { status: 400, body: { message: "Cannot determine team for this pick" } };
+
+        const alreadyDrafted = existingPicks.some(p => p.playerId === playerId);
+        if (alreadyDrafted) return { status: 400, body: { message: "Player already drafted" } };
+
+        const pick = await storage.createDraftPick({
+          leagueId,
+          teamId: expectedTeam.id,
+          playerId,
+          overallPick: nextOverall,
+          round,
+          pickInRound,
+        });
+
+        const totalPicks = totalRounds * numTeams;
+        if (nextOverall >= totalPicks) {
+          await storage.updateLeague(leagueId, { draftStatus: "completed", draftPickStartedAt: null });
+          recalculateAdpForLeague(league).catch(e => console.error("ADP recalc error:", e));
+          generateLeagueMatchups(leagueId).catch(e => console.error("Matchup gen error:", e));
+          autoInitializeRosterSlots(leagueId).catch(e => console.error("Roster init error:", e));
+        } else {
+          await storage.updateLeague(leagueId, { draftPickStartedAt: new Date().toISOString() });
+        }
+
+        return { status: 201, body: pick };
       });
-
-      const totalPicks = totalRounds * numTeams;
-      if (nextOverall >= totalPicks) {
-        await storage.updateLeague(leagueId, { draftStatus: "completed", draftPickStartedAt: null });
-        recalculateAdpForLeague(league).catch(e => console.error("ADP recalc error:", e));
-        generateLeagueMatchups(leagueId).catch(e => console.error("Matchup gen error:", e));
-        autoInitializeRosterSlots(leagueId).catch(e => console.error("Roster init error:", e));
-      } else {
-        await storage.updateLeague(leagueId, { draftPickStartedAt: new Date().toISOString() });
-      }
-
-      res.status(201).json(pick);
+      res.status(result.status).json(result.body);
     } catch (error) {
+      console.error("Commissioner pick error:", error);
       res.status(500).json({ message: "Failed to make commissioner pick" });
     }
   });
@@ -2143,14 +2127,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const secondsPerPick = league.secondsPerPick || 60;
 
         const leagueTeams = await storage.getTeamsByLeagueId(league.id);
-        const existingPicks = await storage.getDraftPicksByLeague(league.id);
-        const rosterPositions = league.rosterPositions || [];
-        const totalRounds = getDraftRounds(league);
         const numTeams = leagueTeams.length;
         if (numTeams === 0) continue;
 
-        const nextOverall = existingPicks.length + 1;
-        if (nextOverall > totalRounds * numTeams) {
+        const preCheckPicks = await storage.getDraftPicksByLeague(league.id);
+        const preNextOverall = preCheckPicks.length + 1;
+        const totalRounds = getDraftRounds(league);
+        if (preNextOverall > totalRounds * numTeams) {
           await storage.updateLeague(league.id, { draftStatus: "completed", draftPickStartedAt: null });
           recalculateAdpForLeague(league).catch(e => console.error("ADP recalc error:", e));
           generateLeagueMatchups(league.id).catch(e => console.error("Matchup gen error:", e));
@@ -2158,11 +2141,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           continue;
         }
 
-        const round = Math.ceil(nextOverall / numTeams);
-        const pickInRound = ((nextOverall - 1) % numTeams) + 1;
-        const isEvenRound = round % 2 === 1;
-        const teamIndex = isEvenRound ? pickInRound - 1 : numTeams - pickInRound;
-        const pickingTeam = leagueTeams[teamIndex];
+        const preRound = Math.ceil(preNextOverall / numTeams);
+        const prePickInRound = ((preNextOverall - 1) % numTeams) + 1;
+        const preIsEvenRound = preRound % 2 === 1;
+        const preTeamIndex = preIsEvenRound ? prePickInRound - 1 : numTeams - prePickInRound;
+        const pickingTeam = leagueTeams[preTeamIndex];
         if (!pickingTeam) continue;
 
         const isCpuTeam = pickingTeam.isCpu === true;
@@ -2172,154 +2155,173 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (elapsed < secondsPerPick) continue;
         }
 
-        const draftedPlayerIds = await storage.getDraftedPlayerIds(league.id);
-        const teamPicks = existingPicks.filter(p => p.teamId === pickingTeam.id);
-        const teamPlayerIds = teamPicks.map(p => p.playerId);
-
-        const teamPlayers: { position: string }[] = [];
-        for (const pid of teamPlayerIds) {
-          const pl = await storage.getPlayer(pid);
-          if (pl) teamPlayers.push({ position: pl.position });
-        }
-
-        const isBestBallInterval = league.type === "Best Ball";
-        const leagueType = league.type || "Redraft";
-        const scoringFormat = league.scoringFormat || "Roto";
-        const season = new Date().getFullYear();
-
-        const eligiblePositions: string[] = [];
-
-        if (isBestBallInterval) {
-          for (const p of ["C", "1B", "2B", "3B", "SS", "OF", "SP", "RP", "DH"]) {
-            eligiblePositions.push(p);
+        await withLeagueDraftLock(league.id, async () => {
+          const existingPicks = await storage.getDraftPicksByLeague(league.id);
+          const rosterPositions = league.rosterPositions || [];
+          const nextOverall = existingPicks.length + 1;
+          if (nextOverall > totalRounds * numTeams) {
+            await storage.updateLeague(league.id, { draftStatus: "completed", draftPickStartedAt: null });
+            recalculateAdpForLeague(league).catch(e => console.error("ADP recalc error:", e));
+            generateLeagueMatchups(league.id).catch(e => console.error("Matchup gen error:", e));
+            autoInitializeRosterSlots(league.id).catch(e => console.error("Roster init error:", e));
+            return;
           }
-        } else {
-          const filledSlots = new Set<number>();
-          for (const tp of teamPlayers) {
-            const idx = rosterPositions.findIndex((slot, i) => {
-              if (filledSlots.has(i)) return false;
-              if (slot === tp.position) return true;
-              if (slot === "OF" && ["OF", "LF", "CF", "RF"].includes(tp.position)) return true;
-              if (slot === "INF" && INF_POSITIONS.includes(tp.position)) return true;
-              return false;
-            });
-            if (idx !== -1) filledSlots.add(idx);
-            else {
-              if (!["SP", "RP"].includes(tp.position)) {
-                const utilIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "UT");
-                if (utilIdx !== -1) filledSlots.add(utilIdx);
-                else {
-                  const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
-                  if (bnIdx !== -1) filledSlots.add(bnIdx);
-                }
-              } else {
-                const pIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "P");
-                if (pIdx !== -1) filledSlots.add(pIdx);
-                else {
-                  const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
-                  if (bnIdx !== -1) filledSlots.add(bnIdx);
+
+          const round = Math.ceil(nextOverall / numTeams);
+          const pickInRound = ((nextOverall - 1) % numTeams) + 1;
+          const isEvenRound = round % 2 === 1;
+          const teamIndex = isEvenRound ? pickInRound - 1 : numTeams - pickInRound;
+          const currentPickingTeam = leagueTeams[teamIndex];
+          if (!currentPickingTeam) return;
+
+          const draftedPlayerIds = await storage.getDraftedPlayerIds(league.id);
+          const teamPicks = existingPicks.filter(p => p.teamId === currentPickingTeam.id);
+          const teamPlayerIds = teamPicks.map(p => p.playerId);
+
+          const teamPlayers: { position: string }[] = [];
+          for (const pid of teamPlayerIds) {
+            const pl = await storage.getPlayer(pid);
+            if (pl) teamPlayers.push({ position: pl.position });
+          }
+
+          const isBestBallInterval = league.type === "Best Ball";
+          const leagueType = league.type || "Redraft";
+          const scoringFormat = league.scoringFormat || "Roto";
+          const season = new Date().getFullYear();
+
+          const eligiblePositions: string[] = [];
+
+          if (isBestBallInterval) {
+            for (const p of ["C", "1B", "2B", "3B", "SS", "OF", "SP", "RP", "DH"]) {
+              eligiblePositions.push(p);
+            }
+          } else {
+            const filledSlots = new Set<number>();
+            for (const tp of teamPlayers) {
+              const idx = rosterPositions.findIndex((slot, i) => {
+                if (filledSlots.has(i)) return false;
+                if (slot === tp.position) return true;
+                if (slot === "OF" && ["OF", "LF", "CF", "RF"].includes(tp.position)) return true;
+                if (slot === "INF" && INF_POSITIONS.includes(tp.position)) return true;
+                return false;
+              });
+              if (idx !== -1) filledSlots.add(idx);
+              else {
+                if (!["SP", "RP"].includes(tp.position)) {
+                  const utilIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "UT");
+                  if (utilIdx !== -1) filledSlots.add(utilIdx);
+                  else {
+                    const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
+                    if (bnIdx !== -1) filledSlots.add(bnIdx);
+                  }
+                } else {
+                  const pIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "P");
+                  if (pIdx !== -1) filledSlots.add(pIdx);
+                  else {
+                    const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
+                    if (bnIdx !== -1) filledSlots.add(bnIdx);
+                  }
                 }
               }
             }
-          }
 
-          const emptySlotPositions: string[] = [];
-          for (let i = 0; i < rosterPositions.length; i++) {
-            if (!filledSlots.has(i)) emptySlotPositions.push(rosterPositions[i]);
-          }
+            const emptySlotPositions: string[] = [];
+            for (let i = 0; i < rosterPositions.length; i++) {
+              if (!filledSlots.has(i)) emptySlotPositions.push(rosterPositions[i]);
+            }
 
-          const hasBenchOrIL = emptySlotPositions.some(s => s === "BN" || s === "IL");
-          const hasUtil = emptySlotPositions.some(s => s === "UT");
-          const hasP = emptySlotPositions.some(s => s === "P");
-          const hasInf = emptySlotPositions.some(s => s === "INF");
+            const hasBenchOrIL = emptySlotPositions.some(s => s === "BN" || s === "IL");
+            const hasUtil = emptySlotPositions.some(s => s === "UT");
+            const hasP = emptySlotPositions.some(s => s === "P");
+            const hasInf = emptySlotPositions.some(s => s === "INF");
 
-          for (const slot of emptySlotPositions) {
-            if (slot === "BN" || slot === "IL") continue;
-            if (slot === "UT") continue;
-            if (slot === "P") continue;
-            if (slot === "INF") {
+            for (const slot of emptySlotPositions) {
+              if (slot === "BN" || slot === "IL") continue;
+              if (slot === "UT") continue;
+              if (slot === "P") continue;
+              if (slot === "INF") {
+                for (const p of INF_POSITIONS) {
+                  if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
+                }
+                continue;
+              }
+              if (!eligiblePositions.includes(slot)) eligiblePositions.push(slot);
+            }
+
+            if (hasUtil) {
+              for (const p of ["C", "1B", "2B", "3B", "SS", "OF", "DH"]) {
+                if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
+              }
+            }
+
+            if (hasInf) {
               for (const p of INF_POSITIONS) {
                 if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
               }
-              continue;
             }
-            if (!eligiblePositions.includes(slot)) eligiblePositions.push(slot);
-          }
 
-          if (hasUtil) {
-            for (const p of ["C", "1B", "2B", "3B", "SS", "OF", "DH"]) {
-              if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
+            if (hasP) {
+              for (const p of ["SP", "RP"]) {
+                if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
+              }
             }
-          }
 
-          if (hasInf) {
-            for (const p of INF_POSITIONS) {
-              if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
+            if (hasBenchOrIL) {
+              for (const p of ["C", "1B", "2B", "3B", "SS", "OF", "SP", "RP", "DH"]) {
+                if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
+              }
             }
           }
 
-          if (hasP) {
-            for (const p of ["SP", "RP"]) {
-              if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
+          let selectedPlayer = await storage.getBestAvailableByAdp(
+            draftedPlayerIds, leagueType, scoringFormat, season, eligiblePositions
+          );
+
+          if (!selectedPlayer) {
+            for (const ep of eligiblePositions) {
+              selectedPlayer = await storage.getBestAvailablePlayer(draftedPlayerIds, ep);
+              if (selectedPlayer) break;
             }
           }
 
-          if (hasBenchOrIL) {
-            for (const p of ["C", "1B", "2B", "3B", "SS", "OF", "SP", "RP", "DH"]) {
-              if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
+          if (!selectedPlayer) {
+            selectedPlayer = await storage.getBestAvailablePlayer(draftedPlayerIds);
+          }
+          if (!selectedPlayer) {
+            await storage.updateLeague(league.id, { draftStatus: "completed", draftPickStartedAt: null });
+            recalculateAdpForLeague(league).catch(e => console.error("ADP recalc error:", e));
+            generateLeagueMatchups(league.id).catch(e => console.error("Matchup gen error:", e));
+            autoInitializeRosterSlots(league.id).catch(e => console.error("Roster init error:", e));
+            return;
+          }
+
+          try {
+            await storage.createDraftPick({
+              leagueId: league.id,
+              teamId: currentPickingTeam.id,
+              playerId: selectedPlayer.id,
+              overallPick: nextOverall,
+              round,
+              pickInRound,
+            });
+
+            const totalPicks = totalRounds * numTeams;
+            if (nextOverall >= totalPicks) {
+              await storage.updateLeague(league.id, { draftStatus: "completed", draftPickStartedAt: null });
+              recalculateAdpForLeague(league).catch(e => console.error("ADP recalc error:", e));
+              generateLeagueMatchups(league.id).catch(e => console.error("Matchup gen error:", e));
+              autoInitializeRosterSlots(league.id).catch(e => console.error("Roster init error:", e));
+            } else {
+              await storage.updateLeague(league.id, { draftPickStartedAt: new Date().toISOString() });
+            }
+          } catch (insertErr: any) {
+            if (insertErr?.message?.includes("unique") || insertErr?.code === "23505") {
+              console.log(`Duplicate pick prevented by DB constraint for league ${league.id}, pick ${nextOverall}`);
+            } else {
+              throw insertErr;
             }
           }
-        }
-
-        let selectedPlayer = await storage.getBestAvailableByAdp(
-          draftedPlayerIds, leagueType, scoringFormat, season, eligiblePositions
-        );
-
-        if (!selectedPlayer) {
-          for (const ep of eligiblePositions) {
-            selectedPlayer = await storage.getBestAvailablePlayer(draftedPlayerIds, ep);
-            if (selectedPlayer) break;
-          }
-        }
-
-        if (!selectedPlayer) {
-          selectedPlayer = await storage.getBestAvailablePlayer(draftedPlayerIds);
-        }
-        if (!selectedPlayer) {
-          await storage.updateLeague(league.id, { draftStatus: "completed", draftPickStartedAt: null });
-          recalculateAdpForLeague(league).catch(e => console.error("ADP recalc error:", e));
-          generateLeagueMatchups(league.id).catch(e => console.error("Matchup gen error:", e));
-          autoInitializeRosterSlots(league.id).catch(e => console.error("Roster init error:", e));
-          continue;
-        }
-
-        const freshPicks = await storage.getDraftPicksByLeague(league.id);
-        if (freshPicks.length !== existingPicks.length) {
-          continue;
-        }
-        const freshDraftedIds = freshPicks.map(p => p.playerId);
-        if (freshDraftedIds.includes(selectedPlayer.id)) {
-          continue;
-        }
-
-        await storage.createDraftPick({
-          leagueId: league.id,
-          teamId: pickingTeam.id,
-          playerId: selectedPlayer.id,
-          overallPick: nextOverall,
-          round,
-          pickInRound,
         });
-
-        const totalPicks = totalRounds * numTeams;
-        if (nextOverall >= totalPicks) {
-          await storage.updateLeague(league.id, { draftStatus: "completed", draftPickStartedAt: null });
-          recalculateAdpForLeague(league).catch(e => console.error("ADP recalc error:", e));
-          generateLeagueMatchups(league.id).catch(e => console.error("Matchup gen error:", e));
-          autoInitializeRosterSlots(league.id).catch(e => console.error("Roster init error:", e));
-        } else {
-          await storage.updateLeague(league.id, { draftPickStartedAt: new Date().toISOString() });
-        }
       }
     } catch (error) {
       console.error("Error checking expired draft picks:", error);

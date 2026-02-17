@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -192,7 +192,10 @@ export const draftPicks = pgTable("draft_picks", {
   pickInRound: integer("pick_in_round").notNull(),
   pickedAt: timestamp("picked_at").defaultNow(),
   rosterSlot: integer("roster_slot"),
-});
+}, (table) => [
+  uniqueIndex("draft_picks_league_overall_unique").on(table.leagueId, table.overallPick),
+  uniqueIndex("draft_picks_league_player_unique").on(table.leagueId, table.playerId),
+]);
 
 export const playerAdp = pgTable("player_adp", {
   id: serial("id").primaryKey(),
