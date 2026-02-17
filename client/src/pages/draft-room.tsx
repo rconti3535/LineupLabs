@@ -111,6 +111,10 @@ export default function DraftRoom() {
   const [commissionerAssignMode, setCommissionerAssignMode] = useState(false);
   const [selectedCellOverall, setSelectedCellOverall] = useState<number | null>(null);
   const [showTeamWarning, setShowTeamWarning] = useState(false);
+  const [playerPanelDragY, setPlayerPanelDragY] = useState(0);
+  const playerDragRef = useRef<{ startY: number; currentY: number } | null>(null);
+  const [teamPanelDragY, setTeamPanelDragY] = useState(0);
+  const teamDragRef = useRef<{ startY: number; currentY: number } | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [positionFilter, setPositionFilter] = useState("ALL");
@@ -723,8 +727,66 @@ export default function DraftRoom() {
       </div>
 
       {(activeTab === "players" || commissionerAssignMode) && (
-        <div className="absolute bottom-10 left-0 right-0 h-[66vh] bg-gray-900 border-t border-gray-700 rounded-t-2xl flex flex-col z-10">
-          <div className="flex items-center justify-center pt-2 pb-1">
+        <div
+          className="absolute bottom-10 left-0 right-0 bg-gray-900 border-t border-gray-700 rounded-t-2xl flex flex-col z-10 transition-transform duration-200 ease-out"
+          style={{
+            height: "66vh",
+            transform: `translateY(${playerPanelDragY}px)`,
+            opacity: playerPanelDragY > 0 ? Math.max(0.3, 1 - playerPanelDragY / 300) : 1,
+          }}
+        >
+          <div
+            className="flex items-center justify-center pt-2 pb-1 cursor-grab active:cursor-grabbing touch-none"
+            onTouchStart={(e) => {
+              const touch = e.touches[0];
+              playerDragRef.current = { startY: touch.clientY, currentY: touch.clientY };
+              setPlayerPanelDragY(0);
+            }}
+            onTouchMove={(e) => {
+              if (!playerDragRef.current) return;
+              const touch = e.touches[0];
+              playerDragRef.current.currentY = touch.clientY;
+              const dy = touch.clientY - playerDragRef.current.startY;
+              if (dy > 0) setPlayerPanelDragY(dy);
+            }}
+            onTouchEnd={() => {
+              if (!playerDragRef.current) return;
+              const dy = playerDragRef.current.currentY - playerDragRef.current.startY;
+              playerDragRef.current = null;
+              if (dy > 80) {
+                setActiveTab("board");
+                setCommissionerAssignMode(false);
+                setSelectedCellOverall(null);
+              }
+              setPlayerPanelDragY(0);
+            }}
+            onMouseDown={(e) => {
+              playerDragRef.current = { startY: e.clientY, currentY: e.clientY };
+              setPlayerPanelDragY(0);
+              const onMove = (ev: MouseEvent) => {
+                if (!playerDragRef.current) return;
+                playerDragRef.current.currentY = ev.clientY;
+                const dy = ev.clientY - playerDragRef.current.startY;
+                if (dy > 0) setPlayerPanelDragY(dy);
+              };
+              const onUp = () => {
+                if (playerDragRef.current) {
+                  const dy = playerDragRef.current.currentY - playerDragRef.current.startY;
+                  playerDragRef.current = null;
+                  if (dy > 80) {
+                    setActiveTab("board");
+                    setCommissionerAssignMode(false);
+                    setSelectedCellOverall(null);
+                  }
+                  setPlayerPanelDragY(0);
+                }
+                window.removeEventListener("mousemove", onMove);
+                window.removeEventListener("mouseup", onUp);
+              };
+              window.addEventListener("mousemove", onMove);
+              window.addEventListener("mouseup", onUp);
+            }}
+          >
             <div className="w-10 h-1 rounded-full bg-gray-600" />
           </div>
           <div className="flex items-center justify-between px-4 pb-2">
@@ -903,8 +965,62 @@ export default function DraftRoom() {
       )}
 
       {activeTab === "team" && (
-        <div className="absolute bottom-10 left-0 right-0 h-[66vh] bg-gray-900 border-t border-gray-700 rounded-t-2xl flex flex-col z-10">
-          <div className="flex items-center justify-center pt-2 pb-1">
+        <div
+          className="absolute bottom-10 left-0 right-0 bg-gray-900 border-t border-gray-700 rounded-t-2xl flex flex-col z-10 transition-transform duration-200 ease-out"
+          style={{
+            height: "66vh",
+            transform: `translateY(${teamPanelDragY}px)`,
+            opacity: teamPanelDragY > 0 ? Math.max(0.3, 1 - teamPanelDragY / 300) : 1,
+          }}
+        >
+          <div
+            className="flex items-center justify-center pt-2 pb-1 cursor-grab active:cursor-grabbing touch-none"
+            onTouchStart={(e) => {
+              const touch = e.touches[0];
+              teamDragRef.current = { startY: touch.clientY, currentY: touch.clientY };
+              setTeamPanelDragY(0);
+            }}
+            onTouchMove={(e) => {
+              if (!teamDragRef.current) return;
+              const touch = e.touches[0];
+              teamDragRef.current.currentY = touch.clientY;
+              const dy = touch.clientY - teamDragRef.current.startY;
+              if (dy > 0) setTeamPanelDragY(dy);
+            }}
+            onTouchEnd={() => {
+              if (!teamDragRef.current) return;
+              const dy = teamDragRef.current.currentY - teamDragRef.current.startY;
+              teamDragRef.current = null;
+              if (dy > 80) {
+                setActiveTab("board");
+              }
+              setTeamPanelDragY(0);
+            }}
+            onMouseDown={(e) => {
+              teamDragRef.current = { startY: e.clientY, currentY: e.clientY };
+              setTeamPanelDragY(0);
+              const onMove = (ev: MouseEvent) => {
+                if (!teamDragRef.current) return;
+                teamDragRef.current.currentY = ev.clientY;
+                const dy = ev.clientY - teamDragRef.current.startY;
+                if (dy > 0) setTeamPanelDragY(dy);
+              };
+              const onUp = () => {
+                if (teamDragRef.current) {
+                  const dy = teamDragRef.current.currentY - teamDragRef.current.startY;
+                  teamDragRef.current = null;
+                  if (dy > 80) {
+                    setActiveTab("board");
+                  }
+                  setTeamPanelDragY(0);
+                }
+                window.removeEventListener("mousemove", onMove);
+                window.removeEventListener("mouseup", onUp);
+              };
+              window.addEventListener("mousemove", onMove);
+              window.addEventListener("mouseup", onUp);
+            }}
+          >
             <div className="w-10 h-1 rounded-full bg-gray-600" />
           </div>
           <h3 className="text-white font-semibold text-sm px-4 pb-2">My Team</h3>
