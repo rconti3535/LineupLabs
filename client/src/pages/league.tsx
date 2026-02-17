@@ -1947,7 +1947,7 @@ export default function LeaguePage() {
   const tabs: { key: Tab; label: string }[] = [
     { key: "roster", label: "Roster" },
     ...(isH2H ? [{ key: "matchup" as Tab, label: "Matchup" }] : []),
-    { key: "players", label: "Players" },
+    ...(!isBestBall ? [{ key: "players" as Tab, label: "Players" }] : []),
     { key: "standings", label: "Standings" },
   ];
 
