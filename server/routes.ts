@@ -8,6 +8,10 @@ import { getScheduleForDate, getPlayerGameTimes, type PlayerGameTime } from "./m
 
 const INF_POSITIONS = ["1B", "2B", "3B", "SS"];
 
+function getDraftRounds(league: { rosterPositions?: string[] | null; maxRosterSize?: number | null }): number {
+  return league.maxRosterSize || (league.rosterPositions || []).length;
+}
+
 function canFitSlot(playerPos: string, slotPos: string): boolean {
   if (slotPos === "BN" || slotPos === "IL") return true;
   if (slotPos === "UT") return !["SP", "RP"].includes(playerPos);
@@ -165,6 +169,15 @@ async function autoInitializeRosterSlots(leagueId: number): Promise<void> {
         const pi = assigned[si];
         if (pi !== null) {
           await storage.setRosterSlot(myPicks[pi].id, si);
+        }
+      }
+
+      if (league.type === "Best Ball") {
+        let extraSlot = rosterPositions.length;
+        for (let pi = 0; pi < myPicks.length; pi++) {
+          if (!usedPickIndices.has(pi)) {
+            await storage.setRosterSlot(myPicks[pi].id, extraSlot++);
+          }
         }
       }
     }
@@ -809,8 +822,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (validatedData.type === "Best Ball" && validatedData.scoringFormat && !["Roto", "Season Points"].includes(validatedData.scoringFormat)) {
         return res.status(400).json({ message: "Best Ball leagues only support Roto and Season Points scoring formats" });
       }
-      if (validatedData.type === "Best Ball" && !validatedData.rosterPositions) {
-        validatedData.rosterPositions = ["C", "INF", "INF", "INF", "INF", "OF", "OF", "OF", "SP", "SP", "SP", "RP", "RP"];
+      if (validatedData.type === "Best Ball") {
+        if (!validatedData.rosterPositions) {
+          validatedData.rosterPositions = ["C", "INF", "INF", "INF", "INF", "OF", "OF", "OF", "SP", "SP", "SP", "RP", "RP"];
+        }
+        if (!validatedData.maxRosterSize) {
+          validatedData.maxRosterSize = 40;
+        }
       }
       const league = await storage.createLeague(validatedData);
 
@@ -916,7 +934,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const existingPicks = await storage.getDraftPicksByLeague(leagueId);
-      const totalRounds = (league.rosterPositions || []).length;
+      const totalRounds = getDraftRounds(league);
       const numTeams = leagueTeams.length;
 
       const nextOverall = existingPicks.length + 1;
@@ -981,7 +999,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      const isBestBallManual = league.type === "Best Ball";
+      const maxRosterManual = getDraftRounds(league);
+      const scoringSlotsFilledManual = filledSlots.size >= rosterPositions.length;
+
       const canFitPlayer = (playerPos: string): boolean => {
+        if (isBestBallManual && scoringSlotsFilledManual && teamPicks.length < maxRosterManual) return true;
         for (let i = 0; i < rosterPositions.length; i++) {
           if (filledSlots.has(i)) continue;
           if (canFitSlot(playerPos, rosterPositions[i])) return true;
@@ -989,6 +1012,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return false;
       };
 
+      if (teamPicks.length >= maxRosterManual) {
+        return res.status(400).json({ message: "Your roster is full" });
+      }
       if (!canFitPlayer(player.position)) {
         return res.status(400).json({ message: `No open roster slot for ${player.position}. You can only draft players at positions you have unfilled.` });
       }
@@ -1040,7 +1066,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const leagueTeams = await storage.getTeamsByLeagueId(leagueId);
       const existingPicks = await storage.getDraftPicksByLeague(leagueId);
-      const totalRounds = (league.rosterPositions || []).length;
+      const totalRounds = getDraftRounds(league);
       const numTeams = leagueTeams.length;
 
       const existingPickForSlot = targetOverall ? existingPicks.find(p => p.overallPick === targetOverall) : null;
@@ -1116,7 +1142,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const leagueTeams = [...rawLeagueTeams].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999));
       const existingPicks = await storage.getDraftPicksByLeague(leagueId);
       const rosterPositions = league.rosterPositions || [];
-      const totalRounds = rosterPositions.length;
+      const totalRounds = getDraftRounds(league);
       const numTeams = leagueTeams.length;
 
       const nextOverall = existingPicks.length + 1;
@@ -1173,53 +1199,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      const emptySlotPositions: string[] = [];
-      for (let i = 0; i < rosterPositions.length; i++) {
-        if (!filledSlots.has(i)) {
-          emptySlotPositions.push(rosterPositions[i]);
-        }
-      }
-
-      const hasBenchOrIL = emptySlotPositions.some(s => s === "BN" || s === "IL");
-      const hasUtil = emptySlotPositions.some(s => s === "UT");
-      const hasP = emptySlotPositions.some(s => s === "P");
-      const hasInf = emptySlotPositions.some(s => s === "INF");
+      const isBestBall = league.type === "Best Ball";
+      const maxRoster = getDraftRounds(league);
+      const scoringSlotsAllFilled = filledSlots.size >= rosterPositions.length;
 
       const eligiblePositions: string[] = [];
-      for (const slot of emptySlotPositions) {
-        if (slot === "BN" || slot === "IL") continue;
-        if (slot === "UT") continue;
-        if (slot === "P") continue;
-        if (slot === "INF") {
+
+      if (isBestBall && scoringSlotsAllFilled) {
+        for (const p of ["C", "1B", "2B", "3B", "SS", "OF", "SP", "RP", "DH"]) {
+          eligiblePositions.push(p);
+        }
+      } else {
+        const emptySlotPositions: string[] = [];
+        for (let i = 0; i < rosterPositions.length; i++) {
+          if (!filledSlots.has(i)) {
+            emptySlotPositions.push(rosterPositions[i]);
+          }
+        }
+
+        const hasBenchOrIL = emptySlotPositions.some(s => s === "BN" || s === "IL");
+        const hasUtil = emptySlotPositions.some(s => s === "UT");
+        const hasP = emptySlotPositions.some(s => s === "P");
+        const hasInf = emptySlotPositions.some(s => s === "INF");
+
+        for (const slot of emptySlotPositions) {
+          if (slot === "BN" || slot === "IL") continue;
+          if (slot === "UT") continue;
+          if (slot === "P") continue;
+          if (slot === "INF") {
+            for (const p of INF_POSITIONS) {
+              if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
+            }
+            continue;
+          }
+          if (!eligiblePositions.includes(slot)) eligiblePositions.push(slot);
+        }
+
+        if (hasUtil) {
+          for (const p of ["C", "1B", "2B", "3B", "SS", "OF", "DH"]) {
+            if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
+          }
+        }
+
+        if (hasInf) {
           for (const p of INF_POSITIONS) {
             if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
           }
-          continue;
         }
-        if (!eligiblePositions.includes(slot)) eligiblePositions.push(slot);
-      }
 
-      if (hasUtil) {
-        for (const p of ["C", "1B", "2B", "3B", "SS", "OF", "DH"]) {
-          if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
+        if (hasP) {
+          for (const p of ["SP", "RP"]) {
+            if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
+          }
         }
-      }
 
-      if (hasInf) {
-        for (const p of INF_POSITIONS) {
-          if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
-        }
-      }
-
-      if (hasP) {
-        for (const p of ["SP", "RP"]) {
-          if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
-        }
-      }
-
-      if (hasBenchOrIL) {
-        for (const p of ["C", "1B", "2B", "3B", "SS", "OF", "SP", "RP", "DH"]) {
-          if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
+        if (hasBenchOrIL || (isBestBall && teamPicks.length < maxRoster)) {
+          for (const p of ["C", "1B", "2B", "3B", "SS", "OF", "SP", "RP", "DH"]) {
+            if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
+          }
         }
       }
 
@@ -1816,7 +1853,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const teamPicks = await storage.getDraftPicksByLeague(leagueId);
       const myPicks = teamPicks.filter(p => p.teamId === userTeam.id);
       const rosterPositions = league.rosterPositions || [];
-      const hasOpenSlot = myPicks.length < rosterPositions.length;
+      const maxRoster = getDraftRounds(league);
+      const hasOpenSlot = myPicks.length < maxRoster;
 
       if (!hasOpenSlot && !dropPickId) {
         return res.status(400).json({ message: "Roster is full — select a player to drop" });
@@ -2060,7 +2098,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const leagueTeams = await storage.getTeamsByLeagueId(league.id);
         const existingPicks = await storage.getDraftPicksByLeague(league.id);
         const rosterPositions = league.rosterPositions || [];
-        const totalRounds = rosterPositions.length;
+        const totalRounds = getDraftRounds(league);
         const numTeams = leagueTeams.length;
         if (numTeams === 0) continue;
 
@@ -2126,31 +2164,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
 
-        const emptySlotPositions: string[] = [];
-        for (let i = 0; i < rosterPositions.length; i++) {
-          if (!filledSlots.has(i)) emptySlotPositions.push(rosterPositions[i]);
-        }
-
-        const priorityOrder = ["C", "INF", "1B", "2B", "3B", "SS", "OF", "SP", "RP", "P", "DH", "UT", "BN", "IL"];
-        emptySlotPositions.sort((a, b) => {
-          const ai = priorityOrder.indexOf(a);
-          const bi = priorityOrder.indexOf(b);
-          return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
-        });
+        const isBestBallInterval = league.type === "Best Ball";
+        const scoringSlotsFilledInterval = filledSlots.size >= rosterPositions.length;
 
         let selectedPlayer = null;
-        for (const slotPos of emptySlotPositions) {
-          if (slotPos === "BN" || slotPos === "IL" || slotPos === "UT" || slotPos === "P") continue;
-          const searchPos = slotPos === "INF" ? "1B" : slotPos;
-          const searchPositions = slotPos === "INF" ? INF_POSITIONS : [searchPos];
-          for (const sp of searchPositions) {
-            selectedPlayer = await storage.getBestAvailablePlayer(draftedPlayerIds, sp);
+
+        if (isBestBallInterval && scoringSlotsFilledInterval) {
+          for (const p of ["C", "1B", "2B", "3B", "SS", "OF", "SP", "RP", "DH"]) {
+            selectedPlayer = await storage.getBestAvailablePlayer(draftedPlayerIds, p);
             if (selectedPlayer) break;
           }
-          if (selectedPlayer) break;
-        }
-        if (!selectedPlayer) {
-          selectedPlayer = await storage.getBestAvailablePlayer(draftedPlayerIds);
+          if (!selectedPlayer) {
+            selectedPlayer = await storage.getBestAvailablePlayer(draftedPlayerIds);
+          }
+        } else {
+          const emptySlotPositions: string[] = [];
+          for (let i = 0; i < rosterPositions.length; i++) {
+            if (!filledSlots.has(i)) emptySlotPositions.push(rosterPositions[i]);
+          }
+
+          const priorityOrder = ["C", "INF", "1B", "2B", "3B", "SS", "OF", "SP", "RP", "P", "DH", "UT", "BN", "IL"];
+          emptySlotPositions.sort((a, b) => {
+            const ai = priorityOrder.indexOf(a);
+            const bi = priorityOrder.indexOf(b);
+            return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+          });
+
+          for (const slotPos of emptySlotPositions) {
+            if (slotPos === "BN" || slotPos === "IL" || slotPos === "UT" || slotPos === "P") continue;
+            const searchPos = slotPos === "INF" ? "1B" : slotPos;
+            const searchPositions = slotPos === "INF" ? INF_POSITIONS : [searchPos];
+            for (const sp of searchPositions) {
+              selectedPlayer = await storage.getBestAvailablePlayer(draftedPlayerIds, sp);
+              if (selectedPlayer) break;
+            }
+            if (selectedPlayer) break;
+          }
+          if (!selectedPlayer) {
+            selectedPlayer = await storage.getBestAvailablePlayer(draftedPlayerIds);
+          }
         }
         if (!selectedPlayer) {
           await storage.updateLeague(league.id, { draftStatus: "completed", draftPickStartedAt: null });

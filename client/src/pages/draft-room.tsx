@@ -164,7 +164,7 @@ export default function DraftRoom() {
   const isDraftPaused = serverDraftStatus === "paused";
   const isDraftCompleted = serverDraftStatus === "completed";
   const rosterPositions = league?.rosterPositions || [];
-  const totalRounds = rosterPositions.length;
+  const totalRounds = league?.maxRosterSize || rosterPositions.length;
   const configuredTeams = league?.maxTeams || league?.numberOfTeams || 12;
   const actualTeams = teams?.length || 0;
   const numTeams = isDraftActive || isDraftPaused || isDraftCompleted ? actualTeams || configuredTeams : configuredTeams;
@@ -336,6 +336,8 @@ export default function DraftRoom() {
 
   const canDraftPosition = (playerPos: string): boolean => {
     if (!rosterPositions.length) return true;
+    const isBestBallDraft = league?.type === "Best Ball";
+    const maxRoster = league?.maxRosterSize || rosterPositions.length;
     const INF_POS = ["1B", "2B", "3B", "SS"];
     const filledSlots = new Set<number>();
     for (const tp of myDraftedPlayers) {
@@ -365,6 +367,9 @@ export default function DraftRoom() {
         }
       }
     }
+    if (isBestBallDraft && filledSlots.size >= rosterPositions.length && myDraftedPlayers.length < maxRoster) {
+      return true;
+    }
     for (let i = 0; i < rosterPositions.length; i++) {
       if (filledSlots.has(i)) continue;
       const slot = rosterPositions[i];
@@ -375,6 +380,7 @@ export default function DraftRoom() {
       if (slot === "INF" && INF_POS.includes(playerPos)) return true;
       if (slot === playerPos) return true;
     }
+    if (myDraftedPlayers.length >= maxRoster) return false;
     return false;
   };
 

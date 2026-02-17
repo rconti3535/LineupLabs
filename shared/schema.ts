@@ -40,6 +40,7 @@ export const leagues = pgTable("leagues", {
   pointValues: text("point_values"), // JSON string of custom point values for Points leagues
   leagueImage: text("league_image"),
   seasonWeeks: integer("season_weeks").default(27),
+  maxRosterSize: integer("max_roster_size"),
   createdBy: integer("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
 });

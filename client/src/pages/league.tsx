@@ -1324,6 +1324,7 @@ export default function LeaguePage() {
   const [isEditingRoster, setIsEditingRoster] = useState(false);
   const [editRosterPositions, setEditRosterPositions] = useState<string[]>([]);
   const [editRosterCounts, setEditRosterCounts] = useState<Record<string, number>>({});
+  const [editMaxRosterSize, setEditMaxRosterSize] = useState<number>(0);
   const [isEditingDraft, setIsEditingDraft] = useState(false);
   const [editDraftType, setEditDraftType] = useState("");
   const [editDraftDate, setEditDraftDate] = useState("");
@@ -1498,7 +1499,49 @@ export default function LeaguePage() {
     });
   })();
 
-  const rosterEntries = dailyRosterEntries || assignPlayersToRosterWithPicks(rosterSlots, myRosteredPlayers, myPicks);
+  const bestBallRosterEntries = (() => {
+    if (league?.type !== "Best Ball" || !myRosteredPlayers.length) return null;
+    const scoringSlots = league?.rosterPositions || [];
+    const INF_POS = ["1B", "2B", "3B", "SS"];
+    const BB_GROUPS = [
+      { label: "C", positions: ["C"], slotKey: "C" },
+      { label: "INF", positions: INF_POS, slotKey: "INF" },
+      { label: "OF", positions: ["OF", "LF", "CF", "RF"], slotKey: "OF" },
+      { label: "SP", positions: ["SP"], slotKey: "SP" },
+      { label: "RP", positions: ["RP"], slotKey: "RP" },
+    ];
+
+    const entries: RosterEntry[] = [];
+    const usedPlayerIds = new Set<number>();
+    let idx = 0;
+
+    for (const group of BB_GROUPS) {
+      const slotsForGroup = scoringSlots.filter(s => s === group.slotKey).length;
+      const playersForGroup = myRosteredPlayers.filter(p => group.positions.includes(p.position));
+
+      for (let s = 0; s < slotsForGroup; s++) {
+        const player = playersForGroup.find(p => !usedPlayerIds.has(p.id)) || null;
+        if (player) usedPlayerIds.add(player.id);
+        entries.push({ player, pickId: null, slotIndex: idx++, slotPos: group.slotKey });
+      }
+
+      const extraPlayers = playersForGroup.filter(p => !usedPlayerIds.has(p.id));
+      for (const player of extraPlayers) {
+        usedPlayerIds.add(player.id);
+        entries.push({ player, pickId: null, slotIndex: idx++, slotPos: group.slotKey });
+      }
+    }
+
+    const unassigned = myRosteredPlayers.filter(p => !usedPlayerIds.has(p.id));
+    for (const player of unassigned) {
+      const pos = player.position === "DH" ? "INF" : (["SP", "RP"].includes(player.position) ? player.position : "OF");
+      entries.push({ player, pickId: null, slotIndex: idx++, slotPos: pos });
+    }
+
+    return entries;
+  })();
+
+  const rosterEntries = bestBallRosterEntries || dailyRosterEntries || assignPlayersToRosterWithPicks(rosterSlots, myRosteredPlayers, myPicks);
 
   const needsInit = league?.draftStatus === "completed" && myPicks.length > 0 && !myPicks.some(p => p.rosterSlot !== null && p.rosterSlot !== undefined);
 
@@ -1755,12 +1798,18 @@ export default function LeaguePage() {
     const positions = league.rosterPositions || ["C", "1B", "2B", "3B", "SS", "OF", "OF", "OF", "UT", "SP", "SP", "RP", "RP", "BN", "BN", "IL"];
     setEditRosterPositions(positions);
     setEditRosterCounts(positionsToCountsMap(positions));
+    setEditMaxRosterSize(league.maxRosterSize || positions.length);
     setIsEditingRoster(true);
   };
 
   const saveRosterSettings = () => {
     const positions = countsToPositionsArray(editRosterCounts);
-    updateMutation.mutate({ rosterPositions: positions });
+    const isBB = league?.type === "Best Ball";
+    const updates: Record<string, unknown> = { rosterPositions: positions };
+    if (isBB) {
+      updates.maxRosterSize = editMaxRosterSize;
+    }
+    updateMutation.mutate(updates);
     setIsEditingRoster(false);
   };
 
@@ -2023,12 +2072,17 @@ export default function LeaguePage() {
           {myTeam ? (() => {
             const isPitcherSlot = (s: string) => s === "SP" || s === "RP" || s === "P";
             const isPitcherPlayer = (p: Player) => ["SP", "RP", "P"].includes(p.position);
-            const posEntries = rosterEntries.filter(e => !isPitcherSlot(e.slotPos) && e.slotPos !== "BN" && e.slotPos !== "IL");
-            const pitchEntries = rosterEntries.filter(e => isPitcherSlot(e.slotPos));
+
+            const posEntries = isBestBall
+              ? rosterEntries.filter(e => !isPitcherSlot(e.slotPos))
+              : rosterEntries.filter(e => !isPitcherSlot(e.slotPos) && e.slotPos !== "BN" && e.slotPos !== "IL");
+            const pitchEntries = isBestBall
+              ? rosterEntries.filter(e => isPitcherSlot(e.slotPos))
+              : rosterEntries.filter(e => isPitcherSlot(e.slotPos));
             
-            const benchPosEntries = rosterEntries.filter(e => (e.slotPos === "BN" || e.slotPos === "IL") && e.player && !isPitcherPlayer(e.player));
-            const benchPitchEntries = rosterEntries.filter(e => (e.slotPos === "BN" || e.slotPos === "IL") && e.player && isPitcherPlayer(e.player));
-            const emptyBenchEntries = rosterEntries.filter(e => (e.slotPos === "BN" || e.slotPos === "IL") && !e.player);
+            const benchPosEntries = isBestBall ? [] : rosterEntries.filter(e => (e.slotPos === "BN" || e.slotPos === "IL") && e.player && !isPitcherPlayer(e.player));
+            const benchPitchEntries = isBestBall ? [] : rosterEntries.filter(e => (e.slotPos === "BN" || e.slotPos === "IL") && e.player && isPitcherPlayer(e.player));
+            const emptyBenchEntries = isBestBall ? [] : rosterEntries.filter(e => (e.slotPos === "BN" || e.slotPos === "IL") && !e.player);
             
             const isDraftCompleted = league.draftStatus === "completed";
 
@@ -2925,7 +2979,7 @@ export default function LeaguePage() {
           {isCommissioner ? (
             isEditingRoster ? (
               <div className="space-y-2">
-                {ALL_POSITIONS.map((pos) => (
+                {(isBestBall ? ["C", "INF", "OF", "SP", "RP"] : ALL_POSITIONS).map((pos) => (
                   <div key={pos} className="flex items-center justify-between py-1.5 px-2 rounded-lg bg-gray-800/50">
                     <span className="text-white text-sm font-medium w-12">{pos}</span>
                     <div className="flex items-center gap-3">
@@ -2950,8 +3004,55 @@ export default function LeaguePage() {
                     </div>
                   </div>
                 ))}
+                {isBestBall && (
+                  <>
+                    <div className="border-t border-gray-700 my-2" />
+                    <div className="flex items-center justify-between py-1.5 px-2 rounded-lg bg-gray-800/50">
+                      <span className="text-white text-sm font-medium">Total Roster</span>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setEditMaxRosterSize(prev => Math.max(Object.values(editRosterCounts).reduce((a, b) => a + b, 0), prev - 1))}
+                          className="w-7 h-7 rounded-full bg-gray-700 hover:bg-gray-600 text-white flex items-center justify-center text-sm font-bold"
+                        >
+                          −
+                        </button>
+                        <span className="text-white text-sm font-semibold w-5 text-center">
+                          {editMaxRosterSize}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setEditMaxRosterSize(prev => prev + 1)}
+                          className="w-7 h-7 rounded-full bg-gray-700 hover:bg-gray-600 text-white flex items-center justify-center text-sm font-bold"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-gray-500 text-xs px-2">
+                      {Object.values(editRosterCounts).reduce((a, b) => a + b, 0)} scoring slots, {editMaxRosterSize} total drafted per team
+                    </p>
+                  </>
+                )}
               </div>
             ) : (
+              <div>
+                <div className="flex flex-wrap gap-1.5">
+                  {(league.rosterPositions || []).map((pos, index) => (
+                    <Badge key={index} className="bg-gray-700 text-white text-xs px-2 py-0.5">
+                      {pos}
+                    </Badge>
+                  ))}
+                </div>
+                {isBestBall && league.maxRosterSize && (
+                  <p className="text-gray-500 text-xs mt-2">
+                    {(league.rosterPositions || []).length} scoring slots, {league.maxRosterSize} total drafted per team
+                  </p>
+                )}
+              </div>
+            )
+          ) : (
+            <div>
               <div className="flex flex-wrap gap-1.5">
                 {(league.rosterPositions || []).map((pos, index) => (
                   <Badge key={index} className="bg-gray-700 text-white text-xs px-2 py-0.5">
@@ -2959,14 +3060,11 @@ export default function LeaguePage() {
                   </Badge>
                 ))}
               </div>
-            )
-          ) : (
-            <div className="flex flex-wrap gap-1.5">
-              {(league.rosterPositions || []).map((pos, index) => (
-                <Badge key={index} className="bg-gray-700 text-white text-xs px-2 py-0.5">
-                  {pos}
-                </Badge>
-              ))}
+              {isBestBall && league.maxRosterSize && (
+                <p className="text-gray-500 text-xs mt-2">
+                  {(league.rosterPositions || []).length} scoring slots, {league.maxRosterSize} total drafted per team
+                </p>
+              )}
             </div>
           )}
         </Card>
