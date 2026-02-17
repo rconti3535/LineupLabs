@@ -2180,16 +2180,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         const isBestBallInterval = league.type === "Best Ball";
+        const leagueType = league.type || "Redraft";
+        const scoringFormat = league.scoringFormat || "Roto";
+        const season = new Date().getFullYear();
 
-        let selectedPlayer = null;
+        const eligiblePositions: string[] = [];
 
         if (isBestBallInterval) {
           for (const p of ["C", "1B", "2B", "3B", "SS", "OF", "SP", "RP", "DH"]) {
-            selectedPlayer = await storage.getBestAvailablePlayer(draftedPlayerIds, p);
-            if (selectedPlayer) break;
-          }
-          if (!selectedPlayer) {
-            selectedPlayer = await storage.getBestAvailablePlayer(draftedPlayerIds);
+            eligiblePositions.push(p);
           }
         } else {
           const filledSlots = new Set<number>();
@@ -2226,26 +2225,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (!filledSlots.has(i)) emptySlotPositions.push(rosterPositions[i]);
           }
 
-          const priorityOrder = ["C", "INF", "1B", "2B", "3B", "SS", "OF", "SP", "RP", "P", "DH", "UT", "BN", "IL"];
-          emptySlotPositions.sort((a, b) => {
-            const ai = priorityOrder.indexOf(a);
-            const bi = priorityOrder.indexOf(b);
-            return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
-          });
+          const hasBenchOrIL = emptySlotPositions.some(s => s === "BN" || s === "IL");
+          const hasUtil = emptySlotPositions.some(s => s === "UT");
+          const hasP = emptySlotPositions.some(s => s === "P");
+          const hasInf = emptySlotPositions.some(s => s === "INF");
 
-          for (const slotPos of emptySlotPositions) {
-            if (slotPos === "BN" || slotPos === "IL" || slotPos === "UT" || slotPos === "P") continue;
-            const searchPos = slotPos === "INF" ? "1B" : slotPos;
-            const searchPositions = slotPos === "INF" ? INF_POSITIONS : [searchPos];
-            for (const sp of searchPositions) {
-              selectedPlayer = await storage.getBestAvailablePlayer(draftedPlayerIds, sp);
-              if (selectedPlayer) break;
+          for (const slot of emptySlotPositions) {
+            if (slot === "BN" || slot === "IL") continue;
+            if (slot === "UT") continue;
+            if (slot === "P") continue;
+            if (slot === "INF") {
+              for (const p of INF_POSITIONS) {
+                if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
+              }
+              continue;
             }
+            if (!eligiblePositions.includes(slot)) eligiblePositions.push(slot);
+          }
+
+          if (hasUtil) {
+            for (const p of ["C", "1B", "2B", "3B", "SS", "OF", "DH"]) {
+              if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
+            }
+          }
+
+          if (hasInf) {
+            for (const p of INF_POSITIONS) {
+              if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
+            }
+          }
+
+          if (hasP) {
+            for (const p of ["SP", "RP"]) {
+              if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
+            }
+          }
+
+          if (hasBenchOrIL) {
+            for (const p of ["C", "1B", "2B", "3B", "SS", "OF", "SP", "RP", "DH"]) {
+              if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
+            }
+          }
+        }
+
+        let selectedPlayer = await storage.getBestAvailableByAdp(
+          draftedPlayerIds, leagueType, scoringFormat, season, eligiblePositions
+        );
+
+        if (!selectedPlayer) {
+          for (const ep of eligiblePositions) {
+            selectedPlayer = await storage.getBestAvailablePlayer(draftedPlayerIds, ep);
             if (selectedPlayer) break;
           }
-          if (!selectedPlayer) {
-            selectedPlayer = await storage.getBestAvailablePlayer(draftedPlayerIds);
-          }
+        }
+
+        if (!selectedPlayer) {
+          selectedPlayer = await storage.getBestAvailablePlayer(draftedPlayerIds);
         }
         if (!selectedPlayer) {
           await storage.updateLeague(league.id, { draftStatus: "completed", draftPickStartedAt: null });

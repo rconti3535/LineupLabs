@@ -358,6 +358,13 @@ export class DatabaseStorage implements IStorage {
         expandedPositions.push(pos);
       }
     }
+    const hasAnyHitter = eligiblePositions.some(p => !["SP", "RP"].includes(p));
+    if (hasAnyHitter && !expandedPositions.includes("UT")) {
+      expandedPositions.push("UT");
+    }
+    if (hasAnyHitter && !expandedPositions.includes("DH")) {
+      expandedPositions.push("DH");
+    }
     const uniquePositions = Array.from(new Set(expandedPositions));
 
     const adpConditions = and(
