@@ -912,6 +912,99 @@ export default function DraftRoom() {
           <h3 className="text-white font-semibold text-sm px-4 pb-2">My Team</h3>
           <div className="flex-1 overflow-auto hide-scrollbar px-3 pb-3">
             {myTeam ? (() => {
+              const isBestBallDraft = league?.type === "Best Ball";
+              const STAT_COL = "w-[42px] text-center text-[11px] shrink-0";
+
+              if (isBestBallDraft) {
+                const INF_POS = ["1B", "2B", "3B", "SS"];
+                const OF_POS = ["OF", "LF", "CF", "RF", "DH", "UT"];
+                const BB_SECTIONS = [
+                  { label: "Catchers", positions: ["C"], isHitting: true },
+                  { label: "Infielders", positions: INF_POS, isHitting: true },
+                  { label: "Outfielders", positions: OF_POS, isHitting: true },
+                  { label: "Starting Pitchers", positions: ["SP"], isHitting: false },
+                  { label: "Relief Pitchers", positions: ["RP"], isHitting: false },
+                ];
+
+                return (
+                  <div className="space-y-4">
+                    {BB_SECTIONS.map(section => {
+                      const players = myDraftedPlayers.filter(p => section.positions.includes(p.position));
+                      return (
+                        <div key={section.label}>
+                          <p className="text-gray-400 text-[11px] uppercase font-bold tracking-wider mb-2">
+                            {section.label} {players.length > 0 && <span className="text-gray-600">({players.length})</span>}
+                          </p>
+                          {players.length === 0 ? (
+                            <p className="text-gray-600 text-xs italic pl-1 pb-1">No players drafted yet</p>
+                          ) : (
+                            <div className="overflow-x-auto hide-scrollbar -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
+                              <table className="w-full" style={{ minWidth: "460px" }}>
+                                <thead>
+                                  <tr className="border-b border-gray-700">
+                                    <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-9 pl-1">Pos</th>
+                                    <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[140px]">Player</th>
+                                    {section.isHitting ? (
+                                      <>
+                                        <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>R</th>
+                                        <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>HR</th>
+                                        <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>RBI</th>
+                                        <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>SB</th>
+                                        <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>AVG</th>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>W</th>
+                                        <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>SV</th>
+                                        <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>K</th>
+                                        <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>ERA</th>
+                                        <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>WHIP</th>
+                                      </>
+                                    )}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {players.map((p, pi) => (
+                                    <tr key={pi} className="border-b border-gray-800/50">
+                                      <td className="py-1.5 pl-1">
+                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-700 text-gray-300">{p.position}</span>
+                                      </td>
+                                      <td className="py-1.5 pr-2">
+                                        <div>
+                                          <p className="text-white text-xs font-medium truncate max-w-[130px]">{p.name}</p>
+                                          <p className="text-gray-500 text-[10px]">{p.position} — {p.teamAbbreviation || p.team}</p>
+                                        </div>
+                                      </td>
+                                      {section.isHitting ? (
+                                        <>
+                                          <td className={`${STAT_COL} text-gray-300`}>{(p as any).statR ?? "-"}</td>
+                                          <td className={`${STAT_COL} text-gray-300`}>{(p as any).statHR ?? "-"}</td>
+                                          <td className={`${STAT_COL} text-gray-300`}>{(p as any).statRBI ?? "-"}</td>
+                                          <td className={`${STAT_COL} text-gray-300`}>{(p as any).statSB ?? "-"}</td>
+                                          <td className={`${STAT_COL} text-gray-300`}>{(p as any).statAVG ?? "-"}</td>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <td className={`${STAT_COL} text-gray-300`}>{(p as any).statW ?? "-"}</td>
+                                          <td className={`${STAT_COL} text-gray-300`}>{(p as any).statSV ?? "-"}</td>
+                                          <td className={`${STAT_COL} text-gray-300`}>{(p as any).statK ?? "-"}</td>
+                                          <td className={`${STAT_COL} text-gray-300`}>{(p as any).statERA ?? "-"}</td>
+                                          <td className={`${STAT_COL} text-gray-300`}>{(p as any).statWHIP ?? "-"}</td>
+                                        </>
+                                      )}
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              }
+
               const isPitcherSlot = (s: string) => s === "SP" || s === "RP";
               const posSlots: { pos: string; index: number }[] = [];
               const pitchSlots: { pos: string; index: number }[] = [];
@@ -921,8 +1014,6 @@ export default function DraftRoom() {
                 else if (isPitcherSlot(pos)) pitchSlots.push({ pos, index });
                 else posSlots.push({ pos, index });
               });
-
-              const STAT_COL = "w-[42px] text-center text-[11px] shrink-0";
 
               return (
                 <div className="space-y-4">
