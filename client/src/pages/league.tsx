@@ -3240,10 +3240,15 @@ export default function LeaguePage() {
                       {(() => {
                         const maxSlots = league.maxTeams || league.numberOfTeams || 12;
                         const posMap = new Map<number, Team>();
-                        (teams || []).forEach(t => { if (t.draftPosition) posMap.set(t.draftPosition, t); });
+                        const unpositioned: Team[] = [];
+                        (teams || []).forEach(t => {
+                          if (t.draftPosition) posMap.set(t.draftPosition, t);
+                          else unpositioned.push(t);
+                        });
+                        let unposIdx = 0;
                         const slots = [];
                         for (let i = 0; i < maxSlots; i++) {
-                          const team = posMap.get(i + 1);
+                          const team = posMap.get(i + 1) || (unposIdx < unpositioned.length ? unpositioned[unposIdx++] : null);
                           slots.push(
                             <div key={team?.id || `open-${i}`} className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-2">
                               <span className="text-primary font-bold text-xs w-5">{i + 1}</span>
@@ -3281,16 +3286,21 @@ export default function LeaguePage() {
                     <p className="text-white font-medium text-sm">{league.draftOrder || "Random"}</p>
                   </div>
                 </div>
-                {teams && teams.some(t => t.draftPosition) && (
+                {teams && teams.length > 0 && (
                   <div>
                     <p className="text-gray-400 text-xs mb-2">Current Order</p>
                     <div className="space-y-1">
                       {(() => {
                         const maxSlots = league.maxTeams || league.numberOfTeams || 12;
                         const posMap = new Map<number, Team>();
-                        (teams || []).forEach(t => { if (t.draftPosition) posMap.set(t.draftPosition, t); });
+                        const unpositioned: Team[] = [];
+                        (teams || []).forEach(t => {
+                          if (t.draftPosition) posMap.set(t.draftPosition, t);
+                          else unpositioned.push(t);
+                        });
+                        let unposIdx = 0;
                         return Array.from({ length: maxSlots }, (_, i) => {
-                          const team = posMap.get(i + 1);
+                          const team = posMap.get(i + 1) || (unposIdx < unpositioned.length ? unpositioned[unposIdx++] : null);
                           return (
                             <div key={team?.id || `open-${i}`} className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-1.5">
                               <span className="text-primary font-bold text-xs w-5">{i + 1}</span>
@@ -3328,16 +3338,21 @@ export default function LeaguePage() {
                   <p className="text-white font-medium text-sm">{league.draftOrder || "Random"}</p>
                 </div>
               </div>
-              {teams && teams.some(t => t.draftPosition) && (
+              {teams && teams.length > 0 && (
                 <div>
                   <p className="text-gray-400 text-xs mb-2">Current Order</p>
                   <div className="space-y-1">
                     {(() => {
                       const maxSlots = league.maxTeams || league.numberOfTeams || 12;
                       const posMap = new Map<number, Team>();
-                      (teams || []).forEach(t => { if (t.draftPosition) posMap.set(t.draftPosition, t); });
+                      const unpositioned: Team[] = [];
+                      (teams || []).forEach(t => {
+                        if (t.draftPosition) posMap.set(t.draftPosition, t);
+                        else unpositioned.push(t);
+                      });
+                      let unposIdx = 0;
                       return Array.from({ length: maxSlots }, (_, i) => {
-                        const team = posMap.get(i + 1);
+                        const team = posMap.get(i + 1) || (unposIdx < unpositioned.length ? unpositioned[unposIdx++] : null);
                         return (
                           <div key={team?.id || `open-${i}`} className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-1.5">
                             <span className="text-primary font-bold text-xs w-5">{i + 1}</span>
