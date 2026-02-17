@@ -40,7 +40,9 @@ export default function Login() {
     onSuccess: (user) => {
       login(user.id);
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-      setLocation("/");
+      const params = new URLSearchParams(window.location.search);
+      const redirect = params.get("redirect");
+      setLocation(redirect || "/");
     },
     onError: (error) => {
     },

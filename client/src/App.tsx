@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -17,6 +17,10 @@ import LeaguePage from "@/pages/league";
 import DraftRoom from "@/pages/draft-room";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
+
+function LeagueJoinRedirect({ params }: { params: { id: string } }) {
+  return <Redirect to={`/league/${params.id}`} />;
+}
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -41,11 +45,16 @@ function Router() {
           <Route path="/messages" component={Messages} />
           <Route path="/profile" component={Profile} />
           <Route path="/create-league" component={CreateLeague} />
+          <Route path="/league/:id/join" component={LeagueJoinRedirect} />
           <Route path="/league/:id/draft" component={DraftRoom} />
           <Route path="/league/:id" component={LeaguePage} />
         </>
       ) : (
-        <Route path="/" component={Landing} />
+        <>
+          <Route path="/league/:id/join">{(params) => <Redirect to={`/login?redirect=/league/${params.id}`} />}</Route>
+          <Route path="/league/:id">{(params) => <Redirect to={`/login?redirect=/league/${params.id}`} />}</Route>
+          <Route path="/" component={Landing} />
+        </>
       )}
       <Route component={NotFound} />
     </Switch>

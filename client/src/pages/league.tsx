@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Users, Trophy, Calendar, TrendingUp, Pencil, Trash2, AlertTriangle, ArrowUpDown, Search, Plus, X, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Menu, Clock, Settings, Shuffle, GripVertical } from "lucide-react";
+import { ArrowLeft, Users, Trophy, Calendar, TrendingUp, Pencil, Trash2, AlertTriangle, ArrowUpDown, Search, Plus, X, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Menu, Clock, Settings, Shuffle, GripVertical, Share } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -1969,14 +1969,33 @@ export default function LeaguePage() {
           </div>
         </div>
 
-        <Button
-          onClick={() => setShowSettings(!showSettings)}
-          variant="ghost"
-          size="icon"
-          className={`shrink-0 h-9 w-9 rounded-full ${showSettings ? "text-blue-400 bg-white/10" : "text-gray-400 hover:text-white"}`}
-        >
-          <Settings className="w-5 h-5" />
-        </Button>
+        <div className="flex items-center gap-1 shrink-0">
+          {isCommissioner && (
+            <Button
+              onClick={() => {
+                const url = `${window.location.origin}/league/${leagueId}/join`;
+                navigator.clipboard.writeText(url).then(() => {
+                  toast({ title: "Link copied!", description: "Share this link with others to invite them to your league." });
+                }).catch(() => {
+                  toast({ title: "Copy failed", description: url, variant: "destructive" });
+                });
+              }}
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 rounded-full text-gray-400 hover:text-white"
+            >
+              <Share className="w-5 h-5" />
+            </Button>
+          )}
+          <Button
+            onClick={() => setShowSettings(!showSettings)}
+            variant="ghost"
+            size="icon"
+            className={`h-9 w-9 rounded-full ${showSettings ? "text-blue-400 bg-white/10" : "text-gray-400 hover:text-white"}`}
+          >
+            <Settings className="w-5 h-5" />
+          </Button>
+        </div>
       </div>
 
       <div className="mb-4">
