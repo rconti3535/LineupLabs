@@ -783,7 +783,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create user (signup)
   app.post("/api/users", async (req, res) => {
     try {
-      const validatedData = insertUserSchema.parse(req.body);
+      const body = { ...req.body };
+      if (body.username) body.username = body.username.trim();
+      if (body.email) body.email = body.email.trim().toLowerCase();
+      const validatedData = insertUserSchema.parse(body);
       const existingUser = await storage.getUserByUsername(validatedData.username);
       if (existingUser) {
         return res.status(400).json({ message: "Username already exists" });
@@ -808,8 +811,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { username, password } = req.body;
-      const user = await storage.getUserByUsername(username);
-      if (!user || user.password !== password) {
+      const trimmedUsername = (username || "").trim();
+      const trimmedPassword = (password || "").trim();
+      const user = await storage.getUserByUsername(trimmedUsername);
+      if (!user || user.password !== trimmedPassword) {
         return res.status(401).json({ message: "Invalid username or password" });
       }
       res.json(user);

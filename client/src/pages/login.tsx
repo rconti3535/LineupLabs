@@ -86,6 +86,10 @@ export default function Login() {
                     <Input
                       placeholder="Enter your username"
                       className="sleeper-card-bg sleeper-border border text-white placeholder-gray-400"
+                      autoCapitalize="off"
+                      autoCorrect="off"
+                      autoComplete="username"
+                      spellCheck={false}
                       {...field}
                     />
                   </FormControl>

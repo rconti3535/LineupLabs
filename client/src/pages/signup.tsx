@@ -93,6 +93,10 @@ export default function Signup() {
                     <Input
                       placeholder="Choose a username"
                       className="sleeper-card-bg sleeper-border border text-white placeholder-gray-400"
+                      autoCapitalize="off"
+                      autoCorrect="off"
+                      autoComplete="username"
+                      spellCheck={false}
                       {...field}
                     />
                   </FormControl>
@@ -112,6 +116,10 @@ export default function Signup() {
                       type="email"
                       placeholder="Enter your email"
                       className="sleeper-card-bg sleeper-border border text-white placeholder-gray-400"
+                      autoCapitalize="off"
+                      autoCorrect="off"
+                      autoComplete="email"
+                      spellCheck={false}
                       {...field}
                     />
                   </FormControl>
