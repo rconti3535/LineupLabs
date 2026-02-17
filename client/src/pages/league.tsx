@@ -373,9 +373,20 @@ function StandingsTab({ leagueId, league, teamsLoading, teams, user }: { leagueI
   }
 
   const { standings, hittingCategories, pitchingCategories, format } = standingsData;
+  const maxTeams = league.maxTeams || league.numberOfTeams || 12;
+  const emptySlots = Math.max(0, maxTeams - standings.length);
 
   const rankClass = (idx: number) =>
     idx === 0 ? "text-yellow-400" : idx === 1 ? "text-gray-300" : idx === 2 ? "text-orange-400" : "text-gray-500";
+
+  const emptyTeamCell = (slotIdx: number) => (
+    <td className="py-2 sticky left-0 bg-[#1a1d26] z-10 pl-1">
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-bold w-5 text-center shrink-0 text-gray-600">{standings.length + slotIdx + 1}</span>
+        <span className="text-gray-600 text-xs italic">Open Slot</span>
+      </div>
+    </td>
+  );
 
   const teamCell = (team: typeof standings[0], idx: number) => (
     <td className="py-2 sticky left-0 bg-[#1a1d26] z-10 pl-1">
@@ -468,6 +479,18 @@ function StandingsTab({ leagueId, league, teamsLoading, teams, user }: { leagueI
                       })}
                     </tr>
                   ))}
+                  {Array.from({ length: emptySlots }, (_, i) => (
+                    <tr key={`empty-${i}`} className="border-b border-gray-800/50">
+                      {emptyTeamCell(i)}
+                      <td className="text-center py-2"><p className="text-gray-700 text-xs">-</p></td>
+                      {hittingCategories.map((cat, ci) => (
+                        <td key={`eh_${cat}`} className={`text-center py-2 ${ci === 0 ? "border-l border-gray-700/50" : ""}`}><p className="text-gray-700 text-xs">-</p></td>
+                      ))}
+                      {pitchingCategories.map((cat, ci) => (
+                        <td key={`ep_${cat}`} className={`text-center py-2 ${ci === 0 ? "border-l border-gray-700/50" : ""}`}><p className="text-gray-700 text-xs">-</p></td>
+                      ))}
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -540,6 +563,14 @@ function StandingsTab({ leagueId, league, teamsLoading, teams, user }: { leagueI
                         </tr>
                       );
                     })}
+                    {Array.from({ length: emptySlots }, (_, i) => (
+                      <tr key={`empty-${i}`} className="border-b border-gray-800/50">
+                        {emptyTeamCell(i)}
+                        {Array.from({ length: 6 }, (_, ci) => (
+                          <td key={ci} className="text-center py-2"><p className="text-gray-700 text-xs">-</p></td>
+                        ))}
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -607,6 +638,14 @@ function StandingsTab({ leagueId, league, teamsLoading, teams, user }: { leagueI
                         </tr>
                       );
                     })}
+                    {Array.from({ length: emptySlots }, (_, i) => (
+                      <tr key={`empty-${i}`} className="border-b border-gray-800/50">
+                        {emptyTeamCell(i)}
+                        {Array.from({ length: 4 }, (_, ci) => (
+                          <td key={ci} className="text-center py-2"><p className="text-gray-700 text-xs">-</p></td>
+                        ))}
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -660,6 +699,12 @@ function StandingsTab({ leagueId, league, teamsLoading, teams, user }: { leagueI
                       <td className="text-center py-2">
                         <p className="text-yellow-400 text-xs font-bold">{(team.totalPoints ?? 0).toFixed(1)}</p>
                       </td>
+                    </tr>
+                  ))}
+                  {Array.from({ length: emptySlots }, (_, i) => (
+                    <tr key={`empty-${i}`} className="border-b border-gray-800/50">
+                      {emptyTeamCell(i)}
+                      <td className="text-center py-2"><p className="text-gray-700 text-xs">-</p></td>
                     </tr>
                   ))}
                 </tbody>
