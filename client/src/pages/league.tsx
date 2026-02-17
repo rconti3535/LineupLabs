@@ -418,7 +418,7 @@ function StandingsTab({ leagueId, league, teamsLoading, teams, user }: { leagueI
     const minWidth = 140 + 48 + totalCats * 56;
     return (
       <div className="space-y-4">
-        <div className="flex bg-[#1a1d26] p-1 rounded-xl border border-gray-800">
+        {league.type !== "Best Ball" && <div className="flex bg-[#1a1d26] p-1 rounded-xl border border-gray-800">
           <button
             onClick={() => setStandingsSubTab("standings")}
             className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${standingsSubTab === "standings" ? "bg-gray-800 text-white shadow-sm" : "text-gray-500 hover:text-gray-300"}`}
@@ -431,9 +431,9 @@ function StandingsTab({ leagueId, league, teamsLoading, teams, user }: { leagueI
           >
             Transactions
           </button>
-        </div>
+        </div>}
 
-        {standingsSubTab === "standings" ? (
+        {(league.type === "Best Ball" || standingsSubTab === "standings") ? (
           <Card className="gradient-card rounded-xl p-4 border-0">
             <h3 className="text-white font-semibold mb-3">Roto Standings</h3>
             <div className="overflow-x-auto hide-scrollbar -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
@@ -512,7 +512,7 @@ function StandingsTab({ leagueId, league, teamsLoading, teams, user }: { leagueI
   if (format === "H2H Points" || format === "H2H Most Categories") {
     return (
       <div className="space-y-4">
-        <div className="flex bg-[#1a1d26] p-1 rounded-xl border border-gray-800">
+        {league.type !== "Best Ball" && <div className="flex bg-[#1a1d26] p-1 rounded-xl border border-gray-800">
           <button
             onClick={() => setStandingsSubTab("standings")}
             className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${standingsSubTab === "standings" ? "bg-gray-800 text-white shadow-sm" : "text-gray-500 hover:text-gray-300"}`}
@@ -525,9 +525,9 @@ function StandingsTab({ leagueId, league, teamsLoading, teams, user }: { leagueI
           >
             Transactions
           </button>
-        </div>
+        </div>}
 
-        {standingsSubTab === "standings" ? (
+        {(league.type === "Best Ball" || standingsSubTab === "standings") ? (
           <div className="space-y-6">
             <Card className="gradient-card rounded-xl p-4 border-0">
               <h3 className="text-white font-semibold mb-3">{format} Standings</h3>
@@ -591,7 +591,7 @@ function StandingsTab({ leagueId, league, teamsLoading, teams, user }: { leagueI
   if (format === "H2H Each Category") {
     return (
       <div className="space-y-4">
-        <div className="flex bg-[#1a1d26] p-1 rounded-xl border border-gray-800">
+        {league.type !== "Best Ball" && <div className="flex bg-[#1a1d26] p-1 rounded-xl border border-gray-800">
           <button
             onClick={() => setStandingsSubTab("standings")}
             className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${standingsSubTab === "standings" ? "bg-gray-800 text-white shadow-sm" : "text-gray-500 hover:text-gray-300"}`}
@@ -604,9 +604,9 @@ function StandingsTab({ leagueId, league, teamsLoading, teams, user }: { leagueI
           >
             Transactions
           </button>
-        </div>
+        </div>}
 
-        {standingsSubTab === "standings" ? (
+        {(league.type === "Best Ball" || standingsSubTab === "standings") ? (
           <div className="space-y-6">
             <Card className="gradient-card rounded-xl p-4 border-0">
               <h3 className="text-white font-semibold mb-3">H2H Each Category Standings</h3>
@@ -666,7 +666,7 @@ function StandingsTab({ leagueId, league, teamsLoading, teams, user }: { leagueI
   if (format === "Season Points") {
     return (
       <div className="space-y-4">
-        <div className="flex bg-[#1a1d26] p-1 rounded-xl border border-gray-800">
+        {league.type !== "Best Ball" && <div className="flex bg-[#1a1d26] p-1 rounded-xl border border-gray-800">
           <button
             onClick={() => setStandingsSubTab("standings")}
             className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${standingsSubTab === "standings" ? "bg-gray-800 text-white shadow-sm" : "text-gray-500 hover:text-gray-300"}`}
@@ -679,9 +679,9 @@ function StandingsTab({ leagueId, league, teamsLoading, teams, user }: { leagueI
           >
             Transactions
           </button>
-        </div>
+        </div>}
 
-        {standingsSubTab === "standings" ? (
+        {(league.type === "Best Ball" || standingsSubTab === "standings") ? (
           <Card className="gradient-card rounded-xl p-4 border-0">
             <h3 className="text-white font-semibold mb-3">Season Points Standings</h3>
             <div className="overflow-x-auto hide-scrollbar -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
