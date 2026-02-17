@@ -1506,7 +1506,7 @@ export default function LeaguePage() {
     const BB_GROUPS = [
       { label: "C", positions: ["C"], slotKey: "C" },
       { label: "INF", positions: INF_POS, slotKey: "INF" },
-      { label: "OF", positions: ["OF", "LF", "CF", "RF"], slotKey: "OF" },
+      { label: "OF", positions: ["OF", "LF", "CF", "RF", "DH", "UT"], slotKey: "OF" },
       { label: "SP", positions: ["SP"], slotKey: "SP" },
       { label: "RP", positions: ["RP"], slotKey: "RP" },
     ];
@@ -1534,7 +1534,7 @@ export default function LeaguePage() {
 
     const unassigned = myRosteredPlayers.filter(p => !usedPlayerIds.has(p.id));
     for (const player of unassigned) {
-      const pos = player.position === "DH" ? "INF" : (["SP", "RP"].includes(player.position) ? player.position : "OF");
+      const pos = ["SP", "RP"].includes(player.position) ? player.position : "OF";
       entries.push({ player, pickId: null, slotIndex: idx++, slotPos: pos });
     }
 
