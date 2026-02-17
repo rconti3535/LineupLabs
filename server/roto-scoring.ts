@@ -193,6 +193,7 @@ export function computeRotoStandings(
       const cfg = getCategoryConfig(cat, true);
       if (!cfg) { categoryValues[`h_${cat}`] = 0; continue; }
       if (cfg.type === "counting") {
+        const playerKey = remapKey(cfg.playerStatKey);
         categoryValues[`h_${cat}`] = hittingAccum[cfg.playerStatKey] || 0;
       } else if (cfg.type === "ratio" && cfg.computeRatio && cat !== "OPS") {
         const numVal = (cfg.numerator || []).reduce((s, k) => s + (hittingAccum[k] || 0), 0);
@@ -215,6 +216,7 @@ export function computeRotoStandings(
       const cfg = getCategoryConfig(cat, false);
       if (!cfg) { categoryValues[`p_${cat}`] = 0; continue; }
       if (cfg.type === "counting") {
+        const playerKey = remapKey(cfg.playerStatKey);
         let val = pitchingAccum[cfg.playerStatKey] || 0;
         if (cat === "IP") {
           const outs = val;
