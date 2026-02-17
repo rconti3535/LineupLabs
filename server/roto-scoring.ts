@@ -84,6 +84,8 @@ function getCategoryConfig(catId: string, isHitting: boolean): CategoryConfig | 
 }
 
 const PITCHING_POSITIONS = ["SP", "RP"];
+const INF_POSITIONS = ["1B", "2B", "3B", "SS"];
+const OF_POSITIONS = ["OF", "LF", "CF", "RF"];
 
 function isPitchingSlot(slotPos: string): boolean {
   return PITCHING_POSITIONS.includes(slotPos);
@@ -95,6 +97,144 @@ function isHittingGroupSlot(slotPos: string): boolean {
 
 function isActiveSlot(slotPos: string): boolean {
   return slotPos !== "BN" && slotPos !== "IL";
+}
+
+function canFillBestBallSlot(slot: string, playerPos: string): boolean {
+  if (slot === "C") return playerPos === "C";
+  if (slot === "INF") return INF_POSITIONS.includes(playerPos) || playerPos === "INF";
+  if (slot === "OF") return OF_POSITIONS.includes(playerPos) || playerPos === "DH" || playerPos === "UT";
+  if (slot === "SP") return playerPos === "SP";
+  if (slot === "RP") return playerPos === "RP";
+  if (slot === "UT" || slot === "DH") return !PITCHING_POSITIONS.includes(playerPos);
+  return false;
+}
+
+function selectOptimalLineup(
+  teamPlayers: Player[],
+  rosterPositions: string[],
+  statKey: string,
+  direction: "higher" | "lower",
+  isHittingCategory: boolean,
+  statPrefix: string
+): Player[] {
+  const remapKey = (key: string): string => {
+    if (statPrefix === "stat") return key;
+    return key.replace(/^stat/, statPrefix);
+  };
+
+  const mappedKey = remapKey(statKey);
+
+  const getPlayerStat = (p: Player): number => {
+    const val = (p as Record<string, unknown>)[mappedKey];
+    if (typeof val === "number") return val;
+    if (typeof val === "string") { const n = parseFloat(val); return isNaN(n) ? 0 : n; }
+    return 0;
+  };
+
+  const activeSlots = rosterPositions.filter(s => isActiveSlot(s));
+
+  const hittingSlots = activeSlots.filter(s => !isPitchingSlot(s));
+  const pitchingSlots = activeSlots.filter(s => isPitchingSlot(s));
+  const slotsToFill = isHittingCategory ? hittingSlots : pitchingSlots;
+
+  const candidates = teamPlayers.filter(p => {
+    if (isHittingCategory) return !PITCHING_POSITIONS.includes(p.position);
+    return PITCHING_POSITIONS.includes(p.position);
+  });
+
+  const sorted = [...candidates].sort((a, b) => {
+    const aVal = getPlayerStat(a);
+    const bVal = getPlayerStat(b);
+    return direction === "higher" ? bVal - aVal : aVal - bVal;
+  });
+
+  const selected: Player[] = [];
+  const usedPlayerIds = new Set<number>();
+  const slotsFilled = new Array(slotsToFill.length).fill(false);
+
+  for (const player of sorted) {
+    if (usedPlayerIds.has(player.id)) continue;
+
+    for (let i = 0; i < slotsToFill.length; i++) {
+      if (slotsFilled[i]) continue;
+      if (canFillBestBallSlot(slotsToFill[i], player.position)) {
+        selected.push(player);
+        usedPlayerIds.add(player.id);
+        slotsFilled[i] = true;
+        break;
+      }
+    }
+
+    if (selected.length >= slotsToFill.length) break;
+  }
+
+  return selected;
+}
+
+function selectOptimalLineupForRatio(
+  teamPlayers: Player[],
+  rosterPositions: string[],
+  cfg: CategoryConfig,
+  isHittingCategory: boolean,
+  statPrefix: string
+): Player[] {
+  const remapKey = (key: string): string => {
+    if (statPrefix === "stat") return key;
+    return key.replace(/^stat/, statPrefix);
+  };
+
+  const getPlayerStatNum = (p: Player, keys: string[]): number => {
+    return keys.reduce((sum, k) => {
+      const mk = remapKey(k);
+      const val = (p as Record<string, unknown>)[mk];
+      if (typeof val === "number") return sum + val;
+      if (typeof val === "string") { const n = parseFloat(val); return isNaN(n) ? sum : sum + n; }
+      return sum;
+    }, 0);
+  };
+
+  const activeSlots = rosterPositions.filter(s => isActiveSlot(s));
+  const hittingSlots = activeSlots.filter(s => !isPitchingSlot(s));
+  const pitchingSlots = activeSlots.filter(s => isPitchingSlot(s));
+  const slotsToFill = isHittingCategory ? hittingSlots : pitchingSlots;
+
+  const candidates = teamPlayers.filter(p => {
+    if (isHittingCategory) return !PITCHING_POSITIONS.includes(p.position);
+    return PITCHING_POSITIONS.includes(p.position);
+  });
+
+  const scored = candidates.map(p => {
+    const den = getPlayerStatNum(p, cfg.denominator || []);
+    if (den === 0) return { player: p, ratio: cfg.direction === "lower" ? Infinity : -Infinity, den };
+    const num = getPlayerStatNum(p, cfg.numerator || []);
+    const ratio = cfg.computeRatio ? cfg.computeRatio(num, den) : 0;
+    return { player: p, ratio, den };
+  });
+
+  const withActivity = scored.filter(s => s.den > 0);
+  withActivity.sort((a, b) => {
+    return cfg.direction === "higher" ? b.ratio - a.ratio : a.ratio - b.ratio;
+  });
+
+  const selected: Player[] = [];
+  const usedPlayerIds = new Set<number>();
+  const slotsFilled = new Array(slotsToFill.length).fill(false);
+
+  for (const { player } of withActivity) {
+    if (usedPlayerIds.has(player.id)) continue;
+    for (let i = 0; i < slotsToFill.length; i++) {
+      if (slotsFilled[i]) continue;
+      if (canFillBestBallSlot(slotsToFill[i], player.position)) {
+        selected.push(player);
+        usedPlayerIds.add(player.id);
+        slotsFilled[i] = true;
+        break;
+      }
+    }
+    if (selected.length >= slotsToFill.length) break;
+  }
+
+  return selected;
 }
 
 export interface TeamStandings {
@@ -119,6 +259,7 @@ export function computeRotoStandings(
   const hittingCats = league.hittingCategories || ["R", "HR", "RBI", "SB", "AVG"];
   const pitchingCats = league.pitchingCategories || ["W", "SV", "K", "ERA", "WHIP"];
   const numTeams = teams.length;
+  const isBestBall = league.type === "Best Ball";
 
   const remapKey = (key: string): string => {
     if (statPrefix === "stat") return key;
@@ -127,110 +268,162 @@ export function computeRotoStandings(
 
   const teamStats: Map<number, Record<string, number>> = new Map();
 
+  const allStatKeys = new Set<string>();
+  for (const cat of hittingCats) {
+    const cfg = getCategoryConfig(cat, true);
+    if (!cfg) continue;
+    if (cfg.type === "ratio") {
+      cfg.numerator?.forEach(k => allStatKeys.add(k));
+      cfg.denominator?.forEach(k => allStatKeys.add(k));
+    }
+    allStatKeys.add(cfg.playerStatKey);
+  }
+  for (const cat of pitchingCats) {
+    const cfg = getCategoryConfig(cat, false);
+    if (!cfg) continue;
+    if (cfg.type === "ratio") {
+      cfg.numerator?.forEach(k => allStatKeys.add(k));
+      cfg.denominator?.forEach(k => allStatKeys.add(k));
+    }
+    allStatKeys.add(cfg.playerStatKey);
+  }
+
   for (const team of teams) {
     const teamPicks = draftPicks.filter(dp => dp.teamId === team.id);
+    const teamPlayers = teamPicks.map(p => allPlayers.get(p.playerId)).filter(Boolean) as Player[];
 
-    const hittingAccum: Record<string, number> = {};
-    const pitchingAccum: Record<string, number> = {};
+    if (isBestBall) {
+      const categoryValues: Record<string, number> = {};
 
-    const allStatKeys = new Set<string>();
-    for (const cat of hittingCats) {
-      const cfg = getCategoryConfig(cat, true);
-      if (!cfg) continue;
-      if (cfg.type === "ratio") {
-        cfg.numerator?.forEach(k => allStatKeys.add(k));
-        cfg.denominator?.forEach(k => allStatKeys.add(k));
-      }
-      allStatKeys.add(cfg.playerStatKey);
-    }
-    for (const cat of pitchingCats) {
-      const cfg = getCategoryConfig(cat, false);
-      if (!cfg) continue;
-      if (cfg.type === "ratio") {
-        cfg.numerator?.forEach(k => allStatKeys.add(k));
-        cfg.denominator?.forEach(k => allStatKeys.add(k));
-      }
-      allStatKeys.add(cfg.playerStatKey);
-    }
+      for (const cat of hittingCats) {
+        const cfg = getCategoryConfig(cat, true);
+        if (!cfg) { categoryValues[`h_${cat}`] = 0; continue; }
 
-    allStatKeys.forEach(k => {
-      hittingAccum[k] = 0;
-      pitchingAccum[k] = 0;
-    });
-
-    for (const pick of teamPicks) {
-      const slotIdx = pick.rosterSlot;
-      let slotPos = "BN";
-      if (slotIdx !== null && slotIdx !== undefined && slotIdx < rosterPositions.length) {
-        slotPos = rosterPositions[slotIdx];
-      }
-
-      if (!isActiveSlot(slotPos)) continue;
-
-      const player = allPlayers.get(pick.playerId);
-      if (!player) continue;
-
-      const isPitcher = isPitchingSlot(slotPos);
-      const accum = isPitcher ? pitchingAccum : hittingAccum;
-
-      allStatKeys.forEach(key => {
-        const playerKey = remapKey(key);
-        const val = (player as Record<string, unknown>)[playerKey];
-        if (typeof val === "number") {
-          accum[key] = (accum[key] || 0) + val;
-        } else if (typeof val === "string") {
-          const num = parseFloat(val);
-          if (!isNaN(num)) {
-            accum[key] = (accum[key] || 0) + num;
-          }
+        let optimalPlayers: Player[];
+        if (cfg.type === "ratio" && cat !== "OPS") {
+          optimalPlayers = selectOptimalLineupForRatio(teamPlayers, rosterPositions, cfg, true, statPrefix);
+        } else if (cat === "OPS") {
+          const obpCfg = getCategoryConfig("OBP", true);
+          optimalPlayers = obpCfg
+            ? selectOptimalLineupForRatio(teamPlayers, rosterPositions, obpCfg, true, statPrefix)
+            : teamPlayers.filter(p => !PITCHING_POSITIONS.includes(p.position));
+        } else {
+          optimalPlayers = selectOptimalLineup(teamPlayers, rosterPositions, cfg.playerStatKey, cfg.direction, true, statPrefix);
         }
-      });
-    }
 
-    const categoryValues: Record<string, number> = {};
-
-    for (const cat of hittingCats) {
-      const cfg = getCategoryConfig(cat, true);
-      if (!cfg) { categoryValues[`h_${cat}`] = 0; continue; }
-      if (cfg.type === "counting") {
-        const playerKey = remapKey(cfg.playerStatKey);
-        categoryValues[`h_${cat}`] = hittingAccum[cfg.playerStatKey] || 0;
-      } else if (cfg.type === "ratio" && cfg.computeRatio && cat !== "OPS") {
-        const numVal = (cfg.numerator || []).reduce((s, k) => s + (hittingAccum[k] || 0), 0);
-        const denVal = (cfg.denominator || []).reduce((s, k) => s + (hittingAccum[k] || 0), 0);
-        categoryValues[`h_${cat}`] = cfg.computeRatio(numVal, denVal);
-      } else if (cat === "OPS") {
-        const h = hittingAccum["statH"] || 0;
-        const bb = hittingAccum["statBB"] || 0;
-        const hbp = hittingAccum["statHBP"] || 0;
-        const pa = hittingAccum["statPA"] || 0;
-        const tb = hittingAccum["statTB"] || 0;
-        const ab = hittingAccum["statAB"] || 0;
-        const obp = pa === 0 ? 0 : (h + bb + hbp) / pa;
-        const slg = ab === 0 ? 0 : tb / ab;
-        categoryValues[`h_${cat}`] = obp + slg;
-      }
-    }
-
-    for (const cat of pitchingCats) {
-      const cfg = getCategoryConfig(cat, false);
-      if (!cfg) { categoryValues[`p_${cat}`] = 0; continue; }
-      if (cfg.type === "counting") {
-        const playerKey = remapKey(cfg.playerStatKey);
-        let val = pitchingAccum[cfg.playerStatKey] || 0;
-        if (cat === "IP") {
-          const outs = val;
-          val = Math.floor(outs / 3) + (outs % 3) / 10;
+        const accum: Record<string, number> = {};
+        allStatKeys.forEach(k => { accum[k] = 0; });
+        for (const player of optimalPlayers) {
+          allStatKeys.forEach(key => {
+            const playerKey = remapKey(key);
+            const val = (player as Record<string, unknown>)[playerKey];
+            if (typeof val === "number") accum[key] += val;
+            else if (typeof val === "string") { const n = parseFloat(val); if (!isNaN(n)) accum[key] += n; }
+          });
         }
-        categoryValues[`p_${cat}`] = val;
-      } else if (cfg.type === "ratio" && cfg.computeRatio) {
-        const numVal = (cfg.numerator || []).reduce((s, k) => s + (pitchingAccum[k] || 0), 0);
-        const denVal = (cfg.denominator || []).reduce((s, k) => s + (pitchingAccum[k] || 0), 0);
-        categoryValues[`p_${cat}`] = cfg.computeRatio(numVal, denVal);
-      }
-    }
 
-    teamStats.set(team.id, categoryValues);
+        if (cfg.type === "counting") {
+          categoryValues[`h_${cat}`] = accum[cfg.playerStatKey] || 0;
+        } else if (cfg.type === "ratio" && cfg.computeRatio && cat !== "OPS") {
+          const numVal = (cfg.numerator || []).reduce((s, k) => s + (accum[k] || 0), 0);
+          const denVal = (cfg.denominator || []).reduce((s, k) => s + (accum[k] || 0), 0);
+          categoryValues[`h_${cat}`] = cfg.computeRatio(numVal, denVal);
+        } else if (cat === "OPS") {
+          const h = accum["statH"] || 0, bb = accum["statBB"] || 0, hbp = accum["statHBP"] || 0;
+          const pa = accum["statPA"] || 0, tb = accum["statTB"] || 0, ab = accum["statAB"] || 0;
+          categoryValues[`h_${cat}`] = (pa === 0 ? 0 : (h + bb + hbp) / pa) + (ab === 0 ? 0 : tb / ab);
+        }
+      }
+
+      for (const cat of pitchingCats) {
+        const cfg = getCategoryConfig(cat, false);
+        if (!cfg) { categoryValues[`p_${cat}`] = 0; continue; }
+
+        let optimalPlayers: Player[];
+        if (cfg.type === "ratio") {
+          optimalPlayers = selectOptimalLineupForRatio(teamPlayers, rosterPositions, cfg, false, statPrefix);
+        } else {
+          optimalPlayers = selectOptimalLineup(teamPlayers, rosterPositions, cfg.playerStatKey, cfg.direction, false, statPrefix);
+        }
+
+        const accum: Record<string, number> = {};
+        allStatKeys.forEach(k => { accum[k] = 0; });
+        for (const player of optimalPlayers) {
+          allStatKeys.forEach(key => {
+            const playerKey = remapKey(key);
+            const val = (player as Record<string, unknown>)[playerKey];
+            if (typeof val === "number") accum[key] += val;
+            else if (typeof val === "string") { const n = parseFloat(val); if (!isNaN(n)) accum[key] += n; }
+          });
+        }
+
+        if (cfg.type === "counting") {
+          let val = accum[cfg.playerStatKey] || 0;
+          if (cat === "IP") { const outs = val; val = Math.floor(outs / 3) + (outs % 3) / 10; }
+          categoryValues[`p_${cat}`] = val;
+        } else if (cfg.type === "ratio" && cfg.computeRatio) {
+          const numVal = (cfg.numerator || []).reduce((s, k) => s + (accum[k] || 0), 0);
+          const denVal = (cfg.denominator || []).reduce((s, k) => s + (accum[k] || 0), 0);
+          categoryValues[`p_${cat}`] = cfg.computeRatio(numVal, denVal);
+        }
+      }
+
+      teamStats.set(team.id, categoryValues);
+    } else {
+      const hittingAccum: Record<string, number> = {};
+      const pitchingAccum: Record<string, number> = {};
+      allStatKeys.forEach(k => { hittingAccum[k] = 0; pitchingAccum[k] = 0; });
+
+      for (const pick of teamPicks) {
+        const slotIdx = pick.rosterSlot;
+        let slotPos = "BN";
+        if (slotIdx !== null && slotIdx !== undefined && slotIdx < rosterPositions.length) {
+          slotPos = rosterPositions[slotIdx];
+        }
+        if (!isActiveSlot(slotPos)) continue;
+        const player = allPlayers.get(pick.playerId);
+        if (!player) continue;
+        const isPitcher = isPitchingSlot(slotPos);
+        const accum = isPitcher ? pitchingAccum : hittingAccum;
+        allStatKeys.forEach(key => {
+          const playerKey = remapKey(key);
+          const val = (player as Record<string, unknown>)[playerKey];
+          if (typeof val === "number") accum[key] += val;
+          else if (typeof val === "string") { const num = parseFloat(val); if (!isNaN(num)) accum[key] += num; }
+        });
+      }
+
+      const categoryValues: Record<string, number> = {};
+      for (const cat of hittingCats) {
+        const cfg = getCategoryConfig(cat, true);
+        if (!cfg) { categoryValues[`h_${cat}`] = 0; continue; }
+        if (cfg.type === "counting") {
+          categoryValues[`h_${cat}`] = hittingAccum[cfg.playerStatKey] || 0;
+        } else if (cfg.type === "ratio" && cfg.computeRatio && cat !== "OPS") {
+          const numVal = (cfg.numerator || []).reduce((s, k) => s + (hittingAccum[k] || 0), 0);
+          const denVal = (cfg.denominator || []).reduce((s, k) => s + (hittingAccum[k] || 0), 0);
+          categoryValues[`h_${cat}`] = cfg.computeRatio(numVal, denVal);
+        } else if (cat === "OPS") {
+          const h = hittingAccum["statH"] || 0, bb = hittingAccum["statBB"] || 0, hbp = hittingAccum["statHBP"] || 0;
+          const pa = hittingAccum["statPA"] || 0, tb = hittingAccum["statTB"] || 0, ab = hittingAccum["statAB"] || 0;
+          categoryValues[`h_${cat}`] = (pa === 0 ? 0 : (h + bb + hbp) / pa) + (ab === 0 ? 0 : tb / ab);
+        }
+      }
+      for (const cat of pitchingCats) {
+        const cfg = getCategoryConfig(cat, false);
+        if (!cfg) { categoryValues[`p_${cat}`] = 0; continue; }
+        if (cfg.type === "counting") {
+          let val = pitchingAccum[cfg.playerStatKey] || 0;
+          if (cat === "IP") { const outs = val; val = Math.floor(outs / 3) + (outs % 3) / 10; }
+          categoryValues[`p_${cat}`] = val;
+        } else if (cfg.type === "ratio" && cfg.computeRatio) {
+          const numVal = (cfg.numerator || []).reduce((s, k) => s + (pitchingAccum[k] || 0), 0);
+          const denVal = (cfg.denominator || []).reduce((s, k) => s + (pitchingAccum[k] || 0), 0);
+          categoryValues[`p_${cat}`] = cfg.computeRatio(numVal, denVal);
+        }
+      }
+      teamStats.set(team.id, categoryValues);
+    }
   }
 
   const allCategories = [
