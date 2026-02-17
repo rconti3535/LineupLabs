@@ -871,13 +871,11 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: "Waiver claim submitted" });
       setWaiverClaimPlayer(null);
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "waivers"] });
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "my-claims"] });
     },
     onError: (err: Error) => {
-      toast({ title: err.message || "Failed to submit claim", variant: "destructive" });
     },
   });
 
@@ -890,13 +888,11 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: "Player added to your roster" });
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "available-players"] });
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "draft-picks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "standings"] });
     },
     onError: (err: Error) => {
-      toast({ title: err.message || "Failed to add player", variant: "destructive" });
     },
   });
 
@@ -909,14 +905,12 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: "Player dropped — on waivers for 2 days" });
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "available-players"] });
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "draft-picks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "standings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "waivers"] });
     },
     onError: (err: Error) => {
-      toast({ title: err.message || "Failed to drop player", variant: "destructive" });
     },
   });
 
@@ -930,7 +924,6 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: "Player swap successful — dropped player on waivers" });
       setAddDropPlayer(null);
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "available-players"] });
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "draft-picks"] });
@@ -938,7 +931,6 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "waivers"] });
     },
     onError: (err: Error) => {
-      toast({ title: err.message || "Failed to add/drop player", variant: "destructive" });
     },
   });
 
@@ -1531,10 +1523,8 @@ export default function LeaguePage() {
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "daily-lineup", dailyDate, myTeam?.id] });
       setSelectedSwapIndex(null);
       setSwapTargets([]);
-      toast({ title: isWeeklyLock ? "Weekly lineup updated" : "Daily lineup updated" });
     },
     onError: (err: Error) => {
-      toast({ title: "Failed to update lineup", description: err.message, variant: "destructive" });
       setSelectedSwapIndex(null);
       setSwapTargets([]);
     },
@@ -1615,12 +1605,10 @@ export default function LeaguePage() {
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: "Waiver claim cancelled" });
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "my-claims"] });
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "waivers"] });
     },
     onError: (err: Error) => {
-      toast({ title: err.message || "Failed to cancel claim", variant: "destructive" });
     },
   });
 
@@ -1630,7 +1618,6 @@ export default function LeaguePage() {
     if (league?.type === "Best Ball") return;
     if (rosterStatView === "daily") {
       if (isPastDate) {
-        toast({ title: "Cannot edit past lineups", description: "You can only change today's or future lineups.", variant: "destructive" });
         return;
       }
       if (gameTimesData) {
@@ -1638,7 +1625,6 @@ export default function LeaguePage() {
         if (entry?.player) {
           const gt = gameTimesData.find(g => g.playerId === (entry.player as any).id);
           if (gt?.isLocked) {
-            toast({ title: "Player Locked", description: "This player's game has already started.", variant: "destructive" });
             return;
           }
         }
@@ -1647,7 +1633,6 @@ export default function LeaguePage() {
     if (selectedSwapIndex === null) {
       const targets = getSwapTargets(rosterEntries, index, rosterSlots);
       if (targets.length === 0) {
-        toast({ title: "No valid swap targets", description: "This player cannot be moved to any other slot.", variant: "destructive" });
         return;
       }
       setSelectedSwapIndex(index);
@@ -1692,10 +1677,8 @@ export default function LeaguePage() {
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "draft-picks"] });
       setSelectedSwapIndex(null);
       setSwapTargets([]);
-      toast({ title: "Roster updated" });
     },
     onError: (error: Error) => {
-      toast({ title: "Swap failed", description: error.message, variant: "destructive" });
       setSelectedSwapIndex(null);
       setSwapTargets([]);
     },
@@ -1709,15 +1692,8 @@ export default function LeaguePage() {
       queryClient.invalidateQueries({ queryKey: ["/api/leagues/public"] });
       queryClient.invalidateQueries({ queryKey: ["/api/teams/user"] });
       setLocation("/teams");
-      setTimeout(() => {
-        toast({
-          title: "League deleted",
-          description: `"${league?.name}" has been permanently deleted. ADP data was preserved.`,
-        });
-      }, 100);
     },
     onError: () => {
-      toast({ title: "Failed to delete league", variant: "destructive" });
     },
   });
 
@@ -1734,10 +1710,8 @@ export default function LeaguePage() {
       queryClient.invalidateQueries({ queryKey: ["/api/leagues/public"] });
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "standings"] });
       setIsEditing(false);
-      toast({ title: "Settings updated" });
     },
     onError: () => {
-      toast({ title: "Failed to update settings", variant: "destructive" });
     },
   });
 
@@ -1756,7 +1730,6 @@ export default function LeaguePage() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) {
-      toast({ title: "Image too large", description: "Please use an image under 2MB", variant: "destructive" });
       return;
     }
     const reader = new FileReader();
@@ -1898,9 +1871,7 @@ export default function LeaguePage() {
       queryClient.invalidateQueries({ queryKey: ["/api/teams/league", leagueId] });
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId] });
       setEditDraftOrder("Random");
-      toast({ title: "Draft order randomized!" });
     } catch (err) {
-      toast({ title: "Failed to randomize", variant: "destructive" });
     }
     setIsRandomizing(false);
   };
@@ -1914,9 +1885,7 @@ export default function LeaguePage() {
       });
       queryClient.invalidateQueries({ queryKey: ["/api/teams/league", leagueId] });
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId] });
-      toast({ title: "Draft order saved!" });
     } catch (err) {
-      toast({ title: "Failed to save draft order", variant: "destructive" });
     }
   };
 

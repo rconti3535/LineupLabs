@@ -53,20 +53,11 @@ export default function CreateLeague() {
       return await response.json();
     },
     onSuccess: () => {
-      toast({
-        title: "League Created!",
-        description: "Your fantasy baseball league has been created successfully.",
-      });
       queryClient.invalidateQueries({ queryKey: ["/api/leagues/public"] });
       queryClient.invalidateQueries({ queryKey: ["/api/teams/user"] });
       setLocation("/teams");
     },
     onError: (error) => {
-      toast({
-        title: "Failed to create league",
-        description: error.message,
-        variant: "destructive",
-      });
     },
   });
 

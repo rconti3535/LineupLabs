@@ -47,19 +47,10 @@ export default function Signup() {
     },
     onSuccess: (user) => {
       login(user.id);
-      toast({
-        title: "Account created successfully!",
-        description: "Welcome to Fantasy Baseball",
-      });
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       setLocation("/");
     },
     onError: (error) => {
-      toast({
-        title: "Signup failed",
-        description: error.message,
-        variant: "destructive",
-      });
     },
   });
 

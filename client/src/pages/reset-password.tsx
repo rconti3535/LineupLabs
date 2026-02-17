@@ -44,18 +44,9 @@ export default function ResetPassword() {
       return await response.json();
     },
     onSuccess: () => {
-      toast({
-        title: "Password updated!",
-        description: "You can now sign in with your new password.",
-      });
       setLocation("/login");
     },
     onError: (error) => {
-      toast({
-        title: "Reset failed",
-        description: error.message,
-        variant: "destructive",
-      });
     },
   });
 

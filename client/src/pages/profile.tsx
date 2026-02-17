@@ -25,11 +25,9 @@ export default function Profile() {
 
   const handleAdpImport = async () => {
     if (!adpText.trim()) {
-      toast({ title: "Please paste ADP data first", variant: "destructive" });
       return;
     }
     if (!user) {
-      toast({ title: "You must be logged in", variant: "destructive" });
       return;
     }
     setImporting(true);
@@ -46,9 +44,7 @@ export default function Profile() {
       });
       const result = await res.json();
       setImportResult(result);
-      toast({ title: result.message });
     } catch (err) {
-      toast({ title: "Failed to import ADP data", variant: "destructive" });
     } finally {
       setImporting(false);
     }

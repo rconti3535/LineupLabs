@@ -39,19 +39,10 @@ export default function Login() {
     },
     onSuccess: (user) => {
       login(user.id);
-      toast({
-        title: "Welcome back!",
-        description: "Successfully signed in",
-      });
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       setLocation("/");
     },
     onError: (error) => {
-      toast({
-        title: "Login failed",
-        description: error.message,
-        variant: "destructive",
-      });
     },
   });
 
