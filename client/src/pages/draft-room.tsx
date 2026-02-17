@@ -221,9 +221,11 @@ export default function DraftRoom() {
       });
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (updatedLeague: any) => {
+      queryClient.setQueryData(["/api/leagues", leagueId], updatedLeague);
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId] });
       queryClient.invalidateQueries({ queryKey: ["/api/teams/league", leagueId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "standings"] });
       setShowTeamWarning(false);
     },
   });

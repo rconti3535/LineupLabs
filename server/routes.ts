@@ -363,6 +363,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             await storage.updateTeam(shuffled[i].id, { draftPosition: i + 1 } as any);
           }
         }
+        const targetTeams = league.maxTeams || league.numberOfTeams || 12;
+        if (allTeams.length < targetTeams && !fillWithCpu) {
+          await storage.updateLeague(id, { maxTeams: allTeams.length, numberOfTeams: allTeams.length } as any);
+        }
       }
 
       const newStatus = action === "pause" ? "paused" : "active";
