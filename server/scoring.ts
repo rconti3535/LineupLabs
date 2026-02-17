@@ -35,6 +35,8 @@ export interface H2HCategoryRecord {
 }
 
 const PITCHING_POSITIONS = ["SP", "RP"];
+const INF_POSITIONS = ["1B", "2B", "3B", "SS"];
+const OF_POSITIONS = ["OF", "LF", "CF", "RF"];
 
 function isPitchingSlot(slotPos: string): boolean {
   return PITCHING_POSITIONS.includes(slotPos);
@@ -46,6 +48,21 @@ function isHittingGroupSlot(slotPos: string): boolean {
 
 function isActiveSlot(slotPos: string): boolean {
   return slotPos !== "BN" && slotPos !== "IL";
+}
+
+function canFillSlot(slot: string, playerPos: string): boolean {
+  if (slot === "C") return playerPos === "C";
+  if (slot === "1B") return playerPos === "1B";
+  if (slot === "2B") return playerPos === "2B";
+  if (slot === "3B") return playerPos === "3B";
+  if (slot === "SS") return playerPos === "SS";
+  if (slot === "INF") return INF_POSITIONS.includes(playerPos) || playerPos === "INF";
+  if (slot === "OF") return OF_POSITIONS.includes(playerPos) || playerPos === "DH" || playerPos === "UT";
+  if (slot === "SP") return playerPos === "SP";
+  if (slot === "RP") return playerPos === "RP";
+  if (slot === "P") return PITCHING_POSITIONS.includes(playerPos);
+  if (slot === "UT" || slot === "DH") return !PITCHING_POSITIONS.includes(playerPos);
+  return false;
 }
 
 export const DEFAULT_POINT_VALUES: Record<string, number> = {
@@ -68,6 +85,95 @@ function getPointValues(league: League): Record<string, number> {
 const HITTING_POINT_STATS = ["R", "HR", "RBI", "SB", "H", "2B", "3B", "BB", "HBP", "TB", "CS"];
 const PITCHING_POINT_STATS = ["W", "SV", "K", "QS", "HLD", "SO", "L", "CG", "SHO", "BSV"];
 
+const HITTING_STAT_MAP: Record<string, string> = {
+  R: "statR", HR: "statHR", RBI: "statRBI", SB: "statSB", H: "statH",
+  "2B": "stat2B", "3B": "stat3B", BB: "statBB", K: "statK", TB: "statTB",
+  CS: "statCS", HBP: "statHBP",
+};
+
+const PITCHING_STAT_MAP: Record<string, string> = {
+  W: "statW", SV: "statSV", K: "statSO", SO: "statSO", L: "statL",
+  QS: "statQS", HLD: "statHLD", CG: "statCG", SHO: "statSHO", BSV: "statBSV",
+};
+
+const ALL_STAT_KEYS = ["statR", "statHR", "statRBI", "statSB", "statH", "stat2B", "stat3B",
+  "statBB", "statK", "statTB", "statCS", "statHBP", "statAB", "statPA",
+  "statW", "statSV", "statSO", "statL", "statQS", "statHLD", "statCG", "statSHO", "statBSV",
+  "statIPOuts", "statER", "statBBp", "statHA"];
+
+function computePlayerFantasyPoints(
+  player: Player,
+  pointValues: Record<string, number>,
+  hittingCats: string[],
+  pitchingCats: string[],
+): number {
+  let pts = 0;
+  const isPitcher = PITCHING_POSITIONS.includes(player.position);
+
+  if (!isPitcher) {
+    for (const cat of hittingCats) {
+      const statKey = HITTING_STAT_MAP[cat];
+      if (!statKey) continue;
+      const remapped = statKey.replace(/^stat/, "s26");
+      const val = (player as Record<string, unknown>)[remapped];
+      let numVal = 0;
+      if (typeof val === "number") numVal = val;
+      else if (typeof val === "string") { const n = parseFloat(val); if (!isNaN(n)) numVal = n; }
+      pts += (pointValues[cat] || 0) * numVal;
+    }
+  } else {
+    for (const cat of pitchingCats) {
+      const statKey = PITCHING_STAT_MAP[cat];
+      if (!statKey) continue;
+      const remapped = statKey.replace(/^stat/, "s26");
+      const val = (player as Record<string, unknown>)[remapped];
+      let numVal = 0;
+      if (typeof val === "number") numVal = val;
+      else if (typeof val === "string") { const n = parseFloat(val); if (!isNaN(n)) numVal = n; }
+      pts += (pointValues[cat] || 0) * numVal;
+    }
+  }
+
+  return pts;
+}
+
+function selectBestBallOptimalLineupForPoints(
+  teamPlayers: Player[],
+  rosterPositions: string[],
+  pointValues: Record<string, number>,
+  hittingCats: string[],
+  pitchingCats: string[],
+): Player[] {
+  const activeSlots = rosterPositions.filter(s => isActiveSlot(s));
+
+  const scored = teamPlayers.map(p => ({
+    player: p,
+    points: computePlayerFantasyPoints(p, pointValues, hittingCats, pitchingCats),
+  }));
+
+  scored.sort((a, b) => b.points - a.points);
+
+  const selected: Player[] = [];
+  const usedPlayerIds = new Set<number>();
+  const slotsFilled = new Array(activeSlots.length).fill(false);
+
+  for (const { player } of scored) {
+    if (usedPlayerIds.has(player.id)) continue;
+    for (let i = 0; i < activeSlots.length; i++) {
+      if (slotsFilled[i]) continue;
+      if (canFillSlot(activeSlots[i], player.position)) {
+        selected.push(player);
+        usedPlayerIds.add(player.id);
+        slotsFilled[i] = true;
+        break;
+      }
+    }
+    if (selected.length >= activeSlots.length) break;
+  }
+
+  return selected;
+}
+
 function computeTeamFantasyPoints(
   league: League,
   teamPicks: DraftPick[],
@@ -77,68 +183,61 @@ function computeTeamFantasyPoints(
   const isPointsFormat = league.scoringFormat === "H2H Points" || league.scoringFormat === "Season Points";
   const hittingCats = isPointsFormat ? HITTING_POINT_STATS : (league.hittingCategories || ["R", "HR", "RBI", "SB", "AVG"]);
   const pitchingCats = isPointsFormat ? PITCHING_POINT_STATS : (league.pitchingCategories || ["W", "SV", "K", "ERA", "WHIP"]);
-
   const pointValues = getPointValues(league);
+  const isBestBall = league.type === "Best Ball";
+
   const categoryValues: Record<string, number> = {};
   let total = 0;
-
   const hittingAccum: Record<string, number> = {};
   const pitchingAccum: Record<string, number> = {};
 
-  for (const pick of teamPicks) {
-    const slotIdx = pick.rosterSlot;
-    let slotPos = "BN";
-    if (slotIdx !== null && slotIdx !== undefined && slotIdx < rosterPositions.length) {
-      slotPos = rosterPositions[slotIdx];
+  if (isBestBall) {
+    const teamPlayers = teamPicks.map(p => allPlayers.get(p.playerId)).filter(Boolean) as Player[];
+    const optimalPlayers = selectBestBallOptimalLineupForPoints(teamPlayers, rosterPositions, pointValues, hittingCats, pitchingCats);
+
+    for (const player of optimalPlayers) {
+      const isPitcher = PITCHING_POSITIONS.includes(player.position);
+      const accum = isPitcher ? pitchingAccum : hittingAccum;
+      for (const key of ALL_STAT_KEYS) {
+        const remapped = key.replace(/^stat/, "s26");
+        const val = (player as Record<string, unknown>)[remapped];
+        if (typeof val === "number") accum[key] = (accum[key] || 0) + val;
+        else if (typeof val === "string") { const num = parseFloat(val); if (!isNaN(num)) accum[key] = (accum[key] || 0) + num; }
+      }
     }
-    if (!isActiveSlot(slotPos)) continue;
-
-    const player = allPlayers.get(pick.playerId);
-    if (!player) continue;
-
-    const isPitcher = isPitchingSlot(slotPos);
-    const accum = isPitcher ? pitchingAccum : hittingAccum;
-
-    const statKeys = ["statR", "statHR", "statRBI", "statSB", "statH", "stat2B", "stat3B",
-      "statBB", "statK", "statTB", "statCS", "statHBP", "statAB", "statPA",
-      "statW", "statSV", "statSO", "statL", "statQS", "statHLD", "statCG", "statSHO", "statBSV",
-      "statIPOuts", "statER", "statBBp", "statHA"];
-
-    for (const key of statKeys) {
-      const remapped = key.replace(/^stat/, "s26");
-      const val = (player as Record<string, unknown>)[remapped];
-      if (typeof val === "number") {
-        accum[key] = (accum[key] || 0) + val;
-      } else if (typeof val === "string") {
-        const num = parseFloat(val);
-        if (!isNaN(num)) accum[key] = (accum[key] || 0) + num;
+  } else {
+    for (const pick of teamPicks) {
+      const slotIdx = pick.rosterSlot;
+      let slotPos = "BN";
+      if (slotIdx !== null && slotIdx !== undefined && slotIdx < rosterPositions.length) {
+        slotPos = rosterPositions[slotIdx];
+      }
+      if (!isActiveSlot(slotPos)) continue;
+      const player = allPlayers.get(pick.playerId);
+      if (!player) continue;
+      const isPitcher = isPitchingSlot(slotPos);
+      const accum = isPitcher ? pitchingAccum : hittingAccum;
+      for (const key of ALL_STAT_KEYS) {
+        const remapped = key.replace(/^stat/, "s26");
+        const val = (player as Record<string, unknown>)[remapped];
+        if (typeof val === "number") accum[key] = (accum[key] || 0) + val;
+        else if (typeof val === "string") { const num = parseFloat(val); if (!isNaN(num)) accum[key] = (accum[key] || 0) + num; }
       }
     }
   }
 
   for (const cat of hittingCats) {
-    const statMap: Record<string, string> = {
-      R: "statR", HR: "statHR", RBI: "statRBI", SB: "statSB", H: "statH",
-      "2B": "stat2B", "3B": "stat3B", BB: "statBB", K: "statK", TB: "statTB",
-      CS: "statCS", HBP: "statHBP",
-    };
-    const key = statMap[cat];
+    const key = HITTING_STAT_MAP[cat];
     const val = key ? (hittingAccum[key] || 0) : 0;
     categoryValues[`h_${cat}`] = val;
-    const pts = (pointValues[cat] || 0) * val;
-    total += pts;
+    total += (pointValues[cat] || 0) * val;
   }
 
   for (const cat of pitchingCats) {
-    const statMap: Record<string, string> = {
-      W: "statW", SV: "statSV", K: "statSO", SO: "statSO", L: "statL",
-      QS: "statQS", HLD: "statHLD", CG: "statCG", SHO: "statSHO", BSV: "statBSV",
-    };
-    const key = statMap[cat];
+    const key = PITCHING_STAT_MAP[cat];
     const val = key ? (pitchingAccum[key] || 0) : 0;
     categoryValues[`p_${cat}`] = val;
-    const pts = (pointValues[cat] || 0) * val;
-    total += pts;
+    total += (pointValues[cat] || 0) * val;
   }
 
   return { total, categoryValues };
