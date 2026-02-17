@@ -810,7 +810,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Best Ball leagues only support Roto and Season Points scoring formats" });
       }
       if (validatedData.type === "Best Ball" && !validatedData.rosterPositions) {
-        validatedData.rosterPositions = ["C", "INF", "INF", "INF", "INF", "OF", "OF", "OF", "SP", "SP", "SP", "SP", "SP"];
+        validatedData.rosterPositions = ["C", "INF", "INF", "INF", "INF", "OF", "OF", "OF", "SP", "SP", "SP", "RP", "RP"];
       }
       const league = await storage.createLeague(validatedData);
 

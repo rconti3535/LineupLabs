@@ -65,6 +65,26 @@ function mapPosition(posAbbr: string): string {
   return posMap[posAbbr] || posAbbr;
 }
 
+async function classifyPitcher(mlbId: number): Promise<"SP" | "RP"> {
+  try {
+    const url = `${MLB_API}/people/${mlbId}/stats?stats=career&group=pitching`;
+    const res = await fetch(url);
+    if (!res.ok) return "SP";
+    const data = await res.json();
+    for (const statGroup of data.stats || []) {
+      if (statGroup.group?.displayName === "pitching" && statGroup.splits?.length > 0) {
+        const stat = statGroup.splits[0].stat;
+        const games = stat.gamesPlayed || 0;
+        const gamesStarted = stat.gamesStarted || 0;
+        if (games > 0 && gamesStarted / games < 0.5) return "RP";
+      }
+    }
+    return "SP";
+  } catch {
+    return "SP";
+  }
+}
+
 async function fetchTeams(): Promise<MlbTeam[]> {
   const sportIds = Object.keys(SPORT_LEVELS).join(",");
   const data = await fetchJson(`${MLB_API}/teams?sportIds=${sportIds}&season=2025&activeStatus=Y`);
@@ -150,6 +170,39 @@ async function importPlayers() {
     await new Promise(r => setTimeout(r, 100));
   }
 
+  console.log("\nClassifying pitchers as SP or RP...");
+  const pitcherClassifications = new Map<number, "SP" | "RP">();
+  const pitcherEntries = allPlayerEntries.filter(e => {
+    const detail = detailsMap.get(e.mlbId);
+    const pos = detail?.primaryPosition?.abbreviation
+      ? mapPosition(detail.primaryPosition.abbreviation)
+      : e.position;
+    return pos === "SP";
+  });
+
+  console.log(`  ${pitcherEntries.length} pitchers to classify`);
+  const CLASSIFY_BATCH = 30;
+  for (let i = 0; i < pitcherEntries.length; i += CLASSIFY_BATCH) {
+    const batch = pitcherEntries.slice(i, i + CLASSIFY_BATCH);
+    const results = await Promise.all(
+      batch.map(async (entry) => {
+        await new Promise(r => setTimeout(r, Math.random() * 200));
+        const role = await classifyPitcher(entry.mlbId);
+        return { mlbId: entry.mlbId, role };
+      })
+    );
+    for (const { mlbId, role } of results) {
+      pitcherClassifications.set(mlbId, role);
+    }
+    console.log(`  Classified ${Math.min(i + CLASSIFY_BATCH, pitcherEntries.length)} of ${pitcherEntries.length}`);
+    if (i + CLASSIFY_BATCH < pitcherEntries.length) {
+      await new Promise(r => setTimeout(r, 300));
+    }
+  }
+
+  const rpCount = [...pitcherClassifications.values()].filter(r => r === "RP").length;
+  console.log(`  Result: ${pitcherClassifications.size - rpCount} SP, ${rpCount} RP`);
+
   console.log("\nClearing existing players...");
   await db.delete(players);
 
@@ -160,14 +213,18 @@ async function importPlayers() {
     const batch = allPlayerEntries.slice(i, i + INSERT_BATCH);
     const rows = batch.map(entry => {
       const detail = detailsMap.get(entry.mlbId);
+      let position = detail?.primaryPosition?.abbreviation
+        ? mapPosition(detail.primaryPosition.abbreviation)
+        : entry.position;
+      if (position === "SP" && pitcherClassifications.has(entry.mlbId)) {
+        position = pitcherClassifications.get(entry.mlbId)!;
+      }
       return {
         mlbId: entry.mlbId,
         name: entry.name,
         firstName: detail?.firstName || entry.name.split(" ")[0],
         lastName: detail?.lastName || entry.name.split(" ").slice(1).join(" "),
-        position: detail?.primaryPosition?.abbreviation
-          ? mapPosition(detail.primaryPosition.abbreviation)
-          : entry.position,
+        position,
         team: entry.team,
         teamAbbreviation: entry.teamAbbreviation,
         jerseyNumber: entry.jerseyNumber,
