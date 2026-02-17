@@ -2,10 +2,7 @@ import pg from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import * as schema from "@shared/schema";
 
-const isProduction = process.env.REPLIT_DEPLOYMENT === "1";
-const connectionString = isProduction
-  ? (process.env.NEON_DATABASE_URL || process.env.DATABASE_URL)
-  : process.env.DATABASE_URL;
+const connectionString = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
 
 if (!connectionString) {
   throw new Error(
