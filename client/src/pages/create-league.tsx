@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -18,7 +19,7 @@ import { useEffect } from "react";
 const createLeagueSchema = z.object({
   name: z.string().min(1, "League name is required"),
   type: z.enum(["Redraft", "Best Ball"]),
-  numberOfTeams: z.coerce.number().min(2, "Minimum 2 teams").max(30, "Maximum 30 teams"),
+  numberOfTeams: z.coerce.number().min(2, "Minimum 2 teams").max(12, "Maximum 12 teams"),
   scoringFormat: z.enum(["Roto", "H2H Points", "H2H Each Category", "H2H Most Categories", "Season Points"]),
   isPublic: z.boolean(),
 });
@@ -138,18 +139,23 @@ export default function CreateLeague() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-white">Number of Teams</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      placeholder="12"
-                      className="sleeper-card-bg sleeper-border border text-white placeholder-gray-400"
-                      {...field}
-                      onChange={(e) => field.onChange(e.target.value === "" ? undefined : parseInt(e.target.value))}
-                    />
-                  </FormControl>
-                  <div className="text-sm text-gray-400 mt-2">
-                    Choose between 2 and 30 teams
-                  </div>
+                  <Select
+                    value={String(field.value)}
+                    onValueChange={(val) => field.onChange(parseInt(val))}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="sleeper-card-bg sleeper-border border text-white">
+                        <SelectValue placeholder="Select number of teams" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent className="sleeper-card-bg sleeper-border border text-white">
+                      {Array.from({ length: 11 }, (_, i) => i + 2).map((num) => (
+                        <SelectItem key={num} value={String(num)} className="text-white">
+                          {num} Teams
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
