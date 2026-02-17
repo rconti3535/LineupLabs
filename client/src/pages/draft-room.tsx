@@ -345,6 +345,7 @@ export default function DraftRoom() {
         if (filledSlots.has(i)) return false;
         if (slot === tp.position) return true;
         if (slot === "OF" && ["OF", "LF", "CF", "RF"].includes(tp.position)) return true;
+        if (isBestBallDraft && slot === "OF" && ["DH", "UT"].includes(tp.position)) return true;
         if (slot === "INF" && INF_POS.includes(tp.position)) return true;
         return false;
       });
@@ -377,6 +378,7 @@ export default function DraftRoom() {
       if (slot === "UT" && !["SP", "RP"].includes(playerPos)) return true;
       if (slot === "P" && ["SP", "RP"].includes(playerPos)) return true;
       if (slot === "OF" && ["OF", "LF", "CF", "RF"].includes(playerPos)) return true;
+      if (isBestBallDraft && slot === "OF" && ["DH", "UT"].includes(playerPos)) return true;
       if (slot === "INF" && INF_POS.includes(playerPos)) return true;
       if (slot === playerPos) return true;
     }

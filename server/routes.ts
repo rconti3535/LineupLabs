@@ -12,11 +12,15 @@ function getDraftRounds(league: { rosterPositions?: string[] | null; maxRosterSi
   return league.maxRosterSize || (league.rosterPositions || []).length;
 }
 
-function canFitSlot(playerPos: string, slotPos: string): boolean {
+function canFitSlot(playerPos: string, slotPos: string, isBestBall = false): boolean {
   if (slotPos === "BN" || slotPos === "IL") return true;
   if (slotPos === "UT") return !["SP", "RP"].includes(playerPos);
   if (slotPos === "P") return ["SP", "RP"].includes(playerPos);
-  if (slotPos === "OF") return ["OF", "LF", "CF", "RF"].includes(playerPos);
+  if (slotPos === "OF") {
+    if (["OF", "LF", "CF", "RF"].includes(playerPos)) return true;
+    if (isBestBall && ["DH", "UT"].includes(playerPos)) return true;
+    return false;
+  }
   if (slotPos === "INF") return INF_POSITIONS.includes(playerPos);
   return playerPos === slotPos;
 }
@@ -148,8 +152,10 @@ async function autoInitializeRosterSlots(leagueId: number): Promise<void> {
             const slot = rosterPositions[si];
 
             if (pass === 0) {
+              const isBBInit = league.type === "Best Ball";
               const isExactOrGroup = slot === player.position
                 || (slot === "OF" && ["OF", "LF", "CF", "RF"].includes(player.position))
+                || (isBBInit && slot === "OF" && ["DH", "UT"].includes(player.position))
                 || (slot === "INF" && INF_POSITIONS.includes(player.position));
               if (isExactOrGroup) { assigned[si] = pi; usedPickIndices.add(pi); break; }
             } else if (pass === 1) {
@@ -970,14 +976,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (pl) teamPlayers.push({ position: pl.position });
       }
 
+      const isBestBallManual = league.type === "Best Ball";
       const filledSlots = new Set<number>();
       for (const tp of teamPlayers) {
         const idx = rosterPositions.findIndex((slot, i) => {
           if (filledSlots.has(i)) return false;
-          if (slot === tp.position) return true;
-          if (slot === "OF" && ["OF", "LF", "CF", "RF"].includes(tp.position)) return true;
-          if (slot === "INF" && INF_POSITIONS.includes(tp.position)) return true;
-          return false;
+          return canFitSlot(tp.position, slot, isBestBallManual) && slot !== "BN" && slot !== "IL" && slot !== "UT" && slot !== "P";
         });
         if (idx !== -1) filledSlots.add(idx);
         else {
@@ -998,8 +1002,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
       }
-
-      const isBestBallManual = league.type === "Best Ball";
       const maxRosterManual = getDraftRounds(league);
       const scoringSlotsFilledManual = filledSlots.size >= rosterPositions.length;
 
@@ -1007,7 +1009,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (isBestBallManual && scoringSlotsFilledManual && teamPicks.length < maxRosterManual) return true;
         for (let i = 0; i < rosterPositions.length; i++) {
           if (filledSlots.has(i)) continue;
-          if (canFitSlot(playerPos, rosterPositions[i])) return true;
+          if (canFitSlot(playerPos, rosterPositions[i], isBestBallManual)) return true;
         }
         return false;
       };
@@ -1341,9 +1343,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const targetSlotPos = rosterPositions[slotB];
       const sourceSlotPos = rosterPositions[slotA];
 
-      const canFit = canFitSlot;
+      const isBBSwap = league.type === "Best Ball";
 
-      if (!canFit(playerA.position, targetSlotPos)) {
+      if (!canFitSlot(playerA.position, targetSlotPos, isBBSwap)) {
         return res.status(400).json({ message: `${playerA.name} (${playerA.position}) cannot play ${targetSlotPos}` });
       }
 
@@ -1355,7 +1357,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const playerB = await storage.getPlayer(pickB.playerId);
         if (!playerB) return res.status(404).json({ message: "Target player not found" });
 
-        if (!canFit(playerB.position, sourceSlotPos)) {
+        if (!canFitSlot(playerB.position, sourceSlotPos, isBBSwap)) {
           return res.status(400).json({ message: `${playerB.name} (${playerB.position}) cannot play ${sourceSlotPos}` });
         }
 
