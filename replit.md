@@ -60,7 +60,7 @@ Key API routes:
 - `POST /api/leagues/:id/daily-lineup/swap` — swap two players in a daily lineup (validates per-player game time locks)
 
 ### Data Storage
-- **Database**: PostgreSQL (via Neon serverless driver `@neondatabase/serverless`)
+- **Database**: PostgreSQL (via Neon serverless driver `@neondatabase/serverless`). Both development and production use the **same shared Neon database** via `NEON_DATABASE_URL` (falls back to `DATABASE_URL`). This ensures accounts, leagues, and all data are consistent across environments.
 - **ORM**: Drizzle ORM with `drizzle-zod` for schema-to-validation integration
 - **Schema Location**: `shared/schema.ts` — shared between client and server
 - **Migrations**: Drizzle Kit with `drizzle-kit push` for schema sync (migrations output to `./migrations`)
