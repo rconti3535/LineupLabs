@@ -42,6 +42,17 @@ interface StandingsData {
   numTeams: number;
 }
 
+function formatPickLabel(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return s > 0 ? `${m}m ${s}s` : `${m}m`;
+  }
+  const h = seconds / 3600;
+  return h === 1 ? "1 hour" : `${h} hours`;
+}
+
 function formatStatValue(cat: string, value: number): string {
   const RATE_STATS = ["AVG", "OBP", "SLG", "OPS"];
   const DECIMAL_STATS = ["ERA", "WHIP", "K/9"];
@@ -3144,18 +3155,23 @@ export default function LeaguePage() {
                   />
                 </div>
                 <div>
-                  <label className="text-gray-400 text-xs block mb-1">Seconds Per Pick</label>
+                  <label className="text-gray-400 text-xs block mb-1">Time Per Pick</label>
                   <Select value={editSecondsPerPick} onValueChange={setEditSecondsPerPick}>
                     <SelectTrigger className="bg-gray-800 border-gray-700 text-white text-sm h-9">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="15">15 seconds</SelectItem>
                       <SelectItem value="30">30 seconds</SelectItem>
                       <SelectItem value="45">45 seconds</SelectItem>
-                      <SelectItem value="60">60 seconds</SelectItem>
-                      <SelectItem value="90">90 seconds</SelectItem>
-                      <SelectItem value="120">120 seconds</SelectItem>
-                      <SelectItem value="150">150 seconds</SelectItem>
+                      <SelectItem value="60">1 minute</SelectItem>
+                      <SelectItem value="90">1 minute 30 seconds</SelectItem>
+                      <SelectItem value="1800">30 minutes</SelectItem>
+                      <SelectItem value="3600">1 hour</SelectItem>
+                      <SelectItem value="7200">2 hours</SelectItem>
+                      <SelectItem value="14400">4 hours</SelectItem>
+                      <SelectItem value="21600">6 hours</SelectItem>
+                      <SelectItem value="28800">8 hours</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -3278,8 +3294,8 @@ export default function LeaguePage() {
                     <p className="text-white font-medium text-sm">{league.draftDate ? new Date(league.draftDate).toLocaleDateString() : "TBD"}</p>
                   </div>
                   <div>
-                    <p className="text-gray-400 text-xs">Seconds Per Pick</p>
-                    <p className="text-white font-medium text-sm">{league.secondsPerPick || 60}s</p>
+                    <p className="text-gray-400 text-xs">Time Per Pick</p>
+                    <p className="text-white font-medium text-sm">{formatPickLabel(league.secondsPerPick || 60)}</p>
                   </div>
                   <div>
                     <p className="text-gray-400 text-xs">Draft Order</p>
@@ -3330,8 +3346,8 @@ export default function LeaguePage() {
                   <p className="text-white font-medium text-sm">{league.draftDate ? new Date(league.draftDate).toLocaleDateString() : "TBD"}</p>
                 </div>
                 <div>
-                  <p className="text-gray-400 text-xs">Seconds Per Pick</p>
-                  <p className="text-white font-medium text-sm">{league.secondsPerPick || 60}s</p>
+                  <p className="text-gray-400 text-xs">Time Per Pick</p>
+                  <p className="text-white font-medium text-sm">{formatPickLabel(league.secondsPerPick || 60)}</p>
                 </div>
                 <div>
                   <p className="text-gray-400 text-xs">Draft Order</p>
