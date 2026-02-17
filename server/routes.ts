@@ -2132,7 +2132,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const httpServer = createServer(app);
 
+  let draftPickCheckInProgress = false;
   async function checkExpiredDraftPicks() {
+    if (draftPickCheckInProgress) return;
+    draftPickCheckInProgress = true;
     try {
       const activeLeagues = await storage.getActiveDraftLeagues();
       for (const league of activeLeagues) {
@@ -2290,6 +2293,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           continue;
         }
 
+        const freshPicks = await storage.getDraftPicksByLeague(league.id);
+        if (freshPicks.length !== existingPicks.length) {
+          continue;
+        }
+        const freshDraftedIds = freshPicks.map(p => p.playerId);
+        if (freshDraftedIds.includes(selectedPlayer.id)) {
+          continue;
+        }
+
         await storage.createDraftPick({
           leagueId: league.id,
           teamId: pickingTeam.id,
@@ -2311,6 +2323,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error) {
       console.error("Error checking expired draft picks:", error);
+    } finally {
+      draftPickCheckInProgress = false;
     }
   }
 
