@@ -397,6 +397,9 @@ const NFBC_ADP_DATA: NfbcPlayer[] = [
   { name: "Spencer Torkelson", adp: 400 },
 ];
 
+const LEAGUE_TYPES = ["Redraft", "Best Ball", "Keeper", "Dynasty"];
+const SCORING_FORMATS = ["Roto", "H2H Points", "H2H Each Category", "H2H Most Categories", "Season Points"];
+
 export async function importNfbcAdp(): Promise<{ matched: number; unmatched: number; total: number }> {
   console.log("Starting NFBC ADP import...");
 
@@ -427,18 +430,7 @@ export async function importNfbcAdp(): Promise<{ matched: number; unmatched: num
     }
   }
 
-  const leagueType = "Redraft";
-  const scoringFormat = "Roto";
   const season = 2026;
-
-  await db.delete(playerAdp).where(
-    and(
-      eq(playerAdp.leagueType, leagueType),
-      eq(playerAdp.scoringFormat, scoringFormat),
-      eq(playerAdp.season, season)
-    )
-  );
-
   const matchedPlayerIds = new Set<number>();
   let matched = 0;
   let unmatched = 0;
@@ -446,51 +438,79 @@ export async function importNfbcAdp(): Promise<{ matched: number; unmatched: num
   for (const entry of nfbcData) {
     const variants = buildNameVariants(entry.name);
     let playerId: number | undefined;
-
     for (const v of variants) {
       playerId = playerNameMap.get(v);
       if (playerId) break;
     }
-
-    if (playerId && !matchedPlayerIds.has(playerId)) {
+    if (playerId) {
       matchedPlayerIds.add(playerId);
-      await db.insert(playerAdp).values({
-        playerId,
-        leagueType,
-        scoringFormat,
-        season,
-        adp: entry.adp,
-        draftCount: 568,
-        totalPositionSum: entry.adp * 568,
-      });
       matched++;
-    } else if (!playerId) {
+    } else {
       unmatched++;
       console.log(`  No match for: ${entry.name}`);
     }
   }
 
-  let defaultCount = 0;
-  for (const p of allPlayers) {
-    if (!matchedPlayerIds.has(p.id)) {
-      await db.insert(playerAdp).values({
-        playerId: p.id,
-        leagueType,
-        scoringFormat,
-        season,
-        adp: 9999,
-        draftCount: 0,
-        totalPositionSum: 0,
-      });
-      defaultCount++;
+  for (const leagueType of LEAGUE_TYPES) {
+    for (const scoringFormat of SCORING_FORMATS) {
+      await db.delete(playerAdp).where(
+        and(
+          eq(playerAdp.leagueType, leagueType),
+          eq(playerAdp.scoringFormat, scoringFormat),
+          eq(playerAdp.season, season)
+        )
+      );
+
+      const rows: { playerId: number; leagueType: string; scoringFormat: string; season: number; adp: number; draftCount: number; totalPositionSum: number }[] = [];
+
+      for (const entry of nfbcData) {
+        const variants = buildNameVariants(entry.name);
+        let playerId: number | undefined;
+        for (const v of variants) {
+          playerId = playerNameMap.get(v);
+          if (playerId) break;
+        }
+        if (playerId && !rows.some(r => r.playerId === playerId)) {
+          rows.push({
+            playerId,
+            leagueType,
+            scoringFormat,
+            season,
+            adp: entry.adp,
+            draftCount: 568,
+            totalPositionSum: entry.adp * 568,
+          });
+        }
+      }
+
+      for (const p of allPlayers) {
+        if (!matchedPlayerIds.has(p.id)) {
+          rows.push({
+            playerId: p.id,
+            leagueType,
+            scoringFormat,
+            season,
+            adp: 9999,
+            draftCount: 0,
+            totalPositionSum: 0,
+          });
+        }
+      }
+
+      const BATCH = 500;
+      for (let i = 0; i < rows.length; i += BATCH) {
+        await db.insert(playerAdp).values(rows.slice(i, i + BATCH));
+      }
+
+      console.log(`  Imported ${leagueType} / ${scoringFormat}: ${rows.length} records`);
     }
   }
 
   console.log(`\nNFBC ADP import complete!`);
   console.log(`  Matched: ${matched}`);
   console.log(`  Unmatched NFBC players: ${unmatched}`);
-  console.log(`  Default (9999): ${defaultCount}`);
   console.log(`  Total DB players: ${allPlayers.length}`);
+  console.log(`  Combinations: ${LEAGUE_TYPES.length} types x ${SCORING_FORMATS.length} formats`);
 
   return { matched, unmatched, total: allPlayers.length };
 }
