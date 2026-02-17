@@ -23,6 +23,7 @@ interface StandingsData {
     teamId: number;
     teamName: string;
     userId: number | null;
+    userName?: string;
     isCpu: boolean | null;
     categoryValues: Record<string, number>;
     categoryPoints?: Record<string, number>;
@@ -377,6 +378,7 @@ function StandingsTab({ leagueId, league, teamsLoading, teams, user }: { leagueI
             )}
           </div>
           {team.isCpu && <span className="text-[9px] text-gray-500">CPU</span>}
+          {!team.isCpu && team.userName && <span className="text-[9px] text-gray-500">{team.userName}</span>}
         </div>
       </div>
     </td>
@@ -671,7 +673,7 @@ function StandingsTab({ leagueId, league, teamsLoading, teams, user }: { leagueI
   );
 }
 
-const BATTER_POSITIONS = ["All", "C", "1B", "2B", "3B", "SS", "OF", "UT"];
+const BATTER_POSITIONS = ["All", "C", "1B", "2B", "3B", "SS", "OF", "DH", "INF", "UT"];
 const PITCHER_POSITIONS = ["All", "SP", "RP"];
 
 const HITTING_STAT_MAP: Record<string, { key: keyof Player; isRate?: boolean }> = {
@@ -2508,7 +2510,7 @@ export default function LeaguePage() {
         <Card className="gradient-card rounded-xl p-5 border-0">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-white font-semibold">League Settings</h3>
-            {isCommissioner && !isEditing && (
+            {isCommissioner && !isEditing && !["active","paused","completed"].includes(league.draftStatus || "") && (
               <Button
                 onClick={startEditing}
                 variant="ghost"
@@ -2668,7 +2670,7 @@ export default function LeaguePage() {
         <Card className="gradient-card rounded-xl p-5 border-0 mt-4">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-white font-semibold">Scoring Settings</h3>
-            {isCommissioner && !isEditingScoring && (
+            {isCommissioner && !isEditingScoring && !["active","paused","completed"].includes(league.draftStatus || "") && (
               <Button
                 onClick={startEditingScoring}
                 variant="ghost"
@@ -2944,7 +2946,7 @@ export default function LeaguePage() {
         <Card className="gradient-card rounded-xl p-5 border-0 mt-4">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-white font-semibold">Roster Settings</h3>
-            {isCommissioner && !isEditingRoster && (
+            {isCommissioner && !isEditingRoster && !["active","paused","completed"].includes(league.draftStatus || "") && (
               <Button
                 onClick={startEditingRoster}
                 variant="ghost"
@@ -3093,7 +3095,7 @@ export default function LeaguePage() {
         <Card className="gradient-card rounded-xl p-5 border-0 mt-4">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-white font-semibold">Draft Settings</h3>
-            {isCommissioner && !isEditingDraft && league.draftStatus !== "completed" && (
+            {isCommissioner && !isEditingDraft && !["active","paused","completed"].includes(league.draftStatus || "") && (
               <Button
                 onClick={startEditingDraft}
                 variant="ghost"
@@ -3130,16 +3132,7 @@ export default function LeaguePage() {
               <div className="space-y-4">
                 <div>
                   <label className="text-gray-400 text-xs block mb-1">Draft Type</label>
-                  <Select value={editDraftType} onValueChange={setEditDraftType}>
-                    <SelectTrigger className="bg-gray-800 border-gray-700 text-white text-sm h-9">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Snake">Snake</SelectItem>
-                      <SelectItem value="Auction">Auction</SelectItem>
-                      <SelectItem value="Linear">Linear</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <p className="text-white font-medium text-sm bg-gray-800 rounded-md px-3 py-2 h-9 flex items-center">Snake</p>
                 </div>
                 <div>
                   <label className="text-gray-400 text-xs block mb-1">Draft Date</label>
@@ -3152,12 +3145,19 @@ export default function LeaguePage() {
                 </div>
                 <div>
                   <label className="text-gray-400 text-xs block mb-1">Seconds Per Pick</label>
-                  <Input
-                    type="number"
-                    value={editSecondsPerPick}
-                    onChange={(e) => setEditSecondsPerPick(e.target.value)}
-                    className="bg-gray-800 border-gray-700 text-white text-sm h-9"
-                  />
+                  <Select value={editSecondsPerPick} onValueChange={setEditSecondsPerPick}>
+                    <SelectTrigger className="bg-gray-800 border-gray-700 text-white text-sm h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="30">30 seconds</SelectItem>
+                      <SelectItem value="45">45 seconds</SelectItem>
+                      <SelectItem value="60">60 seconds</SelectItem>
+                      <SelectItem value="90">90 seconds</SelectItem>
+                      <SelectItem value="120">120 seconds</SelectItem>
+                      <SelectItem value="150">150 seconds</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <label className="text-gray-400 text-xs block mb-1">Draft Order</label>
@@ -3258,16 +3258,6 @@ export default function LeaguePage() {
                         return slots;
                       })()}
                     </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="mt-2 border-gray-700 text-gray-300 w-full"
-                      onClick={handleRandomizeDraftOrder}
-                      disabled={isRandomizing}
-                    >
-                      <Shuffle className="w-3.5 h-3.5 mr-1.5" />
-                      {isRandomizing ? "Shuffling..." : "Re-Randomize"}
-                    </Button>
                   </div>
                 )}
               </div>

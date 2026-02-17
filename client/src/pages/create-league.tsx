@@ -18,7 +18,7 @@ import { useEffect } from "react";
 const createLeagueSchema = z.object({
   name: z.string().min(1, "League name is required"),
   type: z.enum(["Redraft", "Best Ball"]),
-  numberOfTeams: z.number().min(2, "Minimum 2 teams").max(30, "Maximum 30 teams"),
+  numberOfTeams: z.coerce.number().min(2, "Minimum 2 teams").max(30, "Maximum 30 teams"),
   scoringFormat: z.enum(["Roto", "H2H Points", "H2H Each Category", "H2H Most Categories", "Season Points"]),
   isPublic: z.boolean(),
 });
@@ -150,12 +150,10 @@ export default function CreateLeague() {
                   <FormControl>
                     <Input
                       type="number"
-                      min="2"
-                      max="30"
                       placeholder="12"
                       className="sleeper-card-bg sleeper-border border text-white placeholder-gray-400"
                       {...field}
-                      onChange={(e) => field.onChange(parseInt(e.target.value) || 12)}
+                      onChange={(e) => field.onChange(e.target.value === "" ? undefined : parseInt(e.target.value))}
                     />
                   </FormControl>
                   <div className="text-sm text-gray-400 mt-2">

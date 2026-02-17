@@ -492,6 +492,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const rosterPositions = league.rosterPositions || ["C", "1B", "2B", "3B", "SS", "OF", "OF", "OF", "UT", "SP", "SP", "RP", "RP", "BN", "BN", "IL"];
 
       const result = computeStandings(league, teams, draftPicks, playerMap, rosterPositions);
+      for (const team of result.standings) {
+        if (team.userId && !team.isCpu) {
+          const user = await storage.getUser(team.userId);
+          if (user) {
+            (team as any).userName = user.username;
+          }
+        }
+      }
       res.json(result);
     } catch (error) {
       res.status(500).json({ message: "Failed to compute standings" });

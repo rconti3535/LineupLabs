@@ -101,6 +101,7 @@ export interface TeamStandings {
   teamId: number;
   teamName: string;
   userId: number | null;
+  userName?: string;
   isCpu: boolean | null;
   categoryValues: Record<string, number>;
   categoryPoints: Record<string, number>;
