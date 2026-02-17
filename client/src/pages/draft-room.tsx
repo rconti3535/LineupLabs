@@ -736,7 +736,7 @@ export default function DraftRoom() {
           }}
         >
           <div
-            className="flex items-center justify-center pt-2 pb-1 cursor-grab active:cursor-grabbing touch-none"
+            className="cursor-grab active:cursor-grabbing touch-none"
             onTouchStart={(e) => {
               const touch = e.touches[0];
               playerDragRef.current = { startY: touch.clientY, currentY: touch.clientY };
@@ -787,30 +787,32 @@ export default function DraftRoom() {
               window.addEventListener("mouseup", onUp);
             }}
           >
-            <div className="w-10 h-1 rounded-full bg-gray-600" />
-          </div>
-          <div className="flex items-center justify-between px-4 pb-2">
-            <h3 className="text-white font-semibold text-sm">
-              {commissionerAssignMode && selectedCellOverall ? (
-                <>
-                  <span className="text-yellow-400">Assign Player</span>
-                  <span className="text-gray-500 font-normal ml-1.5">Pick {Math.ceil(selectedCellOverall / numTeams)}.{String(((selectedCellOverall - 1) % numTeams) + 1).padStart(2, "0")}</span>
-                </>
-              ) : (
-                <>
-                  Available Players
-                  {playersInfinite && <span className="text-gray-500 font-normal ml-1.5">({availableTotal.toLocaleString()})</span>}
-                </>
+            <div className="flex items-center justify-center pt-2 pb-1">
+              <div className="w-10 h-1 rounded-full bg-gray-600" />
+            </div>
+            <div className="flex items-center justify-between px-4 pb-2">
+              <h3 className="text-white font-semibold text-sm">
+                {commissionerAssignMode && selectedCellOverall ? (
+                  <>
+                    <span className="text-yellow-400">Assign Player</span>
+                    <span className="text-gray-500 font-normal ml-1.5">Pick {Math.ceil(selectedCellOverall / numTeams)}.{String(((selectedCellOverall - 1) % numTeams) + 1).padStart(2, "0")}</span>
+                  </>
+                ) : (
+                  <>
+                    Available Players
+                    {playersInfinite && <span className="text-gray-500 font-normal ml-1.5">({availableTotal.toLocaleString()})</span>}
+                  </>
+                )}
+              </h3>
+              {commissionerAssignMode && (
+                <button
+                  onClick={() => { setCommissionerAssignMode(false); setSelectedCellOverall(null); }}
+                  className="text-gray-400 hover:text-white p-1"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               )}
-            </h3>
-            {commissionerAssignMode && (
-              <button
-                onClick={() => { setCommissionerAssignMode(false); setSelectedCellOverall(null); }}
-                className="text-gray-400 hover:text-white p-1"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
+            </div>
           </div>
 
           <div className="px-3 pb-2 space-y-2">
@@ -974,7 +976,7 @@ export default function DraftRoom() {
           }}
         >
           <div
-            className="flex items-center justify-center pt-2 pb-1 cursor-grab active:cursor-grabbing touch-none"
+            className="cursor-grab active:cursor-grabbing touch-none"
             onTouchStart={(e) => {
               const touch = e.touches[0];
               teamDragRef.current = { startY: touch.clientY, currentY: touch.clientY };
@@ -1021,9 +1023,11 @@ export default function DraftRoom() {
               window.addEventListener("mouseup", onUp);
             }}
           >
-            <div className="w-10 h-1 rounded-full bg-gray-600" />
+            <div className="flex items-center justify-center pt-2 pb-1">
+              <div className="w-10 h-1 rounded-full bg-gray-600" />
+            </div>
+            <h3 className="text-white font-semibold text-sm px-4 pb-2">My Team</h3>
           </div>
-          <h3 className="text-white font-semibold text-sm px-4 pb-2">My Team</h3>
           <div className="flex-1 overflow-auto hide-scrollbar px-3 pb-3">
             {myTeam ? (() => {
               const isBestBallDraft = league?.type === "Best Ball";
