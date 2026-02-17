@@ -44,7 +44,12 @@ export default function Login() {
       const redirect = params.get("redirect");
       setLocation(redirect || "/");
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      toast({
+        title: "Login failed",
+        description: error?.message || "Invalid username or password. Please try again.",
+        variant: "destructive",
+      });
     },
   });
 

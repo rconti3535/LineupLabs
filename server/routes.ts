@@ -788,10 +788,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (existingUser) {
         return res.status(400).json({ message: "Username already exists" });
       }
+      const existingEmail = await storage.getUserByEmail(validatedData.email);
+      if (existingEmail) {
+        return res.status(400).json({ message: "Email already exists" });
+      }
       const user = await storage.createUser(validatedData);
       res.status(201).json(user);
-    } catch (error) {
-      res.status(400).json({ message: "Invalid user data" });
+    } catch (error: any) {
+      console.error("Signup error:", error?.message || error);
+      if (error?.issues) {
+        const fieldErrors = error.issues.map((i: any) => `${i.path.join(".")}: ${i.message}`).join(", ");
+        return res.status(400).json({ message: fieldErrors });
+      }
+      res.status(400).json({ message: error?.message || "Invalid user data" });
     }
   });
 
@@ -804,7 +813,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Invalid username or password" });
       }
       res.json(user);
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Login error:", error?.message || error);
       res.status(500).json({ message: "Login failed" });
     }
   });

@@ -50,7 +50,12 @@ export default function Signup() {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       setLocation("/");
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      toast({
+        title: "Signup failed",
+        description: error?.message || "Could not create account. Please try again.",
+        variant: "destructive",
+      });
     },
   });
 
