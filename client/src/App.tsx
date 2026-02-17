@@ -57,8 +57,8 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <TooltipProvider>
-          <div className="min-h-screen flex flex-col max-w-md mx-auto sleeper-bg relative">
-            <main className="flex-1 pb-16">
+          <div className="min-h-screen flex flex-col max-w-md mx-auto sleeper-bg relative hide-scrollbar">
+            <main className="flex-1 pb-16 hide-scrollbar">
               <Router />
             </main>
             <BottomNavigation />
