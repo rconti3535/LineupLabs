@@ -2218,6 +2218,67 @@ export default function LeaguePage() {
                   <div className="text-center text-gray-400 text-xs py-4">{isWeeklyLock ? "Loading weekly lineup..." : "Loading daily lineup..."}</div>
                 )}
                 <div className="space-y-5">
+                  {isBestBall ? (() => {
+                    const INF_POS = ["1B", "2B", "3B", "SS"];
+                    const OF_POS = ["OF", "LF", "CF", "RF", "DH", "UT"];
+                    const BB_SECTIONS = [
+                      { label: "Catchers", positions: ["C"], isHitting: true },
+                      { label: "Infielders", positions: INF_POS, isHitting: true },
+                      { label: "Outfielders", positions: OF_POS, isHitting: true },
+                      { label: "Starting Pitchers", positions: ["SP"], isHitting: false },
+                      { label: "Relief Pitchers", positions: ["RP"], isHitting: false },
+                    ];
+                    return BB_SECTIONS.map(section => {
+                      const sectionEntries = rosterEntries.filter(e => e.player && section.positions.includes((e.player as Record<string, unknown>).position as string));
+                      const statCats = section.isHitting ? leagueHittingCats : leaguePitchingCats;
+                      return (
+                        <div key={section.label}>
+                          <p className="text-gray-400 text-[11px] uppercase font-bold tracking-wider mb-2">
+                            {section.label} {sectionEntries.length > 0 && <span className="text-gray-600">({sectionEntries.length})</span>}
+                          </p>
+                          {sectionEntries.length === 0 ? (
+                            <p className="text-gray-600 text-xs italic pl-1 pb-1">No players drafted yet</p>
+                          ) : (
+                            <div className="overflow-x-auto hide-scrollbar -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
+                              <table className="w-full" style={{ minWidth: Math.max(300, 200 + statCats.length * 52) + "px" }}>
+                                <thead>
+                                  <tr className="border-b border-gray-700">
+                                    <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-9 pl-1">Pos</th>
+                                    <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[140px]">Player</th>
+                                    {statCats.map(stat => (
+                                      <th key={stat} className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>{stat}</th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {sectionEntries.map(entry => {
+                                    const p = entry.player as Record<string, unknown>;
+                                    return (
+                                      <tr key={entry.slotIndex} className="border-b border-gray-800/50">
+                                        <td className="py-1.5 pl-1">
+                                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-700 text-gray-300">{p.position as string}</span>
+                                        </td>
+                                        <td className="py-1.5 pr-2">
+                                          <div>
+                                            <p className="text-white text-xs font-medium truncate max-w-[130px]">{p.name as string}</p>
+                                            <p className="text-gray-500 text-[10px]">{p.position as string} — {(p.teamAbbreviation || p.team) as string}</p>
+                                          </div>
+                                        </td>
+                                        {statCats.map(stat => (
+                                          <td key={stat} className={`${STAT_COL} text-gray-300`}>{p[`${statPrefix}${stat}`] as string ?? "-"}</td>
+                                        ))}
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    });
+                  })() : (
+                  <>
                   {posEntries.length > 0 && (
                     <div>
                       <div className="overflow-x-auto hide-scrollbar -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
