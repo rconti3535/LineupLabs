@@ -14,7 +14,7 @@ import { assignPlayersToRoster } from "@/lib/roster-utils";
 
 type DraftTab = "board" | "players" | "team";
 
-const POSITION_FILTERS = ["ALL", "C", "1B", "2B", "3B", "SS", "OF", "SP", "RP", "DH", "UT"];
+const POSITION_FILTERS = ["ALL", "C", "1B", "2B", "3B", "SS", "OF", "INF", "SP", "RP", "DH", "UT"];
 const LEVEL_FILTERS = ["ALL", "MLB", "AAA", "AA", "A+", "A", "Rookie"];
 
 function useCountdown(targetDate: Date | null) {
@@ -336,12 +336,14 @@ export default function DraftRoom() {
 
   const canDraftPosition = (playerPos: string): boolean => {
     if (!rosterPositions.length) return true;
+    const INF_POS = ["1B", "2B", "3B", "SS"];
     const filledSlots = new Set<number>();
     for (const tp of myDraftedPlayers) {
       const idx = rosterPositions.findIndex((slot, i) => {
         if (filledSlots.has(i)) return false;
         if (slot === tp.position) return true;
         if (slot === "OF" && ["OF", "LF", "CF", "RF"].includes(tp.position)) return true;
+        if (slot === "INF" && INF_POS.includes(tp.position)) return true;
         return false;
       });
       if (idx !== -1) filledSlots.add(idx);
@@ -370,6 +372,7 @@ export default function DraftRoom() {
       if (slot === "UT" && !["SP", "RP"].includes(playerPos)) return true;
       if (slot === "P" && ["SP", "RP"].includes(playerPos)) return true;
       if (slot === "OF" && ["OF", "LF", "CF", "RF"].includes(playerPos)) return true;
+      if (slot === "INF" && INF_POS.includes(playerPos)) return true;
       if (slot === playerPos) return true;
     }
     return false;
@@ -426,7 +429,7 @@ export default function DraftRoom() {
 
   const positionColor = (pos: string) => {
     const colors: Record<string, string> = {
-      C: "bg-yellow-600", "1B": "bg-red-600", "2B": "bg-orange-600",
+      C: "bg-yellow-600", INF: "bg-purple-600", "1B": "bg-red-600", "2B": "bg-orange-600",
       "3B": "bg-pink-600", SS: "bg-purple-600", OF: "bg-green-600",
       SP: "bg-blue-600", RP: "bg-cyan-600", DH: "bg-gray-600", UT: "bg-gray-600", P: "bg-indigo-600",
     };

@@ -1836,7 +1836,7 @@ export default function LeaguePage() {
     setIsEditingDraft(false);
   };
 
-  const ALL_POSITIONS = ["C", "1B", "2B", "3B", "SS", "OF", "UT", "DH", "SP", "RP", "P", "BN", "IL"];
+  const ALL_POSITIONS = ["C", "INF", "1B", "2B", "3B", "SS", "OF", "UT", "DH", "SP", "RP", "P", "BN", "IL"];
 
   if (leagueLoading) {
     return (

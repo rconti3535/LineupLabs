@@ -40,6 +40,10 @@ function isPitchingSlot(slotPos: string): boolean {
   return PITCHING_POSITIONS.includes(slotPos);
 }
 
+function isHittingGroupSlot(slotPos: string): boolean {
+  return slotPos === "INF" || slotPos === "OF" || slotPos === "UT" || slotPos === "DH";
+}
+
 function isActiveSlot(slotPos: string): boolean {
   return slotPos !== "BN" && slotPos !== "IL";
 }

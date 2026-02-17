@@ -6,6 +6,17 @@ import { computeRotoStandings } from "./roto-scoring";
 import { computeStandings, computeMatchups } from "./scoring";
 import { getScheduleForDate, getPlayerGameTimes, type PlayerGameTime } from "./mlb-schedule";
 
+const INF_POSITIONS = ["1B", "2B", "3B", "SS"];
+
+function canFitSlot(playerPos: string, slotPos: string): boolean {
+  if (slotPos === "BN" || slotPos === "IL") return true;
+  if (slotPos === "UT") return !["SP", "RP"].includes(playerPos);
+  if (slotPos === "P") return ["SP", "RP"].includes(playerPos);
+  if (slotPos === "OF") return ["OF", "LF", "CF", "RF"].includes(playerPos);
+  if (slotPos === "INF") return INF_POSITIONS.includes(playerPos);
+  return playerPos === slotPos;
+}
+
 function getEarliestGameTime(schedule: Map<string, { gameDate: string }>): Date | null {
   let earliest: Date | null = null;
   const values = Array.from(schedule.values());
@@ -133,9 +144,10 @@ async function autoInitializeRosterSlots(leagueId: number): Promise<void> {
             const slot = rosterPositions[si];
 
             if (pass === 0) {
-              if (slot === player.position || (slot === "OF" && ["OF", "LF", "CF", "RF"].includes(player.position))) {
-                assigned[si] = pi; usedPickIndices.add(pi); break;
-              }
+              const isExactOrGroup = slot === player.position
+                || (slot === "OF" && ["OF", "LF", "CF", "RF"].includes(player.position))
+                || (slot === "INF" && INF_POSITIONS.includes(player.position));
+              if (isExactOrGroup) { assigned[si] = pi; usedPickIndices.add(pi); break; }
             } else if (pass === 1) {
               if ((slot === "UT" && !["SP", "RP"].includes(player.position)) || (slot === "P" && ["SP", "RP"].includes(player.position))) {
                 assigned[si] = pi; usedPickIndices.add(pi); break;
@@ -797,6 +809,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (validatedData.type === "Best Ball" && validatedData.scoringFormat && !["Roto", "Season Points"].includes(validatedData.scoringFormat)) {
         return res.status(400).json({ message: "Best Ball leagues only support Roto and Season Points scoring formats" });
       }
+      if (validatedData.type === "Best Ball" && !validatedData.rosterPositions) {
+        validatedData.rosterPositions = ["C", "INF", "INF", "INF", "INF", "OF", "OF", "OF", "SP", "SP", "SP", "SP", "SP"];
+      }
       const league = await storage.createLeague(validatedData);
 
       if (validatedData.createdBy) {
@@ -943,6 +958,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (filledSlots.has(i)) return false;
           if (slot === tp.position) return true;
           if (slot === "OF" && ["OF", "LF", "CF", "RF"].includes(tp.position)) return true;
+          if (slot === "INF" && INF_POSITIONS.includes(tp.position)) return true;
           return false;
         });
         if (idx !== -1) filledSlots.add(idx);
@@ -968,12 +984,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const canFitPlayer = (playerPos: string): boolean => {
         for (let i = 0; i < rosterPositions.length; i++) {
           if (filledSlots.has(i)) continue;
-          const slot = rosterPositions[i];
-          if (slot === "BN" || slot === "IL") return true;
-          if (slot === "UT" && !["SP", "RP"].includes(playerPos)) return true;
-          if (slot === "P" && ["SP", "RP"].includes(playerPos)) return true;
-          if (slot === "OF" && ["OF", "LF", "CF", "RF"].includes(playerPos)) return true;
-          if (slot === playerPos) return true;
+          if (canFitSlot(playerPos, rosterPositions[i])) return true;
         }
         return false;
       };
@@ -1139,6 +1150,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (filledSlots.has(i)) return false;
           if (slot === tp.position) return true;
           if (slot === "OF" && ["OF", "LF", "CF", "RF"].includes(tp.position)) return true;
+          if (slot === "INF" && INF_POSITIONS.includes(tp.position)) return true;
           return false;
         });
         if (idx !== -1) filledSlots.add(idx);
@@ -1171,17 +1183,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const hasBenchOrIL = emptySlotPositions.some(s => s === "BN" || s === "IL");
       const hasUtil = emptySlotPositions.some(s => s === "UT");
       const hasP = emptySlotPositions.some(s => s === "P");
+      const hasInf = emptySlotPositions.some(s => s === "INF");
 
       const eligiblePositions: string[] = [];
       for (const slot of emptySlotPositions) {
         if (slot === "BN" || slot === "IL") continue;
         if (slot === "UT") continue;
         if (slot === "P") continue;
+        if (slot === "INF") {
+          for (const p of INF_POSITIONS) {
+            if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
+          }
+          continue;
+        }
         if (!eligiblePositions.includes(slot)) eligiblePositions.push(slot);
       }
 
       if (hasUtil) {
         for (const p of ["C", "1B", "2B", "3B", "SS", "OF", "DH"]) {
+          if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
+        }
+      }
+
+      if (hasInf) {
+        for (const p of INF_POSITIONS) {
           if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
         }
       }
@@ -1205,6 +1230,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let selectedPlayer = await storage.getBestAvailableByAdp(
         draftedPlayerIds, leagueType, scoringFormat, season, eligiblePositions
       );
+
+      if (!selectedPlayer) {
+        for (const ep of eligiblePositions) {
+          selectedPlayer = await storage.getBestAvailablePlayer(draftedPlayerIds, ep);
+          if (selectedPlayer) break;
+        }
+      }
 
       if (!selectedPlayer) {
         selectedPlayer = await storage.getBestAvailablePlayer(draftedPlayerIds);
@@ -1272,13 +1304,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const targetSlotPos = rosterPositions[slotB];
       const sourceSlotPos = rosterPositions[slotA];
 
-      const canFit = (playerPos: string, slotPos: string): boolean => {
-        if (slotPos === "BN" || slotPos === "IL") return true;
-        if (slotPos === "UT") return !["SP", "RP"].includes(playerPos);
-        if (slotPos === "P") return ["SP", "RP"].includes(playerPos);
-        if (slotPos === "OF") return ["OF", "LF", "CF", "RF"].includes(playerPos);
-        return playerPos === slotPos;
-      };
+      const canFit = canFitSlot;
 
       if (!canFit(playerA.position, targetSlotPos)) {
         return res.status(400).json({ message: `${playerA.name} (${playerA.position}) cannot play ${targetSlotPos}` });
@@ -1334,14 +1360,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         myPicks.map(p => storage.getPlayer(p.playerId))
       );
 
-      const canFitSlot = (playerPos: string, slotPos: string): boolean => {
-        if (slotPos === "BN" || slotPos === "IL") return true;
-        if (slotPos === "UT") return !["SP", "RP"].includes(playerPos);
-        if (slotPos === "P") return ["SP", "RP"].includes(playerPos);
-        if (slotPos === "OF") return ["OF", "LF", "CF", "RF"].includes(playerPos);
-        return playerPos === slotPos;
-      };
-
       const assigned = new Array<number | null>(rosterPositions.length).fill(null);
       const usedPickIndices = new Set<number>();
 
@@ -1356,7 +1374,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const slot = rosterPositions[si];
 
             if (pass === 0) {
-              if (slot === player.position || (slot === "OF" && ["OF", "LF", "CF", "RF"].includes(player.position))) {
+              const isExactOrGroup = slot === player.position
+                || (slot === "OF" && ["OF", "LF", "CF", "RF"].includes(player.position))
+                || (slot === "INF" && INF_POSITIONS.includes(player.position));
+              if (isExactOrGroup) {
                 assigned[si] = pi;
                 usedPickIndices.add(pi);
                 break;
@@ -2082,6 +2103,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (filledSlots.has(i)) return false;
             if (slot === tp.position) return true;
             if (slot === "OF" && ["OF", "LF", "CF", "RF"].includes(tp.position)) return true;
+            if (slot === "INF" && INF_POSITIONS.includes(tp.position)) return true;
             return false;
           });
           if (idx !== -1) filledSlots.add(idx);
@@ -2109,7 +2131,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (!filledSlots.has(i)) emptySlotPositions.push(rosterPositions[i]);
         }
 
-        const priorityOrder = ["C", "1B", "2B", "3B", "SS", "OF", "SP", "RP", "P", "DH", "UT", "BN", "IL"];
+        const priorityOrder = ["C", "INF", "1B", "2B", "3B", "SS", "OF", "SP", "RP", "P", "DH", "UT", "BN", "IL"];
         emptySlotPositions.sort((a, b) => {
           const ai = priorityOrder.indexOf(a);
           const bi = priorityOrder.indexOf(b);
@@ -2119,7 +2141,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         let selectedPlayer = null;
         for (const slotPos of emptySlotPositions) {
           if (slotPos === "BN" || slotPos === "IL" || slotPos === "UT" || slotPos === "P") continue;
-          selectedPlayer = await storage.getBestAvailablePlayer(draftedPlayerIds, slotPos);
+          const searchPos = slotPos === "INF" ? "1B" : slotPos;
+          const searchPositions = slotPos === "INF" ? INF_POSITIONS : [searchPos];
+          for (const sp of searchPositions) {
+            selectedPlayer = await storage.getBestAvailablePlayer(draftedPlayerIds, sp);
+            if (selectedPlayer) break;
+          }
           if (selectedPlayer) break;
         }
         if (!selectedPlayer) {

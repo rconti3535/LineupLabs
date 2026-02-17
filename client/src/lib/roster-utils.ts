@@ -1,5 +1,7 @@
 import type { Player, DraftPick } from "@shared/schema";
 
+const INF_POSITIONS = ["1B", "2B", "3B", "SS"];
+
 function canFitSlot(playerPosition: string, slotPosition: string): boolean {
   if (slotPosition === "BN" || slotPosition === "IL") return true;
   if (slotPosition === "UT") {
@@ -7,6 +9,9 @@ function canFitSlot(playerPosition: string, slotPosition: string): boolean {
   }
   if (slotPosition === "OF") {
     return ["OF", "LF", "CF", "RF"].includes(playerPosition);
+  }
+  if (slotPosition === "INF") {
+    return INF_POSITIONS.includes(playerPosition);
   }
   if (slotPosition === "P") {
     return ["SP", "RP"].includes(playerPosition);
@@ -36,6 +41,15 @@ export function assignPlayersToRoster(
     );
     if (ofIndex !== -1) {
       assigned[ofIndex] = player;
+      usedPlayers.add(player.id);
+      continue;
+    }
+
+    const infIndex = rosterPositions.findIndex(
+      (slot, i) => assigned[i] === null && slot === "INF" && INF_POSITIONS.includes(player.position)
+    );
+    if (infIndex !== -1) {
+      assigned[infIndex] = player;
       usedPlayers.add(player.id);
       continue;
     }
