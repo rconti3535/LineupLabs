@@ -1294,19 +1294,22 @@ export default function DraftRoom() {
         </div>
       )}
 
-      <nav className="shrink-0 border-t border-gray-800 sleeper-bg relative z-20">
-        <div className="flex">
+      <nav className="shrink-0 border-t border-gray-800 sleeper-bg relative z-20 pb-safe">
+        <div className="flex w-full overflow-hidden">
           {draftNavItems.map((item) => (
             <button
               key={item.key}
               onClick={() => { setActiveTab(item.key); setCommissionerAssignMode(false); setSelectedCellOverall(null); }}
-              className={`flex-1 py-3 text-center text-xs font-medium transition-colors ${
+              className={`flex-1 py-4 text-center text-xs font-semibold transition-colors ${
                 activeTab === item.key
                   ? "text-blue-400 border-t-2 border-blue-400"
                   : "text-gray-500 hover:text-gray-300"
               }`}
             >
-              {item.label}
+              <div className="flex flex-col items-center gap-1">
+                <item.icon className="w-4 h-4" />
+                <span>{item.label}</span>
+              </div>
             </button>
           ))}
         </div>
