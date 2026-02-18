@@ -145,6 +145,7 @@ export default function DraftRoom() {
       return res.json();
     },
     enabled: !!leagueId,
+    refetchInterval: league?.draftStatus === "active" || league?.draftStatus === "paused" ? 5000 : false,
   });
 
   const teams = rawTeams ? [...rawTeams].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999)) : undefined;
