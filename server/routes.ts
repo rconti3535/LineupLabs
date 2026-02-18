@@ -402,6 +402,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updateData.draftPickStartedAt = null;
       }
       const updated = await storage.updateLeague(id, updateData);
+      broadcastDraftEvent(id, "draft-status", { action, draftStatus: newStatus });
+      broadcastDraftEvent(id, "teams-update");
       res.json(updated);
     } catch (error) {
       res.status(500).json({ message: "Failed to update draft status" });
@@ -430,6 +432,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.updateTeam(leagueTeams[i].id, { draftPosition: positions[i] } as any);
       }
       await storage.updateLeague(id, { draftOrder: "Random" });
+      broadcastDraftEvent(id, "teams-update");
       const updatedTeams = await storage.getTeamsByLeagueId(id);
       res.json(updatedTeams.sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999)));
     } catch (error) {
@@ -1070,6 +1073,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const totalPicks = totalRounds * numTeams;
         if (nextOverall >= totalPicks) {
           await storage.updateLeague(leagueId, { draftStatus: "completed", draftPickStartedAt: null });
+          broadcastDraftEvent(leagueId, "draft-status", { draftStatus: "completed" });
           recalculateAdpForLeague(league).catch(e => console.error("ADP recalc error:", e));
           generateLeagueMatchups(leagueId).catch(e => console.error("Matchup gen error:", e));
           autoInitializeRosterSlots(leagueId).catch(e => console.error("Roster init error:", e));
@@ -1077,6 +1081,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.updateLeague(leagueId, { draftPickStartedAt: new Date().toISOString() });
         }
 
+        broadcastDraftEvent(leagueId, "pick", { overallPick: nextOverall, playerId, teamId: userTeam.id });
         return { status: 201, body: pick };
       });
       res.status(result.status).json(result.body);
@@ -1113,6 +1118,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (alreadyDrafted) return { status: 400, body: { message: "Player already drafted in another slot" } };
 
           const pick = await storage.updateDraftPickPlayer(leagueId, targetOverall, playerId);
+          broadcastDraftEvent(leagueId, "pick", { overallPick: targetOverall, playerId, reassign: true });
           return { status: 200, body: pick };
         }
 
@@ -1142,6 +1148,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const totalPicks = totalRounds * numTeams;
         if (nextOverall >= totalPicks) {
           await storage.updateLeague(leagueId, { draftStatus: "completed", draftPickStartedAt: null });
+          broadcastDraftEvent(leagueId, "draft-status", { draftStatus: "completed" });
           recalculateAdpForLeague(league).catch(e => console.error("ADP recalc error:", e));
           generateLeagueMatchups(leagueId).catch(e => console.error("Matchup gen error:", e));
           autoInitializeRosterSlots(leagueId).catch(e => console.error("Roster init error:", e));
@@ -1149,6 +1156,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.updateLeague(leagueId, { draftPickStartedAt: new Date().toISOString() });
         }
 
+        broadcastDraftEvent(leagueId, "pick", { overallPick: nextOverall, playerId, teamId: expectedTeam.id });
         return { status: 201, body: pick };
       });
       res.status(result.status).json(result.body);
@@ -1326,6 +1334,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const totalPicks = totalRounds * numTeams;
       if (nextOverall >= totalPicks) {
         await storage.updateLeague(leagueId, { draftStatus: "completed", draftPickStartedAt: null });
+        broadcastDraftEvent(leagueId, "draft-status", { draftStatus: "completed" });
         recalculateAdpForLeague(league).catch(e => console.error("ADP recalc error:", e));
         generateLeagueMatchups(leagueId).catch(e => console.error("Matchup gen error:", e));
         autoInitializeRosterSlots(leagueId).catch(e => console.error("Roster init error:", e));
@@ -1333,6 +1342,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.updateLeague(leagueId, { draftPickStartedAt: new Date().toISOString() });
       }
 
+      broadcastDraftEvent(leagueId, "pick", { overallPick: nextOverall, playerId: selectedPlayer.id, teamId: pickingTeam.id });
       res.status(201).json({ pick, player: selectedPlayer });
     } catch (error) {
       res.status(500).json({ message: "Failed to auto-pick" });
