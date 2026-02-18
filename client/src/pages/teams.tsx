@@ -18,7 +18,7 @@ export default function Teams() {
 
   const leagueIds = teams?.map((t) => t.leagueId).filter(Boolean) || [];
 
-  const { data: leagues } = useQuery<League[]>({
+  const { data: leagues, isLoading: leaguesLoading } = useQuery<League[]>({
     queryKey: ["/api/leagues/batch", ...leagueIds],
     queryFn: async () => {
       const results = await Promise.all(
@@ -34,10 +34,12 @@ export default function Teams() {
   const leagueMap = new Map<number, { name: string; isPublic: boolean; createdBy: number | null; leagueImage: string | null }>();
   leagues?.forEach((l) => leagueMap.set(l.id, { name: l.name, isPublic: l.isPublic ?? false, createdBy: l.createdBy, leagueImage: l.leagueImage }));
 
+  const showSkeleton = isLoading || (teams && teams.length > 0 && leagueIds.length > 0 && leaguesLoading);
+
   return (
     <div className="px-4 py-6">
       <div className="space-y-3">
-        {isLoading ? (
+        {showSkeleton ? (
           Array.from({ length: 2 }).map((_, i) => (
             <div key={i} className="gradient-card rounded-xl p-4">
               <div className="flex items-center space-x-3">
