@@ -1,4 +1,4 @@
-import { Switch, Route, Redirect } from "wouter";
+import { Switch, Route, Redirect, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -61,17 +61,36 @@ function Router() {
   );
 }
 
+function AppLayout() {
+  const [location] = useLocation();
+  const isDraftRoom = /^\/league\/\d+\/draft$/.test(location);
+
+  if (isDraftRoom) {
+    return (
+      <div className="max-w-md mx-auto sleeper-bg relative">
+        <Router />
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="min-h-screen flex flex-col max-w-md mx-auto sleeper-bg relative hide-scrollbar">
+        <main className="flex-1 pb-16 hide-scrollbar">
+          <Router />
+        </main>
+        <BottomNavigation />
+      </div>
+    </>
+  );
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <TooltipProvider>
-          <div className="min-h-screen flex flex-col max-w-md mx-auto sleeper-bg relative hide-scrollbar">
-            <main className="flex-1 pb-16 hide-scrollbar">
-              <Router />
-            </main>
-            <BottomNavigation />
-          </div>
+          <AppLayout />
           <Toaster />
         </TooltipProvider>
       </AuthProvider>
