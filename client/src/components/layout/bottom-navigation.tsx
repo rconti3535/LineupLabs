@@ -19,7 +19,7 @@ export function BottomNavigation() {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-md sleeper-bg border-t sleeper-border px-2 py-1">
+    <nav className="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-md sleeper-bg border-t sleeper-border px-3 py-2">
       <div className="flex items-center">
         {navItems.map(({ path, icon: Icon, label }, index) => {
           const isActive = location === path;
@@ -27,14 +27,14 @@ export function BottomNavigation() {
             <div key={path} className="flex items-center flex-1">
               <Link href={path} className="flex-1">
                 <button
-                  className={`flex flex-col items-center py-2 px-2 rounded-lg transition-all duration-200 w-full ${
+                  className={`flex flex-col items-center py-2.5 px-3 rounded-lg transition-all duration-200 w-full ${
                     isActive
                       ? "nav-item-active"
                       : "hover:bg-slate-800 hover:bg-opacity-50"
                   }`}
                 >
                   <Icon
-                    className={`mb-1 h-4 w-4 ${
+                    className={`mb-1 h-5 w-5 ${
                       isActive ? "text-white" : "text-gray-400"
                     }`}
                   />
@@ -48,7 +48,7 @@ export function BottomNavigation() {
                 </button>
               </Link>
               {index < navItems.length - 1 && (
-                <div className="w-px h-8 bg-gray-600 mx-1"></div>
+                <div className="w-px h-9 bg-gray-600 mx-1"></div>
               )}
             </div>
           );
