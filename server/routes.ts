@@ -5,6 +5,7 @@ import { insertLeagueSchema, insertTeamSchema, insertUserSchema, insertDraftPick
 import { computeRotoStandings } from "./roto-scoring";
 import { computeStandings, computeMatchups } from "./scoring";
 import { getScheduleForDate, getPlayerGameTimes, type PlayerGameTime } from "./mlb-schedule";
+import { addClient, broadcastDraftEvent } from "./draft-events";
 
 const INF_POSITIONS = ["1B", "2B", "3B", "SS"];
 
@@ -324,6 +325,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       res.status(500).json({ message: "Failed to update league" });
     }
+  });
+
+  app.get("/api/leagues/:id/draft-events", (req, res) => {
+    const leagueId = parseInt(req.params.id);
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
+    });
+    res.write(`data: ${JSON.stringify({ type: "connected", leagueId })}\n\n`);
+    addClient(leagueId, res);
+    const keepAlive = setInterval(() => {
+      try { res.write(": keepalive\n\n"); } catch { clearInterval(keepAlive); }
+    }, 30000);
+    res.on("close", () => clearInterval(keepAlive));
   });
 
   // Commissioner draft control (start/pause/resume)
