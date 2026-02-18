@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useQuery, useInfiniteQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useInfiniteQuery, useMutation, keepPreviousData } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -162,6 +162,7 @@ export default function DraftRoom() {
     },
     enabled: !!leagueId,
     refetchInterval: league?.draftStatus === "active" ? 30000 : false,
+    placeholderData: keepPreviousData,
   });
 
   const { data: draftedPlayerIds = [] } = useQuery<number[]>({
@@ -173,6 +174,7 @@ export default function DraftRoom() {
     },
     enabled: !!leagueId,
     refetchInterval: league?.draftStatus === "active" ? 30000 : false,
+    placeholderData: keepPreviousData,
   });
 
   useEffect(() => {
@@ -387,6 +389,8 @@ export default function DraftRoom() {
       return results.filter(Boolean) as Player[];
     },
     enabled: sortedPickIds.length > 0,
+    placeholderData: keepPreviousData,
+    staleTime: 60000,
   });
 
   const playerMap = new Map<number, Player>();
