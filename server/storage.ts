@@ -21,6 +21,7 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   updateUserPassword(id: number, password: string): Promise<User | undefined>;
+  updateUserProfile(id: number, data: { username?: string; avatar?: string | null }): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   
   // Leagues
@@ -125,6 +126,19 @@ export class DatabaseStorage implements IStorage {
     const [user] = await db
       .update(users)
       .set({ password })
+      .where(eq(users.id, id))
+      .returning();
+    return user || undefined;
+  }
+
+  async updateUserProfile(id: number, data: { username?: string; avatar?: string | null }): Promise<User | undefined> {
+    const updateData: Record<string, unknown> = {};
+    if (data.username !== undefined) updateData.username = data.username;
+    if (data.avatar !== undefined) updateData.avatar = data.avatar;
+    if (Object.keys(updateData).length === 0) return this.getUser(id);
+    const [user] = await db
+      .update(users)
+      .set(updateData)
       .where(eq(users.id, id))
       .returning();
     return user || undefined;

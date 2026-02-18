@@ -808,6 +808,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/users/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { username, avatar } = req.body;
+      if (username !== undefined) {
+        const existing = await storage.getUserByUsername(username);
+        if (existing && existing.id !== id) {
+          return res.status(400).json({ message: "Username already taken" });
+        }
+      }
+      const updated = await storage.updateUserProfile(id, { username, avatar });
+      if (!updated) return res.status(404).json({ message: "User not found" });
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
+
   // Create user (signup)
   app.post("/api/users", async (req, res) => {
     try {
