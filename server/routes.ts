@@ -781,6 +781,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   // Get player by ID
+  app.post("/api/players/by-ids", async (req, res) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.json([]);
+      }
+      const numericIds = ids.map((id: any) => parseInt(id)).filter((id: number) => !isNaN(id));
+      const players = await storage.getPlayersByIds(numericIds);
+      res.json(players);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch players" });
+    }
+  });
+
   app.get("/api/players/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);

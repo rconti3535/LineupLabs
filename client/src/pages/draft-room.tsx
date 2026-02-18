@@ -379,14 +379,13 @@ export default function DraftRoom() {
     queryKey: ["/api/players/by-ids", pickIdsKey],
     queryFn: async () => {
       if (sortedPickIds.length === 0) return [];
-      const results = await Promise.all(
-        sortedPickIds.map(async (id) => {
-          const res = await fetch(`/api/players/${id}`);
-          if (!res.ok) return null;
-          return res.json();
-        })
-      );
-      return results.filter(Boolean) as Player[];
+      const res = await fetch("/api/players/by-ids", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: sortedPickIds }),
+      });
+      if (!res.ok) throw new Error("Failed to fetch players");
+      return res.json();
     },
     enabled: sortedPickIds.length > 0,
     placeholderData: keepPreviousData,

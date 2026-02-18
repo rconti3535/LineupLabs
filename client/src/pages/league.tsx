@@ -1462,14 +1462,13 @@ export default function LeaguePage() {
     queryKey: ["/api/players/roster", leagueId, myTeam?.id, myPickIdsKey],
     queryFn: async () => {
       if (myPickPlayerIds.length === 0) return [];
-      const results = await Promise.all(
-        myPickPlayerIds.map(async (id) => {
-          const res = await fetch(`/api/players/${id}`);
-          if (!res.ok) return null;
-          return res.json();
-        })
-      );
-      return results.filter(Boolean) as Player[];
+      const res = await fetch("/api/players/by-ids", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: myPickPlayerIds }),
+      });
+      if (!res.ok) throw new Error("Failed to fetch roster players");
+      return res.json();
     },
     enabled: myPickPlayerIds.length > 0,
   });
