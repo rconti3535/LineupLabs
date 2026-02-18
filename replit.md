@@ -58,6 +58,13 @@ Key API routes:
 - `GET /api/leagues/:id/player-lock?playerId=&date=` — check if a player is locked (Daily: per-player game start; Weekly: first Monday game start)
 - `GET /api/leagues/:id/game-times?teamId=&date=` — fetch real MLB game times for all players on a team for a given date (uses MLB Stats API)
 - `POST /api/leagues/:id/daily-lineup/swap` — swap two players in a daily lineup (validates per-player game time locks)
+- `GET /api/leagues/:id/draft-events` — SSE (Server-Sent Events) endpoint for real-time draft updates; broadcasts pick, draft-status, and teams-update events to all connected clients in a league's draft room. Polling intervals serve as 30-second safety-net fallback only.
+
+### Real-Time Draft Updates
+- **Mechanism**: Server-Sent Events (SSE) via `server/draft-events.ts`
+- **Event Types**: `pick` (new draft pick made), `draft-status` (draft started/paused/resumed/completed), `teams-update` (team order or roster changes)
+- **Client**: Draft room opens an `EventSource` connection on mount; on each event, relevant React Query caches are instantly invalidated, triggering immediate refetch
+- **Fallback**: All draft queries also poll every 30 seconds as a safety net in case the SSE connection drops
 
 ### Data Storage
 - **Database**: PostgreSQL (via Neon serverless driver `@neondatabase/serverless`). Both development and production use the **same shared Neon database** via `NEON_DATABASE_URL` (falls back to `DATABASE_URL`). This ensures accounts, leagues, and all data are consistent across environments.
