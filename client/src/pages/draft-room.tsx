@@ -134,7 +134,10 @@ export default function DraftRoom() {
       return res.json();
     },
     enabled: !!leagueId,
-    refetchInterval: 5000,
+    refetchInterval: (query) => {
+      const d = query.state.data as League | undefined;
+      return d?.draftStatus === "active" ? 30000 : false;
+    },
   });
 
   const { data: rawTeams } = useQuery<Team[]>({
@@ -145,7 +148,7 @@ export default function DraftRoom() {
       return res.json();
     },
     enabled: !!leagueId,
-    refetchInterval: league?.draftStatus === "active" || league?.draftStatus === "paused" ? 5000 : false,
+    refetchInterval: league?.draftStatus === "active" || league?.draftStatus === "paused" ? 30000 : false,
   });
 
   const teams = rawTeams ? [...rawTeams].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999)) : undefined;
@@ -158,7 +161,7 @@ export default function DraftRoom() {
       return res.json();
     },
     enabled: !!leagueId,
-    refetchInterval: league?.draftStatus === "active" ? 3000 : false,
+    refetchInterval: league?.draftStatus === "active" ? 30000 : false,
   });
 
   const { data: draftedPlayerIds = [] } = useQuery<number[]>({
@@ -169,8 +172,31 @@ export default function DraftRoom() {
       return res.json();
     },
     enabled: !!leagueId,
-    refetchInterval: league?.draftStatus === "active" ? 3000 : false,
+    refetchInterval: league?.draftStatus === "active" ? 30000 : false,
   });
+
+  useEffect(() => {
+    if (!leagueId) return;
+    const es = new EventSource(`/api/leagues/${leagueId}/draft-events`);
+    es.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "pick") {
+          queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "draft-picks"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "drafted-player-ids"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId] });
+        } else if (data.type === "draft-status") {
+          queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId] });
+          queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "draft-picks"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "drafted-player-ids"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/teams/league", leagueId] });
+        } else if (data.type === "teams-update") {
+          queryClient.invalidateQueries({ queryKey: ["/api/teams/league", leagueId] });
+        }
+      } catch {}
+    };
+    return () => es.close();
+  }, [leagueId]);
 
   const draftDate = league?.draftDate ? new Date(league.draftDate) : null;
   const secondsPerPick = league?.secondsPerPick || 60;

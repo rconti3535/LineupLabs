@@ -34,7 +34,8 @@ export function broadcastDraftEvent(leagueId: number, type: DraftEventType, data
   const event: DraftEvent = { type, leagueId, data };
   const payload = `data: ${JSON.stringify(event)}\n\n`;
 
-  for (const client of clients) {
+  const clientArray = Array.from(clients);
+  for (const client of clientArray) {
     try {
       client.write(payload);
     } catch {
