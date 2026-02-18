@@ -1952,23 +1952,25 @@ export default function LeaguePage() {
 
   return (
     <div className="px-4 py-4">
-      <div className="flex items-center justify-between mb-4">
-        <Button
-          onClick={() => setLocation("/teams")}
-          variant="ghost"
-          size="icon"
-          className="text-gray-400 hover:text-white shrink-0 -ml-2 h-9 w-9"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </Button>
+      <div className="grid grid-cols-[48px_1fr_48px] items-center mb-4">
+        <div className="flex justify-start">
+          <Button
+            onClick={() => setLocation("/teams")}
+            variant="ghost"
+            size="icon"
+            className="text-gray-400 hover:text-white shrink-0 -ml-2 h-10 w-10"
+          >
+            <ArrowLeft className="w-6 h-6" />
+          </Button>
+        </div>
 
-        <div className="flex-1 flex justify-center min-w-0 px-2">
+        <div className="flex justify-center min-w-0">
           <div className="bg-white/5 border border-white/10 px-4 py-1.5 rounded-full shadow-inner backdrop-blur-sm max-w-full">
             <h1 className="text-sm font-bold text-white truncate tracking-wide uppercase">{league.name}</h1>
           </div>
         </div>
 
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center justify-end gap-1 shrink-0">
           {isCommissioner && (
             <Button
               onClick={() => {
@@ -1987,7 +1989,10 @@ export default function LeaguePage() {
             </Button>
           )}
           <Button
-            onClick={() => setShowSettings(!showSettings)}
+            onClick={() => {
+              setShowSettings(!showSettings);
+              if (!showSettings) setActiveTab("roster");
+            }}
             variant="ghost"
             size="icon"
             className={`h-9 w-9 rounded-full ${showSettings ? "text-blue-400 bg-white/10" : "text-gray-400 hover:text-white"}`}
