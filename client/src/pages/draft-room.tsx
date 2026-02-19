@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, ListFilter, Users2, Search, X, Clock, Timer, Play, Pause, UserPlus, Trophy, AlertTriangle, Bot, Settings } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,6 +14,7 @@ import type { League, Team, Player, DraftPick, PlayerAdp } from "@shared/schema"
 import { assignPlayersToRoster } from "@/lib/roster-utils";
 
 type DraftTab = "board" | "players" | "team";
+type PlayersPanelView = "adp" | "2025-stats" | "2026-proj";
 
 const POSITION_FILTERS = ["ALL", "C", "1B", "2B", "3B", "SS", "OF", "INF", "SP", "RP", "DH", "UT"];
 const LEVEL_FILTERS = ["ALL", "MLB", "AAA", "AA", "A+", "A", "Rookie"];
@@ -119,6 +121,7 @@ export default function DraftRoom() {
   const [searchQuery, setSearchQuery] = useState("");
   const [positionFilter, setPositionFilter] = useState("ALL");
   const [levelFilter, setLevelFilter] = useState("ALL");
+  const [playersPanelView, setPlayersPanelView] = useState<PlayersPanelView>("adp");
   const [debouncedQuery, setDebouncedQuery] = useState("");
 
   useEffect(() => {
@@ -515,6 +518,8 @@ export default function DraftRoom() {
     return colors[level] || "text-gray-400";
   };
 
+  const isPitcher = (pos: string) => pos === "SP" || pos === "RP";
+
   return (
     <div className="flex flex-col h-screen overflow-hidden relative">
       <div className="px-3 py-2 shrink-0 border-b border-gray-800">
@@ -895,6 +900,20 @@ export default function DraftRoom() {
                 </button>
               ))}
             </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-gray-500 whitespace-nowrap">View:</span>
+              <Select value={playersPanelView} onValueChange={(v) => setPlayersPanelView(v as PlayersPanelView)}>
+                <SelectTrigger className="h-8 w-[130px] bg-gray-800 border-gray-700 text-gray-200 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-gray-900 border-gray-700">
+                  <SelectItem value="adp" className="text-gray-200 focus:bg-gray-800 focus:text-white">ADP</SelectItem>
+                  <SelectItem value="2025-stats" className="text-gray-200 focus:bg-gray-800 focus:text-white">2025 Stats</SelectItem>
+                  <SelectItem value="2026-proj" className="text-gray-200 focus:bg-gray-800 focus:text-white">2026 Proj</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div
@@ -940,11 +959,116 @@ export default function DraftRoom() {
                       )}
                     </div>
                   </div>
-                  <div className="text-right shrink-0 mr-1">
-                    <p className="text-[10px] text-gray-500 uppercase">ADP</p>
-                    <p className="text-sm font-semibold text-gray-300">
-                      {adpMap.has(player.id) ? adpMap.get(player.id)!.toFixed(1) : "9999.0"}
-                    </p>
+                  {/* View-specific data: ADP from player_adp table; 2025 Stats from stat* (MLB import); 2026 Proj from proj* (Steamer/etc) */}
+                  <div className="shrink-0 mr-1">
+                    {playersPanelView === "adp" ? (
+                      <div className="text-right">
+                        <p className="text-[10px] text-gray-500 uppercase">ADP</p>
+                        <p className="text-sm font-semibold text-gray-300">
+                          {adpMap.has(player.id) ? adpMap.get(player.id)!.toFixed(1) : "9999.0"}
+                        </p>
+                      </div>
+                    ) : playersPanelView === "2025-stats" ? (
+                      <div className="flex gap-1.5">
+                        {isPitcher(player.position) ? (
+                          <>
+                            <div className="text-center min-w-[28px]">
+                              <p className="text-[9px] text-gray-500">W</p>
+                              <p className="text-xs font-medium text-gray-300">{player.statW ?? "-"}</p>
+                            </div>
+                            <div className="text-center min-w-[28px]">
+                              <p className="text-[9px] text-gray-500">SV</p>
+                              <p className="text-xs font-medium text-gray-300">{player.statSV ?? "-"}</p>
+                            </div>
+                            <div className="text-center min-w-[28px]">
+                              <p className="text-[9px] text-gray-500">K</p>
+                              <p className="text-xs font-medium text-gray-300">{player.statSO ?? "-"}</p>
+                            </div>
+                            <div className="text-center min-w-[28px]">
+                              <p className="text-[9px] text-gray-500">ERA</p>
+                              <p className="text-xs font-medium text-gray-300">{player.statERA ?? "-"}</p>
+                            </div>
+                            <div className="text-center min-w-[28px]">
+                              <p className="text-[9px] text-gray-500">WHIP</p>
+                              <p className="text-xs font-medium text-gray-300">{player.statWHIP ?? "-"}</p>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="text-center min-w-[28px]">
+                              <p className="text-[9px] text-gray-500">R</p>
+                              <p className="text-xs font-medium text-gray-300">{player.statR ?? "-"}</p>
+                            </div>
+                            <div className="text-center min-w-[28px]">
+                              <p className="text-[9px] text-gray-500">HR</p>
+                              <p className="text-xs font-medium text-gray-300">{player.statHR ?? "-"}</p>
+                            </div>
+                            <div className="text-center min-w-[28px]">
+                              <p className="text-[9px] text-gray-500">RBI</p>
+                              <p className="text-xs font-medium text-gray-300">{player.statRBI ?? "-"}</p>
+                            </div>
+                            <div className="text-center min-w-[28px]">
+                              <p className="text-[9px] text-gray-500">SB</p>
+                              <p className="text-xs font-medium text-gray-300">{player.statSB ?? "-"}</p>
+                            </div>
+                            <div className="text-center min-w-[28px]">
+                              <p className="text-[9px] text-gray-500">AVG</p>
+                              <p className="text-xs font-medium text-gray-300">{player.statAVG ?? "-"}</p>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex gap-1.5">
+                        {isPitcher(player.position) ? (
+                          <>
+                            <div className="text-center min-w-[28px]">
+                              <p className="text-[9px] text-gray-500">W</p>
+                              <p className="text-xs font-medium text-gray-300">{player.projW ?? "-"}</p>
+                            </div>
+                            <div className="text-center min-w-[28px]">
+                              <p className="text-[9px] text-gray-500">SV</p>
+                              <p className="text-xs font-medium text-gray-300">{player.projSV ?? "-"}</p>
+                            </div>
+                            <div className="text-center min-w-[28px]">
+                              <p className="text-[9px] text-gray-500">K</p>
+                              <p className="text-xs font-medium text-gray-300">{player.projSO ?? "-"}</p>
+                            </div>
+                            <div className="text-center min-w-[28px]">
+                              <p className="text-[9px] text-gray-500">ERA</p>
+                              <p className="text-xs font-medium text-gray-300">{player.projERA ?? "-"}</p>
+                            </div>
+                            <div className="text-center min-w-[28px]">
+                              <p className="text-[9px] text-gray-500">WHIP</p>
+                              <p className="text-xs font-medium text-gray-300">{player.projWHIP ?? "-"}</p>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="text-center min-w-[28px]">
+                              <p className="text-[9px] text-gray-500">R</p>
+                              <p className="text-xs font-medium text-gray-300">{player.projR ?? "-"}</p>
+                            </div>
+                            <div className="text-center min-w-[28px]">
+                              <p className="text-[9px] text-gray-500">HR</p>
+                              <p className="text-xs font-medium text-gray-300">{player.projHR ?? "-"}</p>
+                            </div>
+                            <div className="text-center min-w-[28px]">
+                              <p className="text-[9px] text-gray-500">RBI</p>
+                              <p className="text-xs font-medium text-gray-300">{player.projRBI ?? "-"}</p>
+                            </div>
+                            <div className="text-center min-w-[28px]">
+                              <p className="text-[9px] text-gray-500">SB</p>
+                              <p className="text-xs font-medium text-gray-300">{player.projSB ?? "-"}</p>
+                            </div>
+                            <div className="text-center min-w-[28px]">
+                              <p className="text-[9px] text-gray-500">AVG</p>
+                              <p className="text-xs font-medium text-gray-300">{player.projAVG ?? "-"}</p>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                   {commissionerAssignMode ? (
                     <Button
