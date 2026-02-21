@@ -10,9 +10,10 @@ if (!connectionString) {
   );
 }
 
-// Supabase: use our SSL config so cert chain is accepted. Strip sslmode from URL
+// Supabase (direct or pooler): use our SSL config so cert chain is accepted. Strip sslmode from URL
 // so node-postgres doesn't override with strict SSL that fails on self-signed chain.
-const isSupabase = connectionString.includes("supabase.co");
+const isSupabase =
+  connectionString.includes("supabase.co") || connectionString.includes("supabase.com");
 if (isSupabase) {
   try {
     const u = new URL(connectionString);

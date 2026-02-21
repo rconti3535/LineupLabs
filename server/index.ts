@@ -1,3 +1,4 @@
+import "./dns-prefer-ipv4";
 import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";

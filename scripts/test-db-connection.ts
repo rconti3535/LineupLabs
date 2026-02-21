@@ -11,9 +11,9 @@ if (!url) {
   process.exit(1);
 }
 
-// Supabase: use our own SSL config so cert chain is accepted. Strip sslmode from URL
-// so node-postgres doesn't override with strict SSL that fails on self-signed chain.
-if (url.includes("supabase.co")) {
+// Supabase (direct or pooler): use our own SSL config so cert chain is accepted.
+const isSupabase = url.includes("supabase.co") || url.includes("supabase.com");
+if (isSupabase) {
   try {
     const u = new URL(url);
     u.searchParams.delete("sslmode");
@@ -25,7 +25,7 @@ if (url.includes("supabase.co")) {
 
 const client = new pg.Client({
   connectionString: url,
-  ...(url.includes("supabase.co") ? { ssl: { rejectUnauthorized: false } } : {}),
+  ...(isSupabase ? { ssl: { rejectUnauthorized: false } } : {}),
 });
 
 client

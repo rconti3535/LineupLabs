@@ -846,6 +846,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const body = { ...req.body };
       if (body.username) body.username = body.username.trim();
       if (body.email) body.email = body.email.trim().toLowerCase();
+      if (body.avatar === "") body.avatar = null;
       const validatedData = insertUserSchema.parse(body);
       const existingUser = await storage.getUserByUsername(validatedData.username);
       if (existingUser) {
@@ -856,14 +857,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Email already exists" });
       }
       const user = await storage.createUser(validatedData);
+      if (!user) {
+        console.error("Signup: createUser returned no user");
+        return res.status(500).json({ message: "Account could not be created. Please try again." });
+      }
       res.status(201).json(user);
     } catch (error: any) {
       console.error("Signup error:", error?.message || error);
+      if (error?.stack) console.error(error.stack);
       if (error?.issues) {
         const fieldErrors = error.issues.map((i: any) => `${i.path.join(".")}: ${i.message}`).join(", ");
         return res.status(400).json({ message: fieldErrors });
       }
-      res.status(400).json({ message: error?.message || "Invalid user data" });
+      const isValidation = error?.name === "ZodError";
+      const msg = error?.message || "Invalid user data";
+      if (isValidation) return res.status(400).json({ message: msg });
+      res.status(500).json({ message: "Server error during signup. Please try again." });
     }
   });
 

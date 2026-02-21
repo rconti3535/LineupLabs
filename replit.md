@@ -102,8 +102,9 @@ Key API routes:
 ## Deployment (Railway)
 
 - Set **DATABASE_URL** in Railway to your Supabase PostgreSQL URL (include `?sslmode=require`). If the password contains `#` or `@`, URL-encode them (`#` → `%23`, `@` → `%40`).
+- **If you get `ENETUNREACH`** (Railway can’t reach Supabase on port 5432): use Supabase’s **connection pooler** instead of the direct URL. In Supabase: Project Settings → Database → “Connection string” → under **Connection pooling** copy the **URI** (Session or Transaction mode; port 6543, host like `aws-0-REGION.pooler.supabase.com`). Use that as `DATABASE_URL` in Railway (same password; add `?sslmode=require` if missing). The app supports both direct and pooler URLs.
 - Build command: `npm run build`. Start command: `npm start`.
-- After deploy, run `npm run db:test` (or a one-off Railway run) to verify the app can reach Supabase. If you see `ENETUNREACH`, the Railway region may be blocked from Supabase; try another region or ensure the project is not paused in the Supabase dashboard.
+- After deploy, run `npm run db:test` (or a one-off Railway run) to verify the app can reach Supabase.
 
 ## External Dependencies
 
