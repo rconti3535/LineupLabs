@@ -14,7 +14,7 @@ import type { League, Team, Player, DraftPick, PlayerAdp } from "@shared/schema"
 import { assignPlayersToRoster } from "@/lib/roster-utils";
 
 type DraftTab = "board" | "players" | "team";
-type PlayersPanelView = "adp" | "2025-stats" | "2026-proj";
+type PlayersPanelView = "2025-stats" | "2026-proj";
 
 const POSITION_FILTERS = ["ALL", "C", "1B", "2B", "3B", "SS", "OF", "INF", "SP", "RP", "DH", "UT"];
 
@@ -119,7 +119,7 @@ export default function DraftRoom() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [positionFilter, setPositionFilter] = useState("ALL");
-  const [playersPanelView, setPlayersPanelView] = useState<PlayersPanelView>("adp");
+  const [playersPanelView, setPlayersPanelView] = useState<PlayersPanelView>("2025-stats");
   const [debouncedQuery, setDebouncedQuery] = useState("");
 
   useEffect(() => {
@@ -877,7 +877,6 @@ export default function DraftRoom() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-gray-900 border-gray-700">
-                  <SelectItem value="adp" className="text-gray-200 focus:bg-gray-800 focus:text-white">ADP</SelectItem>
                   <SelectItem value="2025-stats" className="text-gray-200 focus:bg-gray-800 focus:text-white">2025 Stats</SelectItem>
                   <SelectItem value="2026-proj" className="text-gray-200 focus:bg-gray-800 focus:text-white">2026 Proj</SelectItem>
                 </SelectContent>
@@ -892,11 +891,11 @@ export default function DraftRoom() {
           >
             {playersLoading ? (
               Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="flex items-center gap-2 px-1.5 py-2 rounded-lg sleeper-card-bg">
-                  <Skeleton className="w-7 h-7 rounded-full shrink-0" />
+                <div key={i} className="flex items-center gap-2 px-1.5 py-1.5 rounded-lg sleeper-card-bg">
+                  <Skeleton className="w-8 h-8 shrink-0 rounded" />
                   <div className="flex-1">
                     <Skeleton className="h-4 w-32 mb-1" />
-                    <Skeleton className="h-3 w-24" />
+                    <Skeleton className="h-3 w-20" />
                   </div>
                 </div>
               ))
@@ -904,24 +903,20 @@ export default function DraftRoom() {
               availablePlayers.map((player) => (
                 <div
                   key={player.id}
-                  className="flex items-center gap-2 px-1.5 py-2 rounded-lg sleeper-card-bg"
+                  className="flex items-center gap-2 px-1.5 py-1.5 rounded-lg sleeper-card-bg"
                 >
-                  <div className={`w-7 h-7 rounded-full ${positionColor(player.position)} flex items-center justify-center text-white text-[9px] font-bold shrink-0`}>
-                    {player.position}
+                  <div className="shrink-0 w-8 text-center">
+                    <p className="text-[10px] text-gray-500">ADP</p>
+                    <p className="text-xs font-semibold text-gray-300">
+                      {adpMap.has(player.id) ? adpMap.get(player.id)!.toFixed(0) : "-"}
+                    </p>
                   </div>
-                  <div className="flex-1 min-w-0 flex items-baseline gap-1.5 truncate">
-                    <span className="text-white text-[15px] font-medium leading-tight truncate">{player.name}</span>
-                    <span className="text-gray-400 text-[11px] shrink-0">{player.teamAbbreviation || player.team}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-[15px] font-medium leading-tight truncate">{player.name}</p>
+                    <p className="text-gray-500 text-[11px]">{player.position} &middot; {player.teamAbbreviation || player.team}</p>
                   </div>
                   <div className="shrink-0">
-                    {playersPanelView === "adp" ? (
-                      <div className="text-right">
-                        <p className="text-[10px] text-gray-500 uppercase">ADP</p>
-                        <p className="text-sm font-semibold text-gray-300">
-                          {adpMap.has(player.id) ? adpMap.get(player.id)!.toFixed(1) : "9999.0"}
-                        </p>
-                      </div>
-                    ) : playersPanelView === "2025-stats" ? (
+                    {playersPanelView === "2025-stats" ? (
                       <div className="flex gap-1.5">
                         {isPitcher(player.position) ? (
                           <>
