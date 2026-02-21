@@ -1133,6 +1133,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/leagues/:id/leave", async (req, res) => {
+    try {
+      const leagueId = parseInt(req.params.id);
+      const { userId } = req.body;
+      if (!userId) {
+        return res.status(400).json({ message: "User ID is required" });
+      }
+      const league = await storage.getLeague(leagueId);
+      if (!league) {
+        return res.status(404).json({ message: "League not found" });
+      }
+      if (["active", "paused", "completed"].includes(league.draftStatus || "")) {
+        return res.status(400).json({ message: "Cannot leave a league after the draft has started" });
+      }
+      const leagueTeams = await storage.getTeamsByLeagueId(leagueId);
+      const userTeam = leagueTeams.find(t => t.userId === userId);
+      if (!userTeam) {
+        return res.status(400).json({ message: "You are not in this league" });
+      }
+      if (league.createdBy === userId) {
+        return res.status(400).json({ message: "The commissioner cannot leave the league. Transfer ownership or delete the league instead." });
+      }
+      await storage.deleteTeam(userTeam.id);
+      broadcastDraftEvent(leagueId, "teams-update");
+      res.json({ message: "Successfully left the league" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to leave league" });
+    }
+  });
+
   // Get draft picks for a league
   app.get("/api/leagues/:id/draft-picks", async (req, res) => {
     try {

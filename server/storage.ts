@@ -40,6 +40,7 @@ export interface IStorage {
   getTeam(id: number): Promise<Team | undefined>;
   createTeam(team: InsertTeam): Promise<Team>;
   updateTeam(id: number, data: Partial<InsertTeam>): Promise<Team | undefined>;
+  deleteTeam(id: number): Promise<void>;
   
   // Players
   getPlayers(): Promise<Player[]>;
@@ -252,6 +253,11 @@ export class DatabaseStorage implements IStorage {
   async updateTeam(id: number, data: Partial<InsertTeam>): Promise<Team | undefined> {
     const [team] = await db.update(teams).set(data).where(eq(teams.id, id)).returning();
     return team || undefined;
+  }
+
+  async deleteTeam(id: number): Promise<void> {
+    await db.delete(draftPicks).where(eq(draftPicks.teamId, id));
+    await db.delete(teams).where(eq(teams.id, id));
   }
 
   async getPlayers(): Promise<Player[]> {

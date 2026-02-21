@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Users, Trophy, Calendar, TrendingUp, Pencil, Trash2, AlertTriangle, ArrowUpDown, Search, Plus, X, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Menu, Clock, Settings, Shuffle, GripVertical, Share } from "lucide-react";
+import { ArrowLeft, Users, Trophy, Calendar, TrendingUp, Pencil, Trash2, AlertTriangle, ArrowUpDown, Search, Plus, X, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Menu, Clock, Settings, Shuffle, GripVertical, Share, LogOut } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -1773,6 +1773,21 @@ export default function LeaguePage() {
       setLocation("/teams");
     },
     onError: () => {
+    },
+  });
+
+  const leaveMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", `/api/leagues/${leagueId}/leave`, { userId: user?.id });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues/public"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/teams/user"] });
+      toast({ title: "You have left the league" });
+      setLocation("/teams");
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to leave league", description: error.message, variant: "destructive" });
     },
   });
 
@@ -3576,6 +3591,26 @@ export default function LeaguePage() {
             </div>
           )}
         </Card>
+
+        {!isCommissioner && (
+          <Card className="gradient-card rounded-xl p-5 border-0 mt-4">
+            <h3 className="text-white font-semibold mb-2">Leave League</h3>
+            <p className="text-gray-400 text-sm mb-4">
+              {["active", "paused", "completed"].includes(league.draftStatus || "")
+                ? "You cannot leave a league after the draft has started."
+                : "Leave this league and remove your team. This cannot be undone."}
+            </p>
+            <Button
+              onClick={() => leaveMutation.mutate()}
+              disabled={["active", "paused", "completed"].includes(league.draftStatus || "") || leaveMutation.isPending}
+              variant="outline"
+              className="w-full border-red-800 text-red-400 hover:bg-red-900/30 hover:text-red-300 gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <LogOut className="w-4 h-4" />
+              {leaveMutation.isPending ? "Leaving..." : "Leave League"}
+            </Button>
+          </Card>
+        )}
 
         {isCommissioner && (
           <Card className="gradient-card rounded-xl p-5 border-0 mt-4 border border-red-900/30">
