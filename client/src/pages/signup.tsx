@@ -51,9 +51,20 @@ export default function Signup() {
       setLocation("/");
     },
     onError: (error: any) => {
+      let description = "Could not create account. Please try again.";
+      const msg = error?.message ?? "";
+      const match = msg.match(/^\d+\s*:\s*(.+)$/);
+      if (match) {
+        try {
+          const body = JSON.parse(match[1]);
+          if (typeof body?.message === "string") description = body.message;
+        } catch {
+          if (match[1]) description = match[1];
+        }
+      } else if (msg) description = msg;
       toast({
         title: "Signup failed",
-        description: error?.message || "Could not create account. Please try again.",
+        description,
         variant: "destructive",
       });
     },
@@ -61,7 +72,7 @@ export default function Signup() {
 
   const onSubmit = (data: SignupForm) => {
     const { confirmPassword, ...signupData } = data;
-    signupMutation.mutate(signupData);
+    signupMutation.mutate({ ...signupData, name: signupData.username });
   };
 
   return (
@@ -97,25 +108,6 @@ export default function Signup() {
                       autoCorrect="off"
                       autoComplete="username"
                       spellCheck={false}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-white">Display Name</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Your name"
-                      className="sleeper-card-bg sleeper-border border text-white placeholder-gray-400"
-                      autoComplete="name"
                       {...field}
                     />
                   </FormControl>
