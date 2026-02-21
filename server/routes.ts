@@ -1153,7 +1153,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!commissionerId || !playerId) return { status: 400, body: { message: "commissionerId and playerId are required" } };
         if (league.createdBy !== commissionerId) return { status: 403, body: { message: "Only the commissioner can assign players" } };
 
-        const leagueTeams = await storage.getTeamsByLeagueId(leagueId);
+        const rawLeagueTeams = await storage.getTeamsByLeagueId(leagueId);
+        const leagueTeams = [...rawLeagueTeams].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999));
         const existingPicks = await storage.getDraftPicksByLeague(leagueId);
         const totalRounds = getDraftRounds(league);
         const numTeams = leagueTeams.length;
@@ -2207,7 +2208,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (!league.draftPickStartedAt) continue;
         const secondsPerPick = league.secondsPerPick || 60;
 
-        const leagueTeams = await storage.getTeamsByLeagueId(league.id);
+        const rawLeagueTeams = await storage.getTeamsByLeagueId(league.id);
+        const leagueTeams = [...rawLeagueTeams].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999));
         const numTeams = leagueTeams.length;
         if (numTeams === 0) continue;
 
