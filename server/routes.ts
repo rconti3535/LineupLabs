@@ -266,6 +266,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (league.createdBy !== userId) {
         return res.status(403).json({ message: "Only the commissioner can update league settings" });
       }
+      if (updates.draftDate && new Date(updates.draftDate) <= new Date()) {
+        return res.status(400).json({ message: "Draft date must be in the future" });
+      }
       if (updates.leagueImage !== undefined) {
         if (updates.leagueImage !== null) {
           if (typeof updates.leagueImage !== "string" || !updates.leagueImage.startsWith("data:image/")) {
@@ -1052,6 +1055,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/leagues", async (req, res) => {
     try {
       const validatedData = insertLeagueSchema.parse(req.body);
+      if (validatedData.draftDate && new Date(validatedData.draftDate) <= new Date()) {
+        return res.status(400).json({ message: "Draft date must be in the future" });
+      }
       if (validatedData.type === "Best Ball" && validatedData.scoringFormat && !["Roto", "Season Points"].includes(validatedData.scoringFormat)) {
         return res.status(400).json({ message: "Best Ball leagues only support Roto and Season Points scoring formats" });
       }

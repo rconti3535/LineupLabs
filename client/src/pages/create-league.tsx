@@ -13,8 +13,8 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
-import { ArrowLeft, Calendar } from "lucide-react";
-import { useEffect } from "react";
+import { ArrowLeft, Calendar, Clock } from "lucide-react";
+import { useEffect, useMemo } from "react";
 
 const createLeagueSchema = z.object({
   name: z.string().min(1, "League name is required"),
@@ -23,7 +23,13 @@ const createLeagueSchema = z.object({
   scoringFormat: z.enum(["Roto", "H2H Points", "H2H Each Category", "H2H Most Categories", "Season Points"]),
   isPublic: z.boolean(),
   draftDate: z.string().optional(),
-});
+}).refine(
+  (data) => {
+    if (!data.draftDate) return true;
+    return new Date(data.draftDate) > new Date();
+  },
+  { message: "Draft date must be in the future", path: ["draftDate"] }
+);
 
 type CreateLeagueForm = z.infer<typeof createLeagueSchema>;
 
@@ -245,31 +251,90 @@ export default function CreateLeague() {
             <FormField
               control={form.control}
               name="draftDate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-white">Draft Date & Time</FormLabel>
-                  <FormControl>
-                    <div
-                      className="relative cursor-pointer"
-                      onClick={(e) => {
-                        const input = (e.currentTarget as HTMLElement).querySelector("input");
-                        if (input) { input.showPicker(); input.focus(); }
-                      }}
-                    >
-                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                      <Input
-                        type="datetime-local"
-                        className="sleeper-card-bg sleeper-border border text-white pl-10 cursor-pointer"
-                        {...field}
-                      />
-                    </div>
-                  </FormControl>
-                  <p className="text-gray-500 text-xs mt-1">
-                    The draft will automatically start at this time. Leave blank to start manually.
-                  </p>
-                  <FormMessage />
-                </FormItem>
-              )}
+              render={({ field }) => {
+                const datePart = field.value ? field.value.split("T")[0] : "";
+                const timePart = field.value && field.value.includes("T") ? field.value.split("T")[1] : "";
+                const minDate = new Date().toISOString().split("T")[0];
+
+                const setDate = (d: string) => {
+                  field.onChange(d && timePart ? `${d}T${timePart}` : d ? `${d}T19:00` : "");
+                };
+                const setTime = (t: string) => {
+                  if (!datePart) return;
+                  field.onChange(`${datePart}T${t}`);
+                };
+
+                const displayDate = datePart
+                  ? new Date(datePart + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })
+                  : null;
+                const displayTime = timePart
+                  ? new Date(`2000-01-01T${timePart}`).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+                  : null;
+
+                return (
+                  <FormItem>
+                    <FormLabel className="text-white">Draft Date & Time</FormLabel>
+                    <FormControl>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div
+                          className="relative cursor-pointer rounded-lg sleeper-card-bg border sleeper-border p-3 flex items-center gap-3 hover:border-blue-500/50 transition-colors"
+                          onClick={(e) => {
+                            const input = (e.currentTarget as HTMLElement).querySelector("input");
+                            if (input) { input.showPicker(); input.focus(); }
+                          }}
+                        >
+                          <div className="w-9 h-9 rounded-lg bg-blue-500/15 flex items-center justify-center shrink-0">
+                            <Calendar className="w-4 h-4 text-blue-400" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">Date</p>
+                            <p className={`text-sm truncate ${displayDate ? "text-white font-medium" : "text-gray-500"}`}>
+                              {displayDate || "Select date"}
+                            </p>
+                          </div>
+                          <input
+                            type="date"
+                            className="absolute inset-0 opacity-0 cursor-pointer"
+                            value={datePart}
+                            min={minDate}
+                            onChange={(e) => setDate(e.target.value)}
+                          />
+                        </div>
+
+                        <div
+                          className={`relative rounded-lg sleeper-card-bg border sleeper-border p-3 flex items-center gap-3 transition-colors ${datePart ? "cursor-pointer hover:border-blue-500/50" : "opacity-40 cursor-not-allowed"}`}
+                          onClick={(e) => {
+                            if (!datePart) return;
+                            const input = (e.currentTarget as HTMLElement).querySelector("input");
+                            if (input) { input.showPicker(); input.focus(); }
+                          }}
+                        >
+                          <div className="w-9 h-9 rounded-lg bg-purple-500/15 flex items-center justify-center shrink-0">
+                            <Clock className="w-4 h-4 text-purple-400" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">Time</p>
+                            <p className={`text-sm truncate ${displayTime ? "text-white font-medium" : "text-gray-500"}`}>
+                              {displayTime || "Select time"}
+                            </p>
+                          </div>
+                          <input
+                            type="time"
+                            className="absolute inset-0 opacity-0 cursor-pointer"
+                            value={timePart}
+                            disabled={!datePart}
+                            onChange={(e) => setTime(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </FormControl>
+                    <p className="text-gray-500 text-xs mt-1.5">
+                      The draft will automatically start at this time. Leave blank to start manually.
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
             />
 
             {/* Visibility */}
