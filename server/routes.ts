@@ -389,6 +389,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           for (let i = 0; i < shuffled.length; i++) {
             await storage.updateTeam(shuffled[i].id, { draftPosition: i + 1 } as any);
           }
+        } else {
+          const maxSlots = league.maxTeams || league.numberOfTeams || 12;
+          const usedPositions = new Set(allTeams.filter(t => t.draftPosition).map(t => t.draftPosition!));
+          const availablePositions: number[] = [];
+          for (let p = 1; p <= maxSlots; p++) {
+            if (!usedPositions.has(p)) availablePositions.push(p);
+          }
+          let idx = 0;
+          for (const t of allTeams) {
+            if (!t.draftPosition && idx < availablePositions.length) {
+              await storage.updateTeam(t.id, { draftPosition: availablePositions[idx++] } as any);
+            }
+          }
         }
         const targetTeams = league.maxTeams || league.numberOfTeams || 12;
         if (allTeams.length < targetTeams && !fillWithCpu) {

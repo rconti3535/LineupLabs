@@ -186,7 +186,25 @@ export default function DraftRoom() {
     refetchInterval: 30000,
   });
 
-  const teams = rawTeams ? [...rawTeams].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999)) : undefined;
+  const teams = useMemo(() => {
+    if (!rawTeams) return undefined;
+    const maxSlots = league?.maxTeams || league?.numberOfTeams || 12;
+    const posMap = new Map<number, Team>();
+    const unpositioned: Team[] = [];
+    rawTeams.forEach(t => {
+      if (t.draftPosition && t.draftPosition >= 1 && t.draftPosition <= maxSlots) {
+        posMap.set(t.draftPosition, t);
+      } else {
+        unpositioned.push(t);
+      }
+    });
+    let unIdx = 0;
+    const result: (Team | undefined)[] = [];
+    for (let i = 0; i < maxSlots; i++) {
+      result.push(posMap.get(i + 1) || (unIdx < unpositioned.length ? unpositioned[unIdx++] : undefined));
+    }
+    return result;
+  }, [rawTeams, league?.maxTeams, league?.numberOfTeams]);
 
   const { data: draftPicks = [] } = useQuery<DraftPick[]>({
     queryKey: ["/api/leagues", leagueId, "draft-picks"],
@@ -251,9 +269,9 @@ export default function DraftRoom() {
   const rosterPositions = league?.rosterPositions || [];
   const totalRounds = league?.maxRosterSize || rosterPositions.length;
   const configuredTeams = league?.maxTeams || league?.numberOfTeams || 12;
-  const actualTeams = teams?.length || 0;
+  const actualTeams = teams ? teams.filter(Boolean).length : 0;
   const numTeams = isDraftActive || isDraftPaused || isDraftCompleted ? actualTeams || configuredTeams : configuredTeams;
-  const myTeam = teams?.find((t) => t.userId === user?.id);
+  const myTeam = teams?.find((t): t is Team => !!t && t.userId === user?.id);
 
   const nextOverall = draftPicks.length + 1;
   const currentRound = Math.ceil(nextOverall / numTeams);
@@ -322,7 +340,7 @@ export default function DraftRoom() {
   });
 
   const targetTeamCount = league?.maxTeams || league?.numberOfTeams || 12;
-  const currentTeamCount = teams?.length || 0;
+  const currentTeamCount = teams ? teams.filter(Boolean).length : 0;
   const teamsShort = targetTeamCount - currentTeamCount;
   const hasEnoughTeams = currentTeamCount >= targetTeamCount;
 
