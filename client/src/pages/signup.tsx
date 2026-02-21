@@ -107,6 +107,25 @@ export default function Signup() {
 
             <FormField
               control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-white">Display Name</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Your name"
+                      className="sleeper-card-bg sleeper-border border text-white placeholder-gray-400"
+                      autoComplete="name"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
               name="email"
               render={({ field }) => (
                 <FormItem>
