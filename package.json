@@ -10,6 +10,8 @@
     "check": "tsc",
     "db:push": "drizzle-kit push",
     "db:test": "tsx scripts/test-db-connection.ts",
+    "db:reset-stuck-drafts": "tsx scripts/reset-stuck-drafts.ts",
+    "db:import-mlb-players": "tsx scripts/import-mlb-players.ts",
     "db:migrate-replit-to-supabase": "tsx scripts/migrate-replit-to-supabase.ts"
   },
   "dependencies": {

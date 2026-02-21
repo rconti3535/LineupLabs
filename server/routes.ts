@@ -2189,9 +2189,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (draftPickCheckInProgress) return;
     draftPickCheckInProgress = true;
     try {
-      const activeLeagues = await storage.getActiveDraftLeagues();
+      let activeLeagues: Awaited<ReturnType<typeof storage.getActiveDraftLeagues>>;
+      try {
+        activeLeagues = await storage.getActiveDraftLeagues();
+      } catch (err) {
+        console.error("Error fetching active draft leagues:", (err as Error).message);
+        return;
+      }
       for (const league of activeLeagues) {
-        if (!league.draftPickStartedAt) continue;
+        try {
+          if (!league.draftPickStartedAt) continue;
         const secondsPerPick = league.secondsPerPick || 60;
 
         const leagueTeams = await storage.getTeamsByLeagueId(league.id);
@@ -2390,6 +2397,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
         });
+        } catch (leagueErr) {
+          console.error(`Error processing draft for league ${league.id} (${league.name}):`, (leagueErr as Error).message);
+        }
       }
     } catch (error) {
       console.error("Error checking expired draft picks:", error);

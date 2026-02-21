@@ -1,6 +1,14 @@
+/**
+ * Populates the players table from MLB's Stats API (teams + rosters + details).
+ * Run once after setting up a new database so the draft room Players tab has data.
+ * Run: npx tsx scripts/import-mlb-players.ts  (or npm run db:import-mlb-players)
+ */
+import "dotenv/config";
+import dns from "dns";
+dns.setDefaultResultOrder("ipv4first");
+
 import { db } from "../server/db";
 import { players } from "../shared/schema";
-import { eq } from "drizzle-orm";
 
 const MLB_API = "https://statsapi.mlb.com/api/v1";
 
