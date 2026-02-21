@@ -38,14 +38,17 @@ const PITCHING_STAT_KEYS: Record<string, { stat: keyof Player; proj: keyof Playe
   QS: { stat: "statQS", proj: "projQS" }, IP: { stat: "statIP", proj: "projIP" },
   CG: { stat: "statCG", proj: "projCG" }, SHO: { stat: "statSHO", proj: "projSHO" },
   BSV: { stat: "statBSV", proj: "projBSV" },
+  ER: { stat: "statER" as keyof Player, proj: "statER" as keyof Player },
+  HA: { stat: "statHA" as keyof Player, proj: "statHA" as keyof Player },
+  BBA: { stat: "statBBp" as keyof Player, proj: "statBBp" as keyof Player },
 };
 
-const HITTING_POINT_STATS = ["R", "HR", "RBI", "SB", "H", "2B", "3B", "BB", "HBP", "TB", "CS"];
-const PITCHING_POINT_STATS = ["W", "SV", "K", "QS", "HLD", "SO", "L", "CG", "SHO", "BSV"];
+const HITTING_POINT_STATS = ["TB", "BB", "R", "RBI", "SB", "K", "H", "HR", "2B", "3B", "HBP", "CS"];
+const PITCHING_POINT_STATS = ["IP", "ER", "W", "L", "SV", "SO", "HA", "BBA", "QS", "HLD", "CG", "SHO", "BSV"];
 
 const DEFAULT_POINT_VALUES: Record<string, number> = {
-  R: 1, HR: 4, RBI: 1, SB: 2, H: 0.5, "2B": 1, "3B": 2, BB: 1, HBP: 1, TB: 0.5, CS: -1,
-  W: 5, SV: 5, K: 1, QS: 3, HLD: 2, SO: 1, L: -2, CG: 3, SHO: 5, BSV: -2,
+  TB: 1, BB: 1, R: 1, RBI: 1, SB: 1, K: -1, H: 0, HR: 0, "2B": 0, "3B": 0, HBP: 0, CS: 0,
+  IP: 3, ER: -2, W: 2, L: -2, SV: 5, SO: 1, HA: -1, BBA: -1, QS: 0, HLD: 0, CG: 0, SHO: 0, BSV: 0,
 };
 
 function useCountdown(targetDate: Date | null) {
