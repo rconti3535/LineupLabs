@@ -234,7 +234,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const leagueId = parseInt(req.params.leagueId);
       const teams = await storage.getTeamsByLeagueId(leagueId);
-      res.json(teams);
+      const sorted = [...teams].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999));
+      res.json(sorted);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch league teams" });
     }

@@ -1444,6 +1444,8 @@ export default function LeaguePage() {
       return res.json();
     },
     enabled: leagueId !== null,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   useEffect(() => {

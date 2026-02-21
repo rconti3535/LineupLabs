@@ -168,10 +168,9 @@ export default function DraftRoom() {
       return res.json();
     },
     enabled: !!leagueId,
-    refetchInterval: (query) => {
-      const d = query.state.data as League | undefined;
-      return d?.draftStatus === "active" ? 30000 : false;
-    },
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchInterval: 30000,
   });
 
   const { data: rawTeams } = useQuery<Team[]>({
@@ -182,7 +181,9 @@ export default function DraftRoom() {
       return res.json();
     },
     enabled: !!leagueId,
-    refetchInterval: league?.draftStatus === "active" || league?.draftStatus === "paused" ? 30000 : false,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchInterval: 30000,
   });
 
   const teams = rawTeams ? [...rawTeams].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999)) : undefined;
