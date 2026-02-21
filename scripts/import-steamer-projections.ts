@@ -1,3 +1,7 @@
+import "dotenv/config";
+import dns from "dns";
+dns.setDefaultResultOrder("ipv4first");
+
 import { db } from "../server/db";
 import { players } from "../shared/schema";
 import { eq, isNotNull } from "drizzle-orm";

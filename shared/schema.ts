@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, uniqueIndex, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -180,7 +180,11 @@ export const players = pgTable("players", {
   projSHO: integer("proj_sho"),
   projBSV: integer("proj_bsv"),
   externalAdp: integer("external_adp"),
-});
+}, (table) => [
+  index("players_position_idx").on(table.position),
+  index("players_mlb_level_idx").on(table.mlbLevel),
+  index("players_name_idx").on(table.name),
+]);
 
 export const draftPicks = pgTable("draft_picks", {
   id: serial("id").primaryKey(),
@@ -206,7 +210,9 @@ export const playerAdp = pgTable("player_adp", {
   adp: integer("adp").notNull(),
   draftCount: integer("draft_count").notNull(),
   totalPositionSum: integer("total_position_sum").notNull(),
-});
+}, (table) => [
+  index("player_adp_lookup_idx").on(table.playerId, table.leagueType, table.scoringFormat, table.season),
+]);
 
 export const activities = pgTable("activities", {
   id: serial("id").primaryKey(),
