@@ -67,7 +67,7 @@ Key API routes:
 - **Fallback**: All draft queries also poll every 30 seconds as a safety net in case the SSE connection drops
 
 ### Data Storage
-- **Database**: PostgreSQL (via Neon serverless driver `@neondatabase/serverless`). Both development and production use the **same shared Neon database** via `NEON_DATABASE_URL` (falls back to `DATABASE_URL`). This ensures accounts, leagues, and all data are consistent across environments.
+- **Database**: PostgreSQL via Replit's built-in database, connected using `DATABASE_URL` environment variable.
 - **ORM**: Drizzle ORM with `drizzle-zod` for schema-to-validation integration
 - **Schema Location**: `shared/schema.ts` — shared between client and server
 - **Migrations**: Drizzle Kit with `drizzle-kit push` for schema sync (migrations output to `./migrations`)
