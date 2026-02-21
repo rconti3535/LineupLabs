@@ -750,6 +750,11 @@ const PITCHING_STAT_MAP: Record<string, { key: keyof Player; isRate?: boolean }>
 const HITTING_POINT_STATS_TOP = ["R", "HR", "RBI", "SB", "H", "2B", "3B", "BB", "HBP", "TB", "CS"];
 const PITCHING_POINT_STATS_TOP = ["W", "SV", "K", "QS", "HLD", "SO", "L", "CG", "SHO", "BSV"];
 
+const DEFAULT_PV: Record<string, number> = {
+  R: 1, HR: 4, RBI: 1, SB: 2, H: 0.5, "2B": 1, "3B": 2, BB: 1, HBP: 1, TB: 0.5, CS: -1,
+  W: 5, SV: 5, K: 1, QS: 3, HLD: 2, SO: 1, L: -2, CG: 3, SHO: 5, BSV: -2,
+};
+
 function AddDropRosterRow({ pick, rosterPositions, isPending, onSelect }: {
   pick: DraftPick;
   rosterPositions: string[];
@@ -1445,8 +1450,9 @@ export default function LeaguePage() {
   const isCommissioner = league?.createdBy === user?.id;
   const isLeaguePointsFormat = league?.scoringFormat === "H2H Points" || league?.scoringFormat === "Season Points";
   const leaguePointValues: Record<string, number> = useMemo(() => {
-    if (!isLeaguePointsFormat || !league?.pointValues) return {};
-    try { return JSON.parse(league.pointValues); } catch { return {}; }
+    if (!isLeaguePointsFormat) return {};
+    if (!league?.pointValues) return { ...DEFAULT_PV };
+    try { return { ...DEFAULT_PV, ...JSON.parse(league.pointValues) }; } catch { return { ...DEFAULT_PV }; }
   }, [isLeaguePointsFormat, league?.pointValues]);
 
   const leagueHittingCats = isLeaguePointsFormat

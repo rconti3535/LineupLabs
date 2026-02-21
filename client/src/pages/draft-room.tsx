@@ -43,6 +43,11 @@ const PITCHING_STAT_KEYS: Record<string, { stat: keyof Player; proj: keyof Playe
 const HITTING_POINT_STATS = ["R", "HR", "RBI", "SB", "H", "2B", "3B", "BB", "HBP", "TB", "CS"];
 const PITCHING_POINT_STATS = ["W", "SV", "K", "QS", "HLD", "SO", "L", "CG", "SHO", "BSV"];
 
+const DEFAULT_POINT_VALUES: Record<string, number> = {
+  R: 1, HR: 4, RBI: 1, SB: 2, H: 0.5, "2B": 1, "3B": 2, BB: 1, HBP: 1, TB: 0.5, CS: -1,
+  W: 5, SV: 5, K: 1, QS: 3, HLD: 2, SO: 1, L: -2, CG: 3, SHO: 5, BSV: -2,
+};
+
 function useCountdown(targetDate: Date | null) {
   const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number; minutes: number; seconds: number } | null>(null);
   const [hasReached, setHasReached] = useState(false);
@@ -592,8 +597,9 @@ export default function DraftRoom() {
 
   const isPointsFormat = league?.scoringFormat === "H2H Points" || league?.scoringFormat === "Season Points";
   const pointValues: Record<string, number> = useMemo(() => {
-    if (!isPointsFormat || !league?.pointValues) return {};
-    try { return JSON.parse(league.pointValues); } catch { return {}; }
+    if (!isPointsFormat) return {};
+    if (!league?.pointValues) return { ...DEFAULT_POINT_VALUES };
+    try { return { ...DEFAULT_POINT_VALUES, ...JSON.parse(league.pointValues) }; } catch { return { ...DEFAULT_POINT_VALUES }; }
   }, [isPointsFormat, league?.pointValues]);
 
   const hittingCats = isPointsFormat
