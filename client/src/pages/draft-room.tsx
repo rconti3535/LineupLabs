@@ -1001,7 +1001,7 @@ export default function DraftRoom() {
                       {adpMap.has(player.id) ? adpMap.get(player.id)!.toFixed(0) : "-"}
                     </p>
                   </div>
-                  <div className="shrink-0 min-w-[90px] max-w-[120px]">
+                  <div className="shrink-0 w-[110px]">
                     <p className="text-white text-[15px] font-medium leading-tight truncate">{player.name}</p>
                     <p className="text-[11px] truncate"><span className={`font-medium ${positionTextColor(player.position)}`}>{player.position}</span> <span className="text-gray-500">&middot; {player.teamAbbreviation || player.team}</span></p>
                   </div>
