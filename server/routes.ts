@@ -1,11 +1,13 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertLeagueSchema, insertTeamSchema, insertUserSchema, insertDraftPickSchema, type Player, type InsertLeagueMatchup } from "@shared/schema";
+import { insertLeagueSchema, insertTeamSchema, insertUserSchema, insertDraftPickSchema, players, type Player, type InsertLeagueMatchup } from "@shared/schema";
 import { computeRotoStandings } from "./roto-scoring";
 import { computeStandings, computeMatchups } from "./scoring";
 import { getScheduleForDate, getPlayerGameTimes, type PlayerGameTime } from "./mlb-schedule";
 import { addClient, broadcastDraftEvent } from "./draft-events";
+import { db } from "./db";
+import { eq, ne } from "drizzle-orm";
 
 const INF_POSITIONS = ["1B", "2B", "3B", "SS"];
 
@@ -2754,6 +2756,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   setInterval(processExpiredWaivers, 60000);
 
+  (async function migrateMinorLeagueTeams() {
+    try {
+      const nonMlb = await db.select({ id: players.id }).from(players).where(ne(players.mlbLevel, "MLB")).limit(1);
+      if (nonMlb.length === 0) {
+        console.log("[Migration] All players already mapped to MLB parent orgs, skipping.");
+        return;
+      }
+      console.log("[Migration] Found players with minor league teams, fetching MLB org hierarchy...");
+      const res = await fetch("https://statsapi.mlb.com/api/v1/teams?sportIds=1,11,12,13,14,16&season=2025&activeStatus=Y");
+      if (!res.ok) throw new Error(`MLB API returned ${res.status}`);
+      const data = await res.json();
+      const apiTeams: { id: number; name: string; abbreviation: string; sport: { id: number }; parentOrgId?: number }[] = data.teams || [];
+
+      const mlbOrgs = new Map<number, { name: string; abbreviation: string }>();
+      for (const t of apiTeams) {
+        if (t.sport.id === 1) mlbOrgs.set(t.id, { name: t.name, abbreviation: t.abbreviation });
+      }
+
+      const minorToParent = new Map<string, { name: string; abbreviation: string }>();
+      for (const t of apiTeams) {
+        if (t.sport.id !== 1 && t.parentOrgId && mlbOrgs.has(t.parentOrgId)) {
+          const parent = mlbOrgs.get(t.parentOrgId)!;
+          minorToParent.set(t.name, parent);
+          minorToParent.set(t.abbreviation, parent);
+        }
+      }
+
+      const allPlayers = await db.select({
+        id: players.id,
+        team: players.team,
+        teamAbbreviation: players.teamAbbreviation,
+        mlbLevel: players.mlbLevel,
+      }).from(players);
+
+      let updated = 0;
+      for (const p of allPlayers) {
+        const updates: Record<string, unknown> = {};
+        if (p.mlbLevel !== "MLB") updates.mlbLevel = "MLB";
+        const parent = minorToParent.get(p.team) || (p.teamAbbreviation ? minorToParent.get(p.teamAbbreviation) : null);
+        if (parent) {
+          updates.team = parent.name;
+          updates.teamAbbreviation = parent.abbreviation;
+        }
+        if (Object.keys(updates).length > 0) {
+          await db.update(players).set(updates).where(eq(players.id, p.id));
+          updated++;
+        }
+      }
+      console.log(`[Migration] Updated ${updated} players to MLB parent orgs.`);
+    } catch (err) {
+      console.error("[Migration] Failed to migrate minor league teams:", (err as Error).message);
+    }
+  })();
 
   return httpServer;
 }
