@@ -209,7 +209,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const leaguesWithTeamCount = await Promise.all(
         leagues.map(async (league) => {
           const teams = await storage.getTeamsByLeagueId(league.id);
-          return { ...league, currentTeams: teams.length };
+          return { ...league, currentTeams: teams.filter(t => !t.isCpu).length };
         })
       );
       res.json(leaguesWithTeamCount);
@@ -1063,16 +1063,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const league = await storage.createLeague(validatedData);
 
+      const targetTeams = league.maxTeams || league.numberOfTeams || 12;
+      let nextPosition = 1;
+
       if (validatedData.createdBy) {
         const user = await storage.getUser(validatedData.createdBy);
         const teamName = user ? `${user.username}'s Team` : "My Team";
-        await storage.createTeam({
+        const commTeam = await storage.createTeam({
           name: teamName,
           leagueId: league.id,
           userId: validatedData.createdBy,
           logo: "",
           nextOpponent: "",
         });
+        await storage.updateTeam(commTeam.id, { draftPosition: nextPosition } as any);
+        nextPosition++;
+      }
+
+      for (let i = nextPosition; i <= targetTeams; i++) {
+        const cpuTeam = await storage.createTeam({
+          name: `CPU Team ${i}`,
+          leagueId: league.id,
+          userId: null,
+          logo: null,
+          nextOpponent: null,
+          isCpu: true,
+        });
+        await storage.updateTeam(cpuTeam.id, { draftPosition: i } as any);
       }
 
       res.status(201).json(league);
@@ -1114,11 +1131,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (existingTeams.some(t => t.userId === userId)) {
         return res.status(400).json({ message: "You are already in this league" });
       }
-      if (existingTeams.length >= (league.maxTeams || 12)) {
+      const humanTeams = existingTeams.filter(t => !t.isCpu);
+      if (humanTeams.length >= (league.maxTeams || 12)) {
         return res.status(400).json({ message: "This league is full" });
       }
       const user = await storage.getUser(userId);
       const teamName = user ? `${user.username}'s Team` : "My Team";
+
+      const cpuTeams = existingTeams
+        .filter(t => t.isCpu)
+        .sort((a, b) => (b.draftPosition || 999) - (a.draftPosition || 999));
+      const replacedCpu = cpuTeams[0];
+      const inheritedPosition = replacedCpu?.draftPosition || null;
+
+      if (replacedCpu) {
+        await storage.deleteTeam(replacedCpu.id);
+      }
+
       const team = await storage.createTeam({
         name: teamName,
         leagueId,
@@ -1126,6 +1155,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         logo: "",
         nextOpponent: "",
       });
+
+      if (inheritedPosition) {
+        await storage.updateTeam(team.id, { draftPosition: inheritedPosition } as any);
+      }
+
       broadcastDraftEvent(leagueId, "teams-update");
       res.status(201).json(team);
     } catch (error) {

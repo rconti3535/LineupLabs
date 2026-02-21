@@ -33,7 +33,7 @@ export const leagues = pgTable("leagues", {
   draftType: text("draft_type").default("Snake"),
   draftDate: text("draft_date"),
   secondsPerPick: integer("seconds_per_pick").default(60),
-  draftOrder: text("draft_order").default("Random"),
+  draftOrder: text("draft_order").default("Manual"),
   draftStatus: text("draft_status").default("pending"),
   draftPickStartedAt: text("draft_pick_started_at"),
   lineupLockType: text("lineup_lock_type").default("Daily"), // Daily, Weekly
