@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useQuery, useInfiniteQuery, useMutation, keepPreviousData } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -6,14 +6,14 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, ListFilter, Users2, Search, X, Clock, Timer, Play, Pause, UserPlus, Trophy, AlertTriangle, Bot, Settings } from "lucide-react";
+import { ArrowLeft, ListFilter, Users2, Search, X, Clock, Timer, Play, Pause, UserPlus, Trophy, AlertTriangle, Bot, Settings, ClipboardList, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { League, Team, Player, DraftPick, PlayerAdp } from "@shared/schema";
 import { assignPlayersToRoster } from "@/lib/roster-utils";
 
-type DraftTab = "board" | "players" | "team";
+type DraftTab = "board" | "players" | "queue" | "team";
 type PlayersPanelView = "2025-stats" | "2026-proj";
 
 const POSITION_FILTERS = ["ALL", "C", "1B", "2B", "3B", "SS", "OF", "INF", "SP", "RP", "DH", "UT"];
@@ -121,7 +121,7 @@ export default function DraftRoom() {
   const [positionFilter, setPositionFilter] = useState("ALL");
   const [playersPanelView, setPlayersPanelView] = useState<PlayersPanelView>("2025-stats");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [draftQueue, setDraftQueue] = useState<Set<number>>(new Set());
+  const [draftQueue, setDraftQueue] = useState<number[]>([]);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(searchQuery), 300);
@@ -179,6 +179,8 @@ export default function DraftRoom() {
     placeholderData: keepPreviousData,
   });
 
+  const draftedPlayerIdsSet = useMemo(() => new Set(draftedPlayerIds), [draftedPlayerIds]);
+
   useEffect(() => {
     if (!leagueId) return;
     const es = new EventSource(`/api/leagues/${leagueId}/draft-events`);
@@ -228,11 +230,29 @@ export default function DraftRoom() {
   const { pickTimeLeft } = usePickTimer(isDraftActive, secondsPerPick, league?.draftPickStartedAt || null);
 
   const autoPickSentRef = useRef(false);
+  const queueAutoPickRef = useRef(false);
   useEffect(() => {
     if (pickTimeLeft > 0) {
       autoPickSentRef.current = false;
+      queueAutoPickRef.current = false;
     }
-    if (pickTimeLeft === 0 && isDraftActive && isCommissioner && !autoPickSentRef.current) {
+    if (pickTimeLeft === 0 && isDraftActive && isMyTurn && !queueAutoPickRef.current) {
+      const availableQueued = draftQueue.filter(id => !draftedPlayerIdsSet.has(id));
+      if (availableQueued.length > 0) {
+        queueAutoPickRef.current = true;
+        const topPlayerId = availableQueued[0];
+        apiRequest("POST", `/api/leagues/${leagueId}/draft-picks`, { userId: user?.id, playerId: topPlayerId })
+          .then(() => {
+            setDraftQueue(prev => prev.filter(id => id !== topPlayerId));
+            queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "draft-picks"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "drafted-player-ids"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId] });
+          })
+          .catch(() => { queueAutoPickRef.current = false; });
+        return;
+      }
+    }
+    if (pickTimeLeft === 0 && isDraftActive && isCommissioner && !autoPickSentRef.current && !queueAutoPickRef.current) {
       autoPickSentRef.current = true;
       apiRequest("POST", `/api/leagues/${leagueId}/auto-pick`, { userId: user?.id })
         .then(() => {
@@ -242,7 +262,7 @@ export default function DraftRoom() {
         })
         .catch(() => {});
     }
-  }, [pickTimeLeft, isDraftActive, isCommissioner]);
+  }, [pickTimeLeft, isDraftActive, isCommissioner, isMyTurn, draftQueue]);
 
   const picksByOverall = new Map<number, DraftPick>();
   draftPicks.forEach(p => picksByOverall.set(p.overallPick, p));
@@ -353,16 +373,39 @@ export default function DraftRoom() {
       if (!res.ok) throw new Error("Failed to fetch ADP");
       return res.json();
     },
-    enabled: (activeTab === "players" || commissionerAssignMode) && !!league,
+    enabled: (activeTab === "players" || activeTab === "queue" || commissionerAssignMode) && !!league,
     staleTime: 0,
   });
 
   const adpMap = new Map<number, number>();
   adpData?.adpRecords?.forEach(a => adpMap.set(a.playerId, parseFloat(String(a.adp))));
 
-  const draftedPlayerIdsSet = new Set(draftedPlayerIds);
   const availablePlayers = allFetchedPlayers.filter(p => !draftedPlayerIdsSet.has(p.id));
   const availableTotal = Math.max(0, playersTotal - draftedPlayerIds.length);
+
+  const queueIdsKey = [...draftQueue].sort((a, b) => a - b).join(",");
+  const { data: queuePlayers } = useQuery<Player[]>({
+    queryKey: ["/api/players/by-ids", "queue", queueIdsKey],
+    queryFn: async () => {
+      if (draftQueue.length === 0) return [];
+      const res = await fetch("/api/players/by-ids", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: draftQueue }),
+      });
+      if (!res.ok) throw new Error("Failed to fetch queue players");
+      return res.json();
+    },
+    enabled: draftQueue.length > 0,
+    placeholderData: keepPreviousData,
+    staleTime: 30000,
+  });
+
+  const queuePlayerMap = new Map<number, Player>();
+  queuePlayers?.forEach(p => queuePlayerMap.set(p.id, p));
+  const orderedQueuePlayers = draftQueue
+    .map(id => queuePlayerMap.get(id))
+    .filter((p): p is Player => !!p && !draftedPlayerIdsSet.has(p.id));
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const handlePlayersScroll = useCallback(() => {
@@ -495,7 +538,8 @@ export default function DraftRoom() {
 
   const draftNavItems: { key: DraftTab; label: string; icon: typeof ListFilter }[] = [
     { key: "board", label: "Board", icon: ListFilter },
-    { key: "players", label: "Players", icon: ListFilter },
+    { key: "players", label: "Players", icon: Search },
+    { key: "queue", label: "Queue", icon: ClipboardList },
     { key: "team", label: "My Team", icon: Users2 },
   ];
 
@@ -1054,21 +1098,20 @@ export default function DraftRoom() {
                     )
                   ) : (
                     <Button
-                      onClick={() => setDraftQueue(prev => {
-                        const next = new Set(prev);
-                        if (next.has(player.id)) next.delete(player.id);
-                        else next.add(player.id);
-                        return next;
-                      })}
+                      onClick={() => setDraftQueue(prev =>
+                        prev.includes(player.id)
+                          ? prev.filter(id => id !== player.id)
+                          : [...prev, player.id]
+                      )}
                       size="sm"
-                      variant={draftQueue.has(player.id) ? "outline" : "default"}
+                      variant={draftQueue.includes(player.id) ? "outline" : "default"}
                       className={`h-8 px-3 text-xs shrink-0 w-16 ${
-                        draftQueue.has(player.id)
+                        draftQueue.includes(player.id)
                           ? "border-blue-500 text-blue-400 hover:bg-blue-950"
                           : "bg-gray-700 hover:bg-gray-600 text-gray-200"
                       }`}
                     >
-                      {draftQueue.has(player.id) ? "Queued" : "Queue"}
+                      {draftQueue.includes(player.id) ? "Queued" : "Queue"}
                     </Button>
                   )}
                 </div>
@@ -1091,6 +1134,121 @@ export default function DraftRoom() {
               <div className="flex justify-center py-2">
                 <p className="text-gray-600 text-[10px]">Scroll for more</p>
               </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === "queue" && (
+        <div
+          className="absolute bottom-10 left-0 right-0 bg-gray-900 border-t border-gray-700 rounded-t-2xl flex flex-col z-10"
+          style={{ height: "66vh" }}
+        >
+          <div className="flex items-center justify-center pt-2 pb-1">
+            <div className="w-10 h-1 rounded-full bg-gray-600" />
+          </div>
+          <div className="flex items-center justify-between px-3 pb-2">
+            <h3 className="text-white text-base font-bold">Draft Queue</h3>
+            {orderedQueuePlayers.length > 0 && (
+              <button
+                onClick={() => setDraftQueue([])}
+                className="text-gray-500 hover:text-red-400 text-[11px]"
+              >
+                Clear All
+              </button>
+            )}
+          </div>
+          <div className="flex-1 overflow-auto hide-scrollbar px-1.5 pb-3 space-y-1">
+            {orderedQueuePlayers.length === 0 ? (
+              <div className="text-center py-12">
+                <ClipboardList className="w-8 h-8 text-gray-600 mx-auto mb-3" />
+                <p className="text-gray-500 text-sm">Your queue is empty</p>
+                <p className="text-gray-600 text-xs mt-1">Add players from the Players tab</p>
+              </div>
+            ) : (
+              orderedQueuePlayers.map((player, idx) => (
+                <div
+                  key={player.id}
+                  className="flex items-center gap-2 px-1.5 py-1.5 rounded-lg sleeper-card-bg"
+                >
+                  <span className="shrink-0 w-5 text-center text-[11px] text-gray-500 font-medium">{idx + 1}</span>
+                  <div className="shrink-0 w-8 text-center">
+                    <p className="text-[10px] text-gray-500">ADP</p>
+                    <p className="text-xs font-semibold text-gray-300">
+                      {adpMap.has(player.id) ? adpMap.get(player.id)!.toFixed(0) : "-"}
+                    </p>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-[15px] font-medium leading-tight truncate">{player.name}</p>
+                    <p className="text-[11px]"><span className={`font-medium ${positionTextColor(player.position)}`}>{player.position}</span> <span className="text-gray-500">&middot; {player.teamAbbreviation || player.team}</span></p>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => {
+                        if (idx === 0) return;
+                        setDraftQueue(prev => {
+                          const next = [...prev];
+                          [next[idx], next[idx - 1]] = [next[idx - 1], next[idx]];
+                          return next;
+                        });
+                      }}
+                      disabled={idx === 0}
+                      className="p-0.5 text-gray-500 hover:text-white disabled:opacity-30"
+                    >
+                      <ChevronUp className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (idx === orderedQueuePlayers.length - 1) return;
+                        setDraftQueue(prev => {
+                          const next = [...prev];
+                          [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
+                          return next;
+                        });
+                      }}
+                      disabled={idx === orderedQueuePlayers.length - 1}
+                      className="p-0.5 text-gray-500 hover:text-white disabled:opacity-30"
+                    >
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  {commissionerAssignMode ? (
+                    <Button
+                      onClick={() => commissionerAssignMutation.mutate(player.id)}
+                      disabled={commissionerAssignMutation.isPending}
+                      size="sm"
+                      className="bg-yellow-600 hover:bg-yellow-700 text-white h-8 px-3 text-xs shrink-0"
+                    >
+                      Assign
+                    </Button>
+                  ) : isMyTurn ? (
+                    canDraftPosition(player.position) ? (
+                      <Button
+                        onClick={() => {
+                          draftPlayerMutation.mutate(player.id);
+                          setDraftQueue(prev => prev.filter(id => id !== player.id));
+                        }}
+                        disabled={draftPlayerMutation.isPending}
+                        size="sm"
+                        className="bg-green-600 hover:bg-green-700 text-white h-8 px-3 text-xs shrink-0 w-16"
+                      >
+                        Draft
+                      </Button>
+                    ) : (
+                      <span className="text-[10px] text-red-400 font-medium shrink-0 text-right leading-tight w-16">
+                        No slot
+                      </span>
+                    )
+                  ) : (
+                    <button
+                      onClick={() => setDraftQueue(prev => prev.filter(id => id !== player.id))}
+                      className="p-1 text-gray-500 hover:text-red-400 shrink-0"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              ))
             )}
           </div>
         </div>
@@ -1403,14 +1561,21 @@ export default function DraftRoom() {
             <button
               key={item.key}
               onClick={() => { setActiveTab(item.key); setCommissionerAssignMode(false); setSelectedCellOverall(null); }}
-              className={`flex-1 py-3 text-center text-xs font-semibold transition-colors ${
+              className={`flex-1 py-3 text-center text-xs font-semibold transition-colors relative ${
                 activeTab === item.key
                   ? "text-blue-400 border-t-2 border-blue-400"
                   : "text-gray-500 hover:text-gray-300"
               }`}
             >
               <div className="flex flex-col items-center gap-1">
-                <item.icon className="w-4 h-4" />
+                <div className="relative">
+                  <item.icon className="w-4 h-4" />
+                  {item.key === "queue" && orderedQueuePlayers.length > 0 && (
+                    <span className="absolute -top-1.5 -right-2.5 bg-blue-500 text-white text-[8px] font-bold rounded-full w-3.5 h-3.5 flex items-center justify-center">
+                      {orderedQueuePlayers.length}
+                    </span>
+                  )}
+                </div>
                 <span>{item.label}</span>
               </div>
             </button>
