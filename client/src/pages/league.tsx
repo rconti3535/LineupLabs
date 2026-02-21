@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
@@ -747,6 +747,9 @@ const PITCHING_STAT_MAP: Record<string, { key: keyof Player; isRate?: boolean }>
   K: { key: "statSO" }, CG: { key: "statCG" }, SHO: { key: "statSHO" }, BSV: { key: "statBSV" },
 };
 
+const HITTING_POINT_STATS_TOP = ["R", "HR", "RBI", "SB", "H", "2B", "3B", "BB", "HBP", "TB", "CS"];
+const PITCHING_POINT_STATS_TOP = ["W", "SV", "K", "QS", "HLD", "SO", "L", "CG", "SHO", "BSV"];
+
 function AddDropRosterRow({ pick, rosterPositions, isPending, onSelect }: {
   pick: DraftPick;
   rosterPositions: string[];
@@ -1440,8 +1443,36 @@ export default function LeaguePage() {
 
   const myTeam = teams?.find((t) => t.userId === user?.id);
   const isCommissioner = league?.createdBy === user?.id;
-  const leagueHittingCats = league?.hittingCategories || ["R", "HR", "RBI", "SB", "AVG"];
-  const leaguePitchingCats = league?.pitchingCategories || ["W", "SV", "K", "ERA", "WHIP"];
+  const isLeaguePointsFormat = league?.scoringFormat === "H2H Points" || league?.scoringFormat === "Season Points";
+  const leaguePointValues: Record<string, number> = useMemo(() => {
+    if (!isLeaguePointsFormat || !league?.pointValues) return {};
+    try { return JSON.parse(league.pointValues); } catch { return {}; }
+  }, [isLeaguePointsFormat, league?.pointValues]);
+
+  const leagueHittingCats = isLeaguePointsFormat
+    ? HITTING_POINT_STATS_TOP.filter(s => (leaguePointValues[s] ?? 0) !== 0)
+    : (league?.hittingCategories || ["R", "HR", "RBI", "SB", "AVG"]);
+  const leaguePitchingCats = isLeaguePointsFormat
+    ? PITCHING_POINT_STATS_TOP.filter(s => (leaguePointValues[s] ?? 0) !== 0)
+    : (league?.pitchingCategories || ["W", "SV", "K", "ERA", "WHIP"]);
+
+  const calcRosterPlayerPoints = useCallback((p: Record<string, unknown>, prefix: string, isPitcher: boolean) => {
+    const cats = isPitcher ? PITCHING_POINT_STATS_TOP : HITTING_POINT_STATS_TOP;
+    const map = isPitcher ? PITCHING_STAT_MAP : HITTING_STAT_MAP;
+    let total = 0;
+    for (const cat of cats) {
+      const pv = leaguePointValues[cat] ?? 0;
+      if (pv === 0) continue;
+      const mapping = map[cat];
+      if (!mapping) continue;
+      const statSuffix = (mapping.key as string).replace("stat", "");
+      const fieldKey = `${prefix}${statSuffix}`;
+      const raw = p[fieldKey];
+      const num = typeof raw === "string" ? parseFloat(raw) : (typeof raw === "number" ? raw : 0);
+      if (!isNaN(num)) total += num * pv;
+    }
+    return total;
+  }, [leaguePointValues]);
 
   const { data: draftPicks = [] } = useQuery<DraftPick[]>({
     queryKey: ["/api/leagues", leagueId, "draft-picks"],
@@ -2269,11 +2300,12 @@ export default function LeaguePage() {
                             <p className="text-gray-600 text-xs italic pl-1 pb-1">No players drafted yet</p>
                           ) : (
                             <div className="overflow-x-auto hide-scrollbar -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
-                              <table className="w-full" style={{ minWidth: Math.max(300, 200 + statCats.length * 52) + "px" }}>
+                              <table className="w-full" style={{ minWidth: Math.max(300, 200 + statCats.length * 52 + (isLeaguePointsFormat ? 52 : 0)) + "px" }}>
                                 <thead>
                                   <tr className="border-b border-gray-700">
                                     <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-9 pl-1">Pos</th>
                                     <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[140px]">Player</th>
+                                    {isLeaguePointsFormat && <th className={`${STAT_COL} text-yellow-500 font-semibold pb-1.5`}>PTS</th>}
                                     {statCats.map(stat => (
                                       <th key={stat} className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>{stat}</th>
                                     ))}
@@ -2293,6 +2325,7 @@ export default function LeaguePage() {
                                             <p className="text-gray-500 text-[10px]">{p.position as string} — {(p.teamAbbreviation || p.team) as string}</p>
                                           </div>
                                         </td>
+                                        {isLeaguePointsFormat && <td className={`${STAT_COL} font-bold text-yellow-400`}>{calcRosterPlayerPoints(p, statPrefix, !section.isHitting).toFixed(1)}</td>}
                                         {statCats.map(stat => (
                                           <td key={stat} className={`${STAT_COL} text-gray-300`}>{p[`${statPrefix}${stat}`] as string ?? "-"}</td>
                                         ))}
@@ -2311,12 +2344,13 @@ export default function LeaguePage() {
                   {posEntries.length > 0 && (
                     <div>
                       <div className="overflow-x-auto hide-scrollbar -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
-                        <table className="w-full" style={{ minWidth: Math.max(300, 200 + leagueHittingCats.length * 52) + "px" }}>
+                        <table className="w-full" style={{ minWidth: Math.max(300, 200 + leagueHittingCats.length * 52 + (isLeaguePointsFormat ? 52 : 0)) + "px" }}>
                           <thead>
                             <tr className="border-b border-gray-700">
                               <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-9 pl-1">Pos</th>
                               <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[140px]">Player</th>
                               <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[70px]">Game</th>
+                              {isLeaguePointsFormat && <th className={`${STAT_COL} text-yellow-500 font-semibold pb-1.5`}>PTS</th>}
                               {leagueHittingCats.map(stat => (
                                 <th key={stat} className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>{stat}</th>
                               ))}
@@ -2375,6 +2409,7 @@ export default function LeaguePage() {
                                       <span className="text-gray-600">-</span>
                                     )}
                                   </td>
+                                  {isLeaguePointsFormat && <td className={`${STAT_COL} font-bold text-yellow-400`}>{p ? calcRosterPlayerPoints(p, statPrefix, false).toFixed(1) : "-"}</td>}
                                   {leagueHittingCats.map(stat => (
                                     <td key={stat} className={`${STAT_COL} text-gray-300`}>{p ? (p[`${statPrefix}${stat}`] as string ?? "-") : "-"}</td>
                                   ))}
@@ -2427,6 +2462,7 @@ export default function LeaguePage() {
                                       <span className="text-gray-600">-</span>
                                     )}
                                   </td>
+                                  {isLeaguePointsFormat && <td className={`${STAT_COL} font-bold text-yellow-400 opacity-60`}>{p ? calcRosterPlayerPoints(p, statPrefix, false).toFixed(1) : "-"}</td>}
                                   {leagueHittingCats.map(stat => (
                                     <td key={stat} className={`${STAT_COL} text-gray-500 opacity-60`}>{p ? (p[`${statPrefix}${stat}`] as string ?? "-") : "-"}</td>
                                   ))}
@@ -2442,12 +2478,13 @@ export default function LeaguePage() {
                   {pitchEntries.length > 0 && (
                     <div>
                       <div className="overflow-x-auto hide-scrollbar -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
-                        <table className="w-full" style={{ minWidth: Math.max(300, 200 + leaguePitchingCats.length * 52) + "px" }}>
+                        <table className="w-full" style={{ minWidth: Math.max(300, 200 + leaguePitchingCats.length * 52 + (isLeaguePointsFormat ? 52 : 0)) + "px" }}>
                           <thead>
                             <tr className="border-b border-gray-700">
                               <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-9 pl-1">Pos</th>
                               <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[140px]">Player</th>
                               <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[70px]">Game</th>
+                              {isLeaguePointsFormat && <th className={`${STAT_COL} text-yellow-500 font-semibold pb-1.5`}>PTS</th>}
                               {leaguePitchingCats.map(stat => (
                                 <th key={stat} className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>{stat}</th>
                               ))}
@@ -2506,6 +2543,7 @@ export default function LeaguePage() {
                                       <span className="text-gray-600">-</span>
                                     )}
                                   </td>
+                                  {isLeaguePointsFormat && <td className={`${STAT_COL} font-bold text-yellow-400`}>{p ? calcRosterPlayerPoints(p, statPrefix, true).toFixed(1) : "-"}</td>}
                                   {leaguePitchingCats.map(stat => (
                                     <td key={stat} className={`${STAT_COL} text-gray-300`}>{p ? (p[`${statPrefix}${stat}`] as string ?? "-") : "-"}</td>
                                   ))}
@@ -2558,6 +2596,7 @@ export default function LeaguePage() {
                                       <span className="text-gray-600">-</span>
                                     )}
                                   </td>
+                                  {isLeaguePointsFormat && <td className={`${STAT_COL} font-bold text-yellow-400 opacity-60`}>{p ? calcRosterPlayerPoints(p, statPrefix, true).toFixed(1) : "-"}</td>}
                                   {leaguePitchingCats.map(stat => (
                                     <td key={stat} className={`${STAT_COL} text-gray-500 opacity-60`}>{p ? (p[`${statPrefix}${stat}`] as string ?? "-") : "-"}</td>
                                   ))}

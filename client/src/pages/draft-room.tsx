@@ -1390,23 +1390,10 @@ export default function DraftRoom() {
                                   <tr className="border-b border-gray-700">
                                     <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-9 pl-1">Pos</th>
                                     <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[140px]">Player</th>
-                                    {section.isHitting ? (
-                                      <>
-                                        <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>R</th>
-                                        <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>HR</th>
-                                        <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>RBI</th>
-                                        <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>SB</th>
-                                        <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>AVG</th>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>W</th>
-                                        <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>SV</th>
-                                        <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>K</th>
-                                        <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>ERA</th>
-                                        <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>WHIP</th>
-                                      </>
-                                    )}
+                                    {isPointsFormat && <th className={`${STAT_COL} text-yellow-500 font-semibold pb-1.5`}>PTS</th>}
+                                    {(section.isHitting ? hittingCats : pitchingCats).map(stat => (
+                                      <th key={stat} className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>{stat}</th>
+                                    ))}
                                   </tr>
                                 </thead>
                                 <tbody>
@@ -1421,23 +1408,10 @@ export default function DraftRoom() {
                                           <p className="text-gray-500 text-[10px]">{p.position} — {p.teamAbbreviation || p.team}</p>
                                         </div>
                                       </td>
-                                      {section.isHitting ? (
-                                        <>
-                                          <td className={`${STAT_COL} text-gray-300`}>{(p as any).statR ?? "-"}</td>
-                                          <td className={`${STAT_COL} text-gray-300`}>{(p as any).statHR ?? "-"}</td>
-                                          <td className={`${STAT_COL} text-gray-300`}>{(p as any).statRBI ?? "-"}</td>
-                                          <td className={`${STAT_COL} text-gray-300`}>{(p as any).statSB ?? "-"}</td>
-                                          <td className={`${STAT_COL} text-gray-300`}>{(p as any).statAVG ?? "-"}</td>
-                                        </>
-                                      ) : (
-                                        <>
-                                          <td className={`${STAT_COL} text-gray-300`}>{(p as any).statW ?? "-"}</td>
-                                          <td className={`${STAT_COL} text-gray-300`}>{(p as any).statSV ?? "-"}</td>
-                                          <td className={`${STAT_COL} text-gray-300`}>{(p as any).statK ?? "-"}</td>
-                                          <td className={`${STAT_COL} text-gray-300`}>{(p as any).statERA ?? "-"}</td>
-                                          <td className={`${STAT_COL} text-gray-300`}>{(p as any).statWHIP ?? "-"}</td>
-                                        </>
-                                      )}
+                                      {isPointsFormat && <td className={`${STAT_COL} font-bold text-yellow-400`}>{calcPlayerPoints(p, "2025-stats").toFixed(1)}</td>}
+                                      {(section.isHitting ? hittingCats : pitchingCats).map(stat => (
+                                        <td key={stat} className={`${STAT_COL} text-gray-300`}>{getPlayerStat(p, stat, !section.isHitting, "2025-stats")}</td>
+                                      ))}
                                     </tr>
                                   ))}
                                 </tbody>
@@ -1472,11 +1446,10 @@ export default function DraftRoom() {
                             <tr className="border-b border-gray-700">
                               <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-9 pl-1">Pos</th>
                               <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[140px]">Player</th>
-                              <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>R</th>
-                              <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>HR</th>
-                              <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>RBI</th>
-                              <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>SB</th>
-                              <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>AVG</th>
+                              {isPointsFormat && <th className={`${STAT_COL} text-yellow-500 font-semibold pb-1.5`}>PTS</th>}
+                              {hittingCats.map(stat => (
+                                <th key={stat} className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>{stat}</th>
+                              ))}
                             </tr>
                           </thead>
                           <tbody>
@@ -1497,11 +1470,10 @@ export default function DraftRoom() {
                                       <p className="text-gray-600 text-xs italic">Empty</p>
                                     )}
                                   </td>
-                                  <td className={`${STAT_COL} text-gray-300`}>{p ? p.statR : "-"}</td>
-                                  <td className={`${STAT_COL} text-gray-300`}>{p ? p.statHR : "-"}</td>
-                                  <td className={`${STAT_COL} text-gray-300`}>{p ? p.statRBI : "-"}</td>
-                                  <td className={`${STAT_COL} text-gray-300`}>{p ? p.statSB : "-"}</td>
-                                  <td className={`${STAT_COL} text-gray-300`}>{p ? p.statAVG : "-"}</td>
+                                  {isPointsFormat && <td className={`${STAT_COL} font-bold text-yellow-400`}>{p ? calcPlayerPoints(p, "2025-stats").toFixed(1) : "-"}</td>}
+                                  {hittingCats.map(stat => (
+                                    <td key={stat} className={`${STAT_COL} text-gray-300`}>{p ? getPlayerStat(p, stat, false, "2025-stats") : "-"}</td>
+                                  ))}
                                 </tr>
                               );
                             })}
@@ -1520,11 +1492,10 @@ export default function DraftRoom() {
                             <tr className="border-b border-gray-700">
                               <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-9 pl-1">Pos</th>
                               <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[140px]">Player</th>
-                              <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>W</th>
-                              <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>SV</th>
-                              <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>K</th>
-                              <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>ERA</th>
-                              <th className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>WHIP</th>
+                              {isPointsFormat && <th className={`${STAT_COL} text-yellow-500 font-semibold pb-1.5`}>PTS</th>}
+                              {pitchingCats.map(stat => (
+                                <th key={stat} className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>{stat}</th>
+                              ))}
                             </tr>
                           </thead>
                           <tbody>
@@ -1545,11 +1516,10 @@ export default function DraftRoom() {
                                       <p className="text-gray-600 text-xs italic">Empty</p>
                                     )}
                                   </td>
-                                  <td className={`${STAT_COL} text-gray-300`}>{p ? p.statW : "-"}</td>
-                                  <td className={`${STAT_COL} text-gray-300`}>{p ? p.statSV : "-"}</td>
-                                  <td className={`${STAT_COL} text-gray-300`}>{p ? p.statK : "-"}</td>
-                                  <td className={`${STAT_COL} text-gray-300`}>{p ? p.statERA : "-"}</td>
-                                  <td className={`${STAT_COL} text-gray-300`}>{p ? p.statWHIP : "-"}</td>
+                                  {isPointsFormat && <td className={`${STAT_COL} font-bold text-yellow-400`}>{p ? calcPlayerPoints(p, "2025-stats").toFixed(1) : "-"}</td>}
+                                  {pitchingCats.map(stat => (
+                                    <td key={stat} className={`${STAT_COL} text-gray-300`}>{p ? getPlayerStat(p, stat, true, "2025-stats") : "-"}</td>
+                                  ))}
                                 </tr>
                               );
                             })}
