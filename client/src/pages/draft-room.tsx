@@ -40,6 +40,9 @@ const PITCHING_STAT_KEYS: Record<string, { stat: keyof Player; proj: keyof Playe
   BSV: { stat: "statBSV", proj: "projBSV" },
 };
 
+const HITTING_POINT_STATS = ["R", "HR", "RBI", "SB", "H", "2B", "3B", "BB", "HBP", "TB", "CS"];
+const PITCHING_POINT_STATS = ["W", "SV", "K", "QS", "HLD", "SO", "L", "CG", "SHO", "BSV"];
+
 function useCountdown(targetDate: Date | null) {
   const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number; minutes: number; seconds: number } | null>(null);
   const [hasReached, setHasReached] = useState(false);
@@ -587,8 +590,18 @@ export default function DraftRoom() {
 
   const isPitcher = (pos: string) => pos === "SP" || pos === "RP";
 
-  const hittingCats = league?.hittingCategories || ["R", "HR", "RBI", "SB", "AVG"];
-  const pitchingCats = league?.pitchingCategories || ["W", "SV", "K", "ERA", "WHIP"];
+  const isPointsFormat = league?.scoringFormat === "H2H Points" || league?.scoringFormat === "Season Points";
+  const pointValues: Record<string, number> = useMemo(() => {
+    if (!isPointsFormat || !league?.pointValues) return {};
+    try { return JSON.parse(league.pointValues); } catch { return {}; }
+  }, [isPointsFormat, league?.pointValues]);
+
+  const hittingCats = isPointsFormat
+    ? HITTING_POINT_STATS.filter(s => (pointValues[s] ?? 0) !== 0)
+    : (league?.hittingCategories || ["R", "HR", "RBI", "SB", "AVG"]);
+  const pitchingCats = isPointsFormat
+    ? PITCHING_POINT_STATS.filter(s => (pointValues[s] ?? 0) !== 0)
+    : (league?.pitchingCategories || ["W", "SV", "K", "ERA", "WHIP"]);
 
   const getPlayerStat = (player: Player, cat: string, pitcher: boolean, view: PlayersPanelView) => {
     const map = pitcher ? PITCHING_STAT_KEYS : HITTING_STAT_KEYS;
