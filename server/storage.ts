@@ -18,6 +18,7 @@ import { eq, ilike, or, and, sql, notInArray, asc, desc, inArray, gte, gt } from
 export interface IStorage {
   // Users
   getUser(id: number): Promise<User | undefined>;
+  getAllUsers(): Promise<User[]>;
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   updateUserPassword(id: number, password: string): Promise<User | undefined>;
@@ -110,6 +111,10 @@ export class DatabaseStorage implements IStorage {
   async getUser(id: number): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user || undefined;
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return db.select().from(users);
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {

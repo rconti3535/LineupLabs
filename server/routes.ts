@@ -2423,5 +2423,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   setInterval(processExpiredWaivers, 60000);
 
+
   return httpServer;
 }
