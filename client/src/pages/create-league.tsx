@@ -249,11 +249,17 @@ export default function CreateLeague() {
                 <FormItem>
                   <FormLabel className="text-white">Draft Date & Time</FormLabel>
                   <FormControl>
-                    <div className="relative">
+                    <div
+                      className="relative cursor-pointer"
+                      onClick={(e) => {
+                        const input = (e.currentTarget as HTMLElement).querySelector("input");
+                        if (input) { input.showPicker(); input.focus(); }
+                      }}
+                    >
                       <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                       <Input
                         type="datetime-local"
-                        className="sleeper-card-bg sleeper-border border text-white pl-10"
+                        className="sleeper-card-bg sleeper-border border text-white pl-10 cursor-pointer"
                         {...field}
                       />
                     </div>
