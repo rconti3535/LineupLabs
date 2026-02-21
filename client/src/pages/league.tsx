@@ -2880,7 +2880,7 @@ export default function LeaguePage() {
                   <Users className="w-4 h-4 text-blue-400" />
                   <div>
                     <p className="text-gray-400 text-xs">Teams</p>
-                    <p className="text-white font-medium text-sm">{teams?.length || 0} / {league.maxTeams}</p>
+                    <p className="text-white font-medium text-sm">{teams?.filter(t => !t.isCpu).length || 0} / {league.maxTeams}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
