@@ -17,7 +17,6 @@ type DraftTab = "board" | "players" | "team";
 type PlayersPanelView = "adp" | "2025-stats" | "2026-proj";
 
 const POSITION_FILTERS = ["ALL", "C", "1B", "2B", "3B", "SS", "OF", "INF", "SP", "RP", "DH", "UT"];
-const LEVEL_FILTERS = ["ALL", "MLB", "AAA", "AA", "A+", "A", "Rookie"];
 
 function useCountdown(targetDate: Date | null) {
   const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number; minutes: number; seconds: number } | null>(null);
@@ -120,7 +119,6 @@ export default function DraftRoom() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [positionFilter, setPositionFilter] = useState("ALL");
-  const [levelFilter, setLevelFilter] = useState("ALL");
   const [playersPanelView, setPlayersPanelView] = useState<PlayersPanelView>("adp");
   const [debouncedQuery, setDebouncedQuery] = useState("");
 
@@ -318,12 +316,11 @@ export default function DraftRoom() {
     hasNextPage,
     isFetchingNextPage,
   } = useInfiniteQuery<{ players: Player[]; total: number }>({
-    queryKey: ["/api/players", debouncedQuery, positionFilter, levelFilter, league?.type, league?.scoringFormat],
+    queryKey: ["/api/players", debouncedQuery, positionFilter, league?.type, league?.scoringFormat],
     queryFn: async ({ pageParam }) => {
       const params = new URLSearchParams();
       if (debouncedQuery) params.set("q", debouncedQuery);
       if (positionFilter !== "ALL") params.set("position", positionFilter);
-      if (levelFilter !== "ALL") params.set("level", levelFilter);
       params.set("limit", String(PAGE_SIZE));
       params.set("offset", String(pageParam));
       params.set("adpType", league?.type || "Redraft");
@@ -869,42 +866,22 @@ export default function DraftRoom() {
               )}
             </div>
 
-            <div className="flex gap-1.5 overflow-x-auto hide-scrollbar">
-              {POSITION_FILTERS.map((pos) => (
-                <button
-                  key={pos}
-                  onClick={() => setPositionFilter(pos)}
-                  className={`text-[11px] font-medium px-2.5 py-1 rounded-full whitespace-nowrap transition-colors ${
-                    positionFilter === pos
-                      ? "bg-blue-600 text-white"
-                      : "bg-gray-800 text-gray-400 hover:bg-gray-700"
-                  }`}
-                >
-                  {pos}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex gap-1.5 overflow-x-auto hide-scrollbar">
-              {LEVEL_FILTERS.map((level) => (
-                <button
-                  key={level}
-                  onClick={() => setLevelFilter(level)}
-                  className={`text-[11px] font-medium px-2.5 py-1 rounded-full whitespace-nowrap transition-colors ${
-                    levelFilter === level
-                      ? "bg-blue-600 text-white"
-                      : "bg-gray-800 text-gray-400 hover:bg-gray-700"
-                  }`}
-                >
-                  {level}
-                </button>
-              ))}
-            </div>
-
             <div className="flex items-center gap-2">
-              <span className="text-[11px] text-gray-500 whitespace-nowrap">View:</span>
+              <Select value={positionFilter} onValueChange={setPositionFilter}>
+                <SelectTrigger className="h-8 w-[100px] bg-gray-800 border-gray-700 text-gray-200 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-gray-900 border-gray-700">
+                  {POSITION_FILTERS.map((pos) => (
+                    <SelectItem key={pos} value={pos} className="text-gray-200 focus:bg-gray-800 focus:text-white">
+                      {pos}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
               <Select value={playersPanelView} onValueChange={(v) => setPlayersPanelView(v as PlayersPanelView)}>
-                <SelectTrigger className="h-8 w-[130px] bg-gray-800 border-gray-700 text-gray-200 text-xs">
+                <SelectTrigger className="h-8 w-[120px] bg-gray-800 border-gray-700 text-gray-200 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-gray-900 border-gray-700">
@@ -1100,7 +1077,7 @@ export default function DraftRoom() {
             ) : (
               <div className="text-center py-8">
                 <p className="text-gray-500 text-sm">
-                  {searchQuery || positionFilter !== "ALL" || levelFilter !== "ALL"
+                  {searchQuery || positionFilter !== "ALL"
                     ? "No players match your filters."
                     : "No players available."}
                 </p>
