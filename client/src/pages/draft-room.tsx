@@ -114,6 +114,8 @@ export default function DraftRoom() {
   const [showTeamWarning, setShowTeamWarning] = useState(false);
   const [playerPanelDragY, setPlayerPanelDragY] = useState(0);
   const playerDragRef = useRef<{ startY: number; currentY: number } | null>(null);
+  const [queuePanelDragY, setQueuePanelDragY] = useState(0);
+  const queueDragRef = useRef<{ startY: number; currentY: number } | null>(null);
   const [teamPanelDragY, setTeamPanelDragY] = useState(0);
   const teamDragRef = useRef<{ startY: number; currentY: number } | null>(null);
 
@@ -1141,11 +1143,64 @@ export default function DraftRoom() {
 
       {activeTab === "queue" && (
         <div
-          className="absolute bottom-10 left-0 right-0 bg-gray-900 border-t border-gray-700 rounded-t-2xl flex flex-col z-10"
-          style={{ height: "66vh" }}
+          className="absolute bottom-10 left-0 right-0 bg-gray-900 border-t border-gray-700 rounded-t-2xl flex flex-col z-10 transition-transform duration-200 ease-out"
+          style={{
+            height: "66vh",
+            transform: `translateY(${queuePanelDragY}px)`,
+            opacity: queuePanelDragY > 0 ? Math.max(0.3, 1 - queuePanelDragY / 300) : 1,
+          }}
         >
-          <div className="flex items-center justify-center pt-2 pb-1">
-            <div className="w-10 h-1 rounded-full bg-gray-600" />
+          <div
+            className="cursor-grab active:cursor-grabbing touch-none"
+            onTouchStart={(e) => {
+              const touch = e.touches[0];
+              queueDragRef.current = { startY: touch.clientY, currentY: touch.clientY };
+              setQueuePanelDragY(0);
+            }}
+            onTouchMove={(e) => {
+              if (!queueDragRef.current) return;
+              const touch = e.touches[0];
+              queueDragRef.current.currentY = touch.clientY;
+              const dy = touch.clientY - queueDragRef.current.startY;
+              if (dy > 0) setQueuePanelDragY(dy);
+            }}
+            onTouchEnd={() => {
+              if (!queueDragRef.current) return;
+              const dy = queueDragRef.current.currentY - queueDragRef.current.startY;
+              queueDragRef.current = null;
+              if (dy > 80) {
+                setActiveTab("board");
+              }
+              setQueuePanelDragY(0);
+            }}
+            onMouseDown={(e) => {
+              queueDragRef.current = { startY: e.clientY, currentY: e.clientY };
+              setQueuePanelDragY(0);
+              const onMove = (ev: MouseEvent) => {
+                if (!queueDragRef.current) return;
+                queueDragRef.current.currentY = ev.clientY;
+                const dy = ev.clientY - queueDragRef.current.startY;
+                if (dy > 0) setQueuePanelDragY(dy);
+              };
+              const onUp = () => {
+                if (queueDragRef.current) {
+                  const dy = queueDragRef.current.currentY - queueDragRef.current.startY;
+                  queueDragRef.current = null;
+                  if (dy > 80) {
+                    setActiveTab("board");
+                  }
+                  setQueuePanelDragY(0);
+                }
+                window.removeEventListener("mousemove", onMove);
+                window.removeEventListener("mouseup", onUp);
+              };
+              window.addEventListener("mousemove", onMove);
+              window.addEventListener("mouseup", onUp);
+            }}
+          >
+            <div className="flex items-center justify-center pt-2 pb-1">
+              <div className="w-10 h-1 rounded-full bg-gray-600" />
+            </div>
           </div>
           <div className="flex items-center justify-between px-3 pb-2">
             <h3 className="text-white text-base font-bold">Draft Queue</h3>
