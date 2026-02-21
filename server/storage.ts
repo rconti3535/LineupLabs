@@ -89,6 +89,7 @@ export interface IStorage {
 
   // Active drafts
   getActiveDraftLeagues(): Promise<League[]>;
+  getScheduledDraftLeagues(): Promise<League[]>;
 
   // Activities
   getActivitiesByUserId(userId: number): Promise<Activity[]>;
@@ -714,6 +715,15 @@ export class DatabaseStorage implements IStorage {
 
   async getActiveDraftLeagues(): Promise<League[]> {
     return await db.select().from(leagues).where(eq(leagues.draftStatus, "active"));
+  }
+
+  async getScheduledDraftLeagues(): Promise<League[]> {
+    return await db.select().from(leagues).where(
+      and(
+        eq(leagues.draftStatus, "pending"),
+        sql`${leagues.draftDate} IS NOT NULL AND ${leagues.draftDate} != ''`
+      )
+    );
   }
 
   async getActivitiesByUserId(userId: number): Promise<Activity[]> {

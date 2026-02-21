@@ -345,6 +345,17 @@ export default function DraftRoom() {
     },
   });
 
+  const autoStartFiredRef = useRef(false);
+  useEffect(() => {
+    if (hasReached && isCommissioner && serverDraftStatus === "pending" && !autoStartFiredRef.current && !draftControlMutation.isPending) {
+      autoStartFiredRef.current = true;
+      draftControlMutation.mutate({ action: "start" });
+    }
+    if (!hasReached) {
+      autoStartFiredRef.current = false;
+    }
+  }, [hasReached, isCommissioner, serverDraftStatus, draftControlMutation.isPending]);
+
   const targetTeamCount = league?.maxTeams || league?.numberOfTeams || 12;
   const currentTeamCount = teams ? teams.filter(Boolean).length : 0;
   const teamsShort = targetTeamCount - currentTeamCount;

@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Calendar } from "lucide-react";
 import { useEffect } from "react";
 
 const createLeagueSchema = z.object({
@@ -22,6 +22,7 @@ const createLeagueSchema = z.object({
   numberOfTeams: z.coerce.number().min(2, "Minimum 2 teams").max(12, "Maximum 12 teams"),
   scoringFormat: z.enum(["Roto", "H2H Points", "H2H Each Category", "H2H Most Categories", "Season Points"]),
   isPublic: z.boolean(),
+  draftDate: z.string().optional(),
 });
 
 type CreateLeagueForm = z.infer<typeof createLeagueSchema>;
@@ -39,7 +40,8 @@ export default function CreateLeague() {
       type: "Best Ball",
       numberOfTeams: 12,
       scoringFormat: "Roto",
-      isPublic: false,
+      isPublic: true,
+      draftDate: "",
     },
   });
 
@@ -49,6 +51,7 @@ export default function CreateLeague() {
         ...data,
         createdBy: user?.id,
         maxTeams: data.numberOfTeams,
+        draftDate: data.draftDate || null,
       };
       const response = await apiRequest("POST", "/api/leagues", leagueData);
       return await response.json();
@@ -233,6 +236,31 @@ export default function CreateLeague() {
                       </div>
                     </RadioGroup>
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Draft Date & Time */}
+            <FormField
+              control={form.control}
+              name="draftDate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-white">Draft Date & Time</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                      <Input
+                        type="datetime-local"
+                        className="sleeper-card-bg sleeper-border border text-white pl-10"
+                        {...field}
+                      />
+                    </div>
+                  </FormControl>
+                  <p className="text-gray-500 text-xs mt-1">
+                    The draft will automatically start at this time. Leave blank to start manually.
+                  </p>
                   <FormMessage />
                 </FormItem>
               )}

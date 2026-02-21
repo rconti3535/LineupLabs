@@ -2674,6 +2674,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   setInterval(checkExpiredDraftPicks, 3000);
 
+  async function checkScheduledDrafts() {
+    try {
+      const scheduled = await storage.getScheduledDraftLeagues();
+      for (const league of scheduled) {
+        try {
+          if (!league.draftDate) continue;
+          const draftTime = new Date(league.draftDate).getTime();
+          if (isNaN(draftTime) || Date.now() < draftTime) continue;
+
+          const allTeams = await storage.getTeamsByLeagueId(league.id);
+          const hasPositions = allTeams.some(t => t.draftPosition);
+          if (!hasPositions) {
+            const shuffled = [...allTeams].sort(() => Math.random() - 0.5);
+            for (let i = 0; i < shuffled.length; i++) {
+              await storage.updateTeam(shuffled[i].id, { draftPosition: i + 1 } as any);
+            }
+          } else {
+            const maxSlots = league.maxTeams || league.numberOfTeams || 12;
+            const usedPositions = new Set(allTeams.filter(t => t.draftPosition).map(t => t.draftPosition!));
+            const availablePositions: number[] = [];
+            for (let p = 1; p <= maxSlots; p++) {
+              if (!usedPositions.has(p)) availablePositions.push(p);
+            }
+            let idx = 0;
+            for (const t of allTeams) {
+              if (!t.draftPosition && idx < availablePositions.length) {
+                await storage.updateTeam(t.id, { draftPosition: availablePositions[idx++] } as any);
+              }
+            }
+          }
+
+          await storage.updateLeague(league.id, {
+            draftStatus: "active",
+            draftPickStartedAt: new Date().toISOString(),
+          });
+          broadcastDraftEvent(league.id, "draft-status", { action: "start", draftStatus: "active" });
+          broadcastDraftEvent(league.id, "teams-update");
+          console.log(`[Auto-start] Draft started for league ${league.id} (${league.name}) at scheduled time`);
+        } catch (err) {
+          console.error(`Error auto-starting draft for league ${league.id}:`, (err as Error).message);
+        }
+      }
+    } catch (error) {
+      console.error("Error checking scheduled drafts:", error);
+    }
+  }
+  setInterval(checkScheduledDrafts, 10000);
+
   async function processExpiredWaivers() {
     try {
       const expiredWaivers = await storage.getExpiredWaivers();
