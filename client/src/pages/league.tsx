@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Users, Trophy, Calendar, TrendingUp, Pencil, Trash2, AlertTriangle, ArrowUpDown, Search, Plus, X, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Menu, Clock, Settings, Shuffle, GripVertical, Share, LogOut } from "lucide-react";
+import { ArrowLeft, Users, Trophy, Calendar, TrendingUp, Pencil, Trash2, AlertTriangle, ArrowUpDown, Search, Plus, X, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Menu, Clock, Settings, Shuffle, GripVertical, Share, LogOut, UserMinus } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -1789,6 +1789,19 @@ export default function LeaguePage() {
     },
     onError: (error: Error) => {
       toast({ title: "Failed to leave league", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const kickMutation = useMutation({
+    mutationFn: async (teamId: number) => {
+      await apiRequest("POST", `/api/leagues/${leagueId}/kick`, { commissionerId: user?.id, teamId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/teams/league", leagueId] });
+      toast({ title: "User removed from the league" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to remove user", description: error.message, variant: "destructive" });
     },
   });
 
@@ -3611,6 +3624,46 @@ export default function LeaguePage() {
               <LogOut className="w-4 h-4" />
               {leaveMutation.isPending ? "Leaving..." : "Leave League"}
             </Button>
+          </Card>
+        )}
+
+        {isCommissioner && (
+          <Card className="gradient-card rounded-xl p-5 border-0 mt-4">
+            <h3 className="text-white font-semibold mb-3">Commish Management</h3>
+            {(() => {
+              const draftStarted = ["active", "paused", "completed"].includes(league.draftStatus || "");
+              const nonCommishTeams = (teams || []).filter(t => !t.isCpu && t.userId !== user?.id);
+              return (
+                <>
+                  {draftStarted && (
+                    <p className="text-gray-500 text-xs mb-3">Users cannot be removed after the draft has started.</p>
+                  )}
+                  {nonCommishTeams.length === 0 ? (
+                    <p className="text-gray-500 text-sm text-center py-4">No other users in this league yet.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {nonCommishTeams.map(t => (
+                        <div key={t.id} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2.5">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white text-sm font-medium truncate">{t.name}</p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => kickMutation.mutate(t.id)}
+                            disabled={draftStarted || kickMutation.isPending}
+                            className="shrink-0 text-red-400 hover:text-red-300 hover:bg-red-900/30 h-8 px-2 disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            <UserMinus className="w-4 h-4 mr-1" />
+                            <span className="text-xs">Remove</span>
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </Card>
         )}
 

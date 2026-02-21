@@ -1163,6 +1163,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/leagues/:id/kick", async (req, res) => {
+    try {
+      const leagueId = parseInt(req.params.id);
+      const { commissionerId, teamId } = req.body;
+      if (!commissionerId || !teamId) {
+        return res.status(400).json({ message: "commissionerId and teamId are required" });
+      }
+      const league = await storage.getLeague(leagueId);
+      if (!league) {
+        return res.status(404).json({ message: "League not found" });
+      }
+      if (league.createdBy !== commissionerId) {
+        return res.status(403).json({ message: "Only the commissioner can remove users" });
+      }
+      if (["active", "paused", "completed"].includes(league.draftStatus || "")) {
+        return res.status(400).json({ message: "Cannot remove users after the draft has started" });
+      }
+      const team = await storage.getTeam(teamId);
+      if (!team || team.leagueId !== leagueId) {
+        return res.status(404).json({ message: "Team not found in this league" });
+      }
+      if (team.userId === commissionerId) {
+        return res.status(400).json({ message: "You cannot remove yourself from the league" });
+      }
+      await storage.deleteTeam(teamId);
+      broadcastDraftEvent(leagueId, "teams-update");
+      res.json({ message: "User removed from the league" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to remove user" });
+    }
+  });
+
   // Get draft picks for a league
   app.get("/api/leagues/:id/draft-picks", async (req, res) => {
     try {
