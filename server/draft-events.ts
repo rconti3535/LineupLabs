@@ -15,11 +15,13 @@ export function addClient(leagueId: number, res: Response): void {
     leagueClients.set(leagueId, new Set());
   }
   leagueClients.get(leagueId)!.add(res);
+  console.log(`[SSE] client connected for league ${leagueId} (total: ${leagueClients.get(leagueId)!.size})`);
 
   res.on("close", () => {
     const clients = leagueClients.get(leagueId);
     if (clients) {
       clients.delete(res);
+      console.log(`[SSE] client disconnected for league ${leagueId} (remaining: ${clients.size})`);
       if (clients.size === 0) {
         leagueClients.delete(leagueId);
       }
@@ -29,11 +31,15 @@ export function addClient(leagueId: number, res: Response): void {
 
 export function broadcastDraftEvent(leagueId: number, type: DraftEventType, data?: unknown): void {
   const clients = leagueClients.get(leagueId);
-  if (!clients || clients.size === 0) return;
+  if (!clients || clients.size === 0) {
+    console.log(`[SSE] broadcast ${type} for league ${leagueId}: no clients connected`);
+    return;
+  }
 
   const event: DraftEvent = { type, leagueId, data };
   const payload = `data: ${JSON.stringify(event)}\n\n`;
 
+  console.log(`[SSE] broadcast ${type} for league ${leagueId} to ${clients.size} client(s)`);
   const clientArray = Array.from(clients);
   for (const client of clientArray) {
     try {

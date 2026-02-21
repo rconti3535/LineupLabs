@@ -1450,22 +1450,37 @@ export default function LeaguePage() {
 
   useEffect(() => {
     if (!leagueId) return;
-    const es = new EventSource(`/api/leagues/${leagueId}/draft-events`);
-    es.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === "teams-update") {
-          queryClient.invalidateQueries({ queryKey: ["/api/teams/league", leagueId] });
-        } else if (data.type === "league-settings" || data.type === "draft-status") {
-          queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId] });
-          queryClient.invalidateQueries({ queryKey: ["/api/teams/league", leagueId] });
-        } else if (data.type === "pick") {
-          queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "draft-picks"] });
-          queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "standings"] });
-        }
-      } catch {}
+    let es: EventSource | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+    function connect() {
+      es = new EventSource(`/api/leagues/${leagueId}/draft-events`);
+      es.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === "teams-update") {
+            queryClient.refetchQueries({ queryKey: ["/api/teams/league", leagueId] });
+            queryClient.refetchQueries({ queryKey: ["/api/leagues", leagueId] });
+          } else if (data.type === "league-settings" || data.type === "draft-status") {
+            queryClient.refetchQueries({ queryKey: ["/api/leagues", leagueId] });
+            queryClient.refetchQueries({ queryKey: ["/api/teams/league", leagueId] });
+          } else if (data.type === "pick") {
+            queryClient.refetchQueries({ queryKey: ["/api/leagues", leagueId, "draft-picks"] });
+            queryClient.refetchQueries({ queryKey: ["/api/leagues", leagueId, "standings"] });
+          }
+        } catch {}
+      };
+      es.onerror = () => {
+        es?.close();
+        reconnectTimer = setTimeout(connect, 3000);
+      };
+    }
+
+    connect();
+    return () => {
+      es?.close();
+      if (reconnectTimer) clearTimeout(reconnectTimer);
     };
-    return () => es.close();
   }, [leagueId]);
 
   const myTeam = teams?.find((t) => t.userId === user?.id);
