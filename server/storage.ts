@@ -24,6 +24,7 @@ export interface IStorage {
   updateUserPassword(id: number, password: string): Promise<User | undefined>;
   updateUserProfile(id: number, data: { username?: string; avatar?: string | null }): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  deleteUser(id: number): Promise<void>;
   
   // Leagues
   getLeagues(): Promise<League[]>;
@@ -155,6 +156,25 @@ export class DatabaseStorage implements IStorage {
       .values(insertUser)
       .returning();
     return user;
+  }
+
+  async deleteUser(id: number): Promise<void> {
+    const userTeams = await db.select().from(teams).where(eq(teams.userId, id));
+    if (userTeams.length > 0) {
+      const teamIds = userTeams.map(t => t.id);
+      await db.delete(draftPicks).where(inArray(draftPicks.teamId, teamIds));
+      await db.delete(dailyLineups).where(inArray(dailyLineups.teamId, teamIds));
+      const teamWaivers = await db.select().from(waivers).where(inArray(waivers.droppedByTeamId, teamIds));
+      if (teamWaivers.length > 0) {
+        const waiverIds = teamWaivers.map(w => w.id);
+        await db.delete(waiverClaims).where(inArray(waiverClaims.waiverId, waiverIds));
+        await db.delete(waivers).where(inArray(waivers.droppedByTeamId, teamIds));
+      }
+      await db.delete(teams).where(inArray(teams.id, teamIds));
+    }
+    await db.delete(activities).where(eq(activities.userId, id));
+    await db.update(leagues).set({ createdBy: null } as any).where(eq(leagues.createdBy, id));
+    await db.delete(users).where(eq(users.id, id));
   }
 
   async getLeagues(): Promise<League[]> {

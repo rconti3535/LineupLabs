@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { User, LogOut, Mail, Settings, Camera, Trophy, Award, Medal } from "lucide-react";
+import { User, LogOut, Mail, Settings, Camera, Trophy, Award, Medal, Trash2, AlertTriangle } from "lucide-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -40,6 +40,8 @@ export default function Profile() {
   const [editOpen, setEditOpen] = useState(false);
   const [editUsername, setEditUsername] = useState("");
   const [editAvatar, setEditAvatar] = useState<string | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: stats } = useQuery<ProfileStats>({
@@ -66,6 +68,24 @@ export default function Profile() {
       toast({ title: "Could not update profile", description: error.message, variant: "destructive" });
     },
   });
+
+  const deleteAccountMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("DELETE", `/api/users/${user?.id}`);
+    },
+    onSuccess: () => {
+      logout();
+      setLocation("/login");
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to delete account", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleDeleteAccount = () => {
+    if (deleteConfirmText !== user?.username) return;
+    deleteAccountMutation.mutate();
+  };
 
   const handleLogout = () => {
     logout();
@@ -167,16 +187,15 @@ export default function Profile() {
           </button>
         </div>
 
-        <div className="flex items-center justify-between mb-5 px-1">
-          <div className="flex items-center gap-2">
-            <Trophy className="w-4 h-4 text-blue-400" />
-            <span className="text-sm text-gray-400">GM Tier</span>
-            <span className={`text-sm font-bold ${tierColor}`}>{stats?.gmTier || "Intern"}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-2xl font-bold text-white">{stats?.allTimeLeagues ?? 0}</span>
-            <span className="text-xs text-gray-400">Leagues</span>
-          </div>
+        <div className="flex items-center justify-center gap-2 mb-4">
+          <Trophy className="w-5 h-5 text-blue-400" />
+          <span className="text-sm text-gray-400">GM Tier</span>
+          <span className={`text-lg font-bold ${tierColor}`}>{stats?.gmTier || "Intern"}</span>
+        </div>
+
+        <div className="bg-gray-800/60 rounded-xl py-3 text-center mb-5">
+          <div className="text-2xl font-bold text-white">{stats?.allTimeLeagues ?? 0}</div>
+          <div className="text-[10px] text-gray-400 font-medium">ALL-TIME LEAGUES</div>
         </div>
 
         <div className="grid grid-cols-3 gap-3 mb-5">
@@ -223,6 +242,63 @@ export default function Profile() {
           Sign Out
         </Button>
       </Card>
+
+      <Card className="gradient-card rounded-xl p-6 border border-red-900/30">
+        <div className="flex items-center gap-2 mb-3">
+          <AlertTriangle className="w-5 h-5 text-red-500" />
+          <h2 className="text-lg font-semibold text-red-500">Danger Zone</h2>
+        </div>
+        <p className="text-sm text-gray-400 mb-4">
+          Permanently delete your account and all associated data. This action cannot be undone.
+        </p>
+        <Button
+          onClick={() => { setDeleteOpen(true); setDeleteConfirmText(""); }}
+          variant="destructive"
+          className="w-full rounded-xl py-3 bg-red-600/20 hover:bg-red-600/40 border border-red-600/40 text-red-400 font-medium"
+        >
+          <Trash2 className="w-4 h-4 mr-2" />
+          Delete Account
+        </Button>
+      </Card>
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="bg-gray-900 border-gray-700 max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-red-500 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5" />
+              Delete Account
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-gray-400">
+              This will permanently delete your account, all your teams, draft picks, and league data. This cannot be undone.
+            </p>
+            <div>
+              <label className="text-sm text-gray-400 mb-1.5 block">
+                Type <span className="text-white font-semibold">{user.username}</span> to confirm
+              </label>
+              <Input
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                className="bg-gray-800 border-gray-700 text-white"
+                placeholder="Enter your username"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setDeleteOpen(false)} className="text-gray-400">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeleteAccount}
+              disabled={deleteConfirmText !== user.username || deleteAccountMutation.isPending}
+              className="bg-red-600 hover:bg-red-700 text-white disabled:opacity-40"
+            >
+              {deleteAccountMutation.isPending ? "Deleting..." : "Delete My Account"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="bg-gray-900 border-gray-700 max-w-sm">

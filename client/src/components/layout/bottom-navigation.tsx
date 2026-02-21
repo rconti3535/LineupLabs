@@ -1,5 +1,5 @@
 import { useLocation } from "wouter";
-import { Home, Users, User, MessageCircle } from "lucide-react";
+import { Home, Users, User, TrendingUp } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -14,7 +14,7 @@ export function BottomNavigation() {
   const navItems = [
     { path: "/", icon: Home, label: "Home" },
     { path: "/teams", icon: Users, label: "Teams" },
-    { path: "/messages", icon: MessageCircle, label: "Messages" },
+    { path: "/messages", icon: TrendingUp, label: "Exposure" },
     { path: "/profile", icon: User, label: "Profile" },
   ];
 

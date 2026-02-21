@@ -867,6 +867,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/users/:id/exposure", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      const userTeams = await storage.getTeamsByUserId(userId);
+      const teamIds = new Set(userTeams.filter(t => !t.isCpu).map(t => t.id));
+      const leagueIds = [...new Set(userTeams.filter(t => !t.isCpu && t.leagueId).map(t => t.leagueId!))] as number[];
+
+      if (leagueIds.length === 0) {
+        return res.json({ totalLeagues: 0, players: [] });
+      }
+
+      const totalLeagues = leagueIds.length;
+      const playerLeagueMap = new Map<number, Set<number>>();
+
+      for (const lid of leagueIds) {
+        const picks = await storage.getDraftPicksByLeague(lid);
+        for (const pick of picks) {
+          if (!teamIds.has(pick.teamId)) continue;
+          if (!playerLeagueMap.has(pick.playerId)) {
+            playerLeagueMap.set(pick.playerId, new Set());
+          }
+          playerLeagueMap.get(pick.playerId)!.add(lid);
+        }
+      }
+
+      const playerIds = [...playerLeagueMap.keys()];
+      const playerDataMap = new Map<number, Player>();
+      for (const pid of playerIds) {
+        const player = await storage.getPlayer(pid);
+        if (player) playerDataMap.set(pid, player);
+      }
+
+      const exposureList = playerIds
+        .map(pid => {
+          const leagueCount = playerLeagueMap.get(pid)!.size;
+          const player = playerDataMap.get(pid);
+          if (!player) return null;
+          return {
+            playerId: pid,
+            name: player.name,
+            position: player.position,
+            team: player.teamAbbreviation || player.team,
+            leagueCount,
+            totalLeagues,
+            percentage: (leagueCount / totalLeagues) * 100,
+          };
+        })
+        .filter(Boolean)
+        .sort((a, b) => b!.percentage - a!.percentage || a!.name.localeCompare(b!.name));
+
+      res.json({ totalLeagues, players: exposureList });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch exposure data" });
+    }
+  });
+
   // Get user profile
   app.get("/api/users/:id", async (req, res) => {
     try {
@@ -896,6 +952,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(updated);
     } catch (error) {
       res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
+
+  app.delete("/api/users/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const user = await storage.getUser(id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      await storage.deleteUser(id);
+      res.json({ message: "Account deleted" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete account" });
     }
   });
 
