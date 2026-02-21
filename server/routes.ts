@@ -1058,7 +1058,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           validatedData.rosterPositions = ["C", "INF", "INF", "INF", "INF", "OF", "OF", "OF", "SP", "SP", "SP", "RP", "RP"];
         }
         if (!validatedData.maxRosterSize) {
-          validatedData.maxRosterSize = 40;
+          validatedData.maxRosterSize = 35;
         }
       }
       const league = await storage.createLeague(validatedData);
