@@ -121,6 +121,7 @@ export default function DraftRoom() {
   const [positionFilter, setPositionFilter] = useState("ALL");
   const [playersPanelView, setPlayersPanelView] = useState<PlayersPanelView>("2025-stats");
   const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [draftQueue, setDraftQueue] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(searchQuery), 300);
@@ -924,7 +925,7 @@ export default function DraftRoom() {
                     <p className="text-white text-[15px] font-medium leading-tight truncate">{player.name}</p>
                     <p className="text-[11px]"><span className={`font-medium ${positionTextColor(player.position)}`}>{player.position}</span> <span className="text-gray-500">&middot; {player.teamAbbreviation || player.team}</span></p>
                   </div>
-                  <div className="shrink-0">
+                  <div className="flex-1 flex justify-center">
                     {playersPanelView === "2025-stats" ? (
                       <div className="flex gap-1.5">
                         {isPitcher(player.position) ? (
@@ -1042,16 +1043,34 @@ export default function DraftRoom() {
                         onClick={() => draftPlayerMutation.mutate(player.id)}
                         disabled={draftPlayerMutation.isPending}
                         size="sm"
-                        className="bg-green-600 hover:bg-green-700 text-white h-8 px-3 text-xs shrink-0"
+                        className="bg-green-600 hover:bg-green-700 text-white h-8 px-3 text-xs shrink-0 w-16"
                       >
                         Draft
                       </Button>
                     ) : (
-                      <span className="text-[10px] text-red-400 font-medium shrink-0 text-right leading-tight w-14">
+                      <span className="text-[10px] text-red-400 font-medium shrink-0 text-right leading-tight w-16">
                         No slot
                       </span>
                     )
-                  ) : null}
+                  ) : (
+                    <Button
+                      onClick={() => setDraftQueue(prev => {
+                        const next = new Set(prev);
+                        if (next.has(player.id)) next.delete(player.id);
+                        else next.add(player.id);
+                        return next;
+                      })}
+                      size="sm"
+                      variant={draftQueue.has(player.id) ? "outline" : "default"}
+                      className={`h-8 px-3 text-xs shrink-0 w-16 ${
+                        draftQueue.has(player.id)
+                          ? "border-blue-500 text-blue-400 hover:bg-blue-950"
+                          : "bg-gray-700 hover:bg-gray-600 text-gray-200"
+                      }`}
+                    >
+                      {draftQueue.has(player.id) ? "Queued" : "Queue"}
+                    </Button>
+                  )}
                 </div>
               ))
             ) : (
