@@ -1401,7 +1401,7 @@ export default function DraftRoom() {
             </div>
             <h3 className="text-white font-semibold text-sm px-4 pb-2">My Team</h3>
           </div>
-          <div className="flex-1 overflow-auto hide-scrollbar px-3 pb-3">
+          <div className="flex-1 overflow-auto hide-scrollbar px-3 pb-16">
             {myTeam ? (() => {
               const isBestBallDraft = league?.type === "Best Ball";
               const STAT_COL = "w-[42px] text-center text-[11px] shrink-0";
