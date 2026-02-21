@@ -1001,12 +1001,12 @@ export default function DraftRoom() {
                       {adpMap.has(player.id) ? adpMap.get(player.id)!.toFixed(0) : "-"}
                     </p>
                   </div>
-                  <div className="flex-1 min-w-0">
+                  <div className="shrink-0 min-w-[90px] max-w-[120px]">
                     <p className="text-white text-[15px] font-medium leading-tight truncate">{player.name}</p>
-                    <p className="text-[11px]"><span className={`font-medium ${positionTextColor(player.position)}`}>{player.position}</span> <span className="text-gray-500">&middot; {player.teamAbbreviation || player.team}</span></p>
+                    <p className="text-[11px] truncate"><span className={`font-medium ${positionTextColor(player.position)}`}>{player.position}</span> <span className="text-gray-500">&middot; {player.teamAbbreviation || player.team}</span></p>
                   </div>
-                  <div className="flex-1 flex justify-center">
-                    <div className="flex gap-1.5">
+                  <div className="flex-1 min-w-0 overflow-x-auto hide-scrollbar">
+                    <div className="flex gap-1.5 w-max">
                       {(isPitcher(player.position) ? pitchingCats : hittingCats).map((cat) => (
                         <div key={cat} className="text-center min-w-[28px]">
                           <p className="text-[9px] text-gray-500">{cat}</p>
