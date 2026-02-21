@@ -1,6 +1,6 @@
 import type { Response } from "express";
 
-type DraftEventType = "pick" | "draft-status" | "teams-update";
+type DraftEventType = "pick" | "draft-status" | "teams-update" | "league-settings";
 
 interface DraftEvent {
   type: DraftEventType;

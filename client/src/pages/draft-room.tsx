@@ -230,6 +230,9 @@ export default function DraftRoom() {
           queryClient.invalidateQueries({ queryKey: ["/api/teams/league", leagueId] });
         } else if (data.type === "teams-update") {
           queryClient.invalidateQueries({ queryKey: ["/api/teams/league", leagueId] });
+        } else if (data.type === "league-settings") {
+          queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId] });
+          queryClient.invalidateQueries({ queryKey: ["/api/teams/league", leagueId] });
         }
       } catch {}
     };

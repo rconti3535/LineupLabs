@@ -321,6 +321,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const updated = await storage.updateLeague(id, updates);
+      broadcastDraftEvent(id, "league-settings", updates);
       res.json(updated);
     } catch (error) {
       res.status(500).json({ message: "Failed to update league" });
@@ -469,6 +470,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.updateTeam(teamOrder[i], { draftPosition: i + 1 } as any);
       }
       await storage.updateLeague(id, { draftOrder: "Manual" });
+      broadcastDraftEvent(id, "teams-update");
       const updatedTeams = await storage.getTeamsByLeagueId(id);
       res.json(updatedTeams.sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999)));
     } catch (error) {
