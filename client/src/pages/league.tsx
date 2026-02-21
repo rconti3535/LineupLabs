@@ -2131,12 +2131,30 @@ export default function LeaguePage() {
       {activeTab === "roster" && !showSettings && (
         <div>
           {league.draftStatus !== "completed" ? (
-            <Card className="gradient-card rounded-xl p-4 border-0 mb-4">
+            <Card className={`gradient-card rounded-xl p-4 border-0 mb-4 ${["active", "paused"].includes(league.draftStatus || "") ? "border border-green-500/30" : ""}`}>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-blue-600/20 flex items-center justify-center shrink-0">
-                  <Calendar className="w-5 h-5 text-blue-400" />
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${["active", "paused"].includes(league.draftStatus || "") ? "bg-green-600/20" : "bg-blue-600/20"}`}>
+                  <Calendar className={`w-5 h-5 ${["active", "paused"].includes(league.draftStatus || "") ? "text-green-400" : "text-blue-400"}`} />
                 </div>
-                {league.draftDate ? (
+                {["active", "paused"].includes(league.draftStatus || "") ? (
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-green-400 font-semibold text-sm">Draft is Live</p>
+                      <span className="relative flex h-2.5 w-2.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+                      </span>
+                    </div>
+                    <p className="text-gray-400 text-xs">{league.draftType || "Snake"} Draft is currently in progress.</p>
+                    <Button
+                      onClick={() => setLocation(`/league/${leagueId}/draft`)}
+                      className="mt-2 bg-green-600 hover:bg-green-700 text-white text-xs h-8 px-4"
+                      size="sm"
+                    >
+                      Join Draft Room
+                    </Button>
+                  </div>
+                ) : league.draftDate ? (
                   <div className="flex-1">
                     <p className="text-white font-semibold text-sm">Draft Scheduled</p>
                     <p className="text-gray-400 text-xs">
