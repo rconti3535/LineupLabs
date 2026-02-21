@@ -612,6 +612,24 @@ export default function DraftRoom() {
     return val ?? "-";
   };
 
+  const calcPlayerPoints = useCallback((player: Player, view: PlayersPanelView) => {
+    const pitcher = isPitcher(player.position);
+    const cats = pitcher ? PITCHING_POINT_STATS : HITTING_POINT_STATS;
+    const map = pitcher ? PITCHING_STAT_KEYS : HITTING_STAT_KEYS;
+    let total = 0;
+    for (const cat of cats) {
+      const pv = pointValues[cat] ?? 0;
+      if (pv === 0) continue;
+      const entry = map[cat];
+      if (!entry) continue;
+      const key = view === "2025-stats" ? entry.stat : entry.proj;
+      const raw = player[key];
+      const num = typeof raw === "string" ? parseFloat(raw) : (typeof raw === "number" ? raw : 0);
+      if (!isNaN(num)) total += num * pv;
+    }
+    return total;
+  }, [pointValues]);
+
   return (
     <div className="flex flex-col h-screen overflow-hidden relative">
       <div className="px-3 py-2 shrink-0 border-b border-gray-800">
@@ -1018,6 +1036,14 @@ export default function DraftRoom() {
                     <p className="text-white text-[15px] font-medium leading-tight truncate">{player.name}</p>
                     <p className="text-[11px] truncate"><span className={`font-medium ${positionTextColor(player.position)}`}>{player.position}</span> <span className="text-gray-500">&middot; {player.teamAbbreviation || player.team}</span></p>
                   </div>
+                  {isPointsFormat && (
+                    <div className="shrink-0 text-center w-10">
+                      <p className="text-[9px] text-yellow-500">PTS</p>
+                      <p className="text-xs font-bold text-yellow-400">
+                        {calcPlayerPoints(player, playersPanelView).toFixed(1)}
+                      </p>
+                    </div>
+                  )}
                   <div className="flex-1 min-w-0 overflow-x-auto hide-scrollbar">
                     <div className="flex gap-1.5 w-max">
                       {(isPitcher(player.position) ? pitchingCats : hittingCats).map((cat) => (
