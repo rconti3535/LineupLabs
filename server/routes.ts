@@ -959,6 +959,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validatedData = insertTeamSchema.parse(req.body);
       const team = await storage.createTeam(validatedData);
+      if (team.leagueId) {
+        broadcastDraftEvent(team.leagueId, "teams-update");
+      }
       res.status(201).json(team);
     } catch (error) {
       res.status(400).json({ message: "Invalid team data" });
@@ -996,6 +999,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         logo: "",
         nextOpponent: "",
       });
+      broadcastDraftEvent(leagueId, "teams-update");
       res.status(201).json(team);
     } catch (error) {
       res.status(500).json({ message: "Failed to join league" });

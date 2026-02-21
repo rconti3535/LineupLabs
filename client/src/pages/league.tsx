@@ -1446,6 +1446,26 @@ export default function LeaguePage() {
     enabled: leagueId !== null,
   });
 
+  useEffect(() => {
+    if (!leagueId) return;
+    const es = new EventSource(`/api/leagues/${leagueId}/draft-events`);
+    es.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "teams-update") {
+          queryClient.invalidateQueries({ queryKey: ["/api/teams/league", leagueId] });
+        } else if (data.type === "league-settings" || data.type === "draft-status") {
+          queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId] });
+          queryClient.invalidateQueries({ queryKey: ["/api/teams/league", leagueId] });
+        } else if (data.type === "pick") {
+          queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "draft-picks"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "standings"] });
+        }
+      } catch {}
+    };
+    return () => es.close();
+  }, [leagueId]);
+
   const myTeam = teams?.find((t) => t.userId === user?.id);
   const isCommissioner = league?.createdBy === user?.id;
   const isLeaguePointsFormat = league?.scoringFormat === "H2H Points" || league?.scoringFormat === "Season Points";
