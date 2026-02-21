@@ -909,8 +909,10 @@ export default function DraftRoom() {
                   <div className={`w-7 h-7 rounded-full ${positionColor(player.position)} flex items-center justify-center text-white text-[9px] font-bold shrink-0`}>
                     {player.position}
                   </div>
-                  <p className="flex-1 min-w-0 text-white text-[15px] font-medium truncate leading-tight">{player.name}</p>
-                  <span className="shrink-0 text-gray-400 text-[11px]">{player.teamAbbreviation || player.team}</span>
+                  <div className="flex-1 min-w-0 flex items-baseline gap-1.5 truncate">
+                    <span className="text-white text-[15px] font-medium leading-tight truncate">{player.name}</span>
+                    <span className="text-gray-400 text-[11px] shrink-0">{player.teamAbbreviation || player.team}</span>
+                  </div>
                   <div className="shrink-0">
                     {playersPanelView === "adp" ? (
                       <div className="text-right">
