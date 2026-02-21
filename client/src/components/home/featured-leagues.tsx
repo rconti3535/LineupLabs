@@ -20,7 +20,12 @@ export function FeaturedLeagues() {
 
   const { data: userTeams } = useQuery<Team[]>({
     queryKey: ["/api/teams/user", user?.id],
-    enabled: !!user,
+    queryFn: async () => {
+      const res = await fetch(`/api/teams/user/${user?.id}`);
+      if (!res.ok) throw new Error("Failed to fetch user teams");
+      return res.json();
+    },
+    enabled: !!user?.id,
   });
 
   const userLeagueIds = new Set((userTeams || []).map(t => t.leagueId));
