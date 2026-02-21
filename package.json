@@ -14,7 +14,8 @@
     "db:import-mlb-players": "tsx scripts/import-mlb-players.ts",
     "db:import-2025-stats": "tsx scripts/import-2025-stats.ts",
     "db:import-steamer-projections": "tsx scripts/import-steamer-projections.ts",
-    "db:migrate-replit-to-supabase": "tsx scripts/migrate-replit-to-supabase.ts"
+    "db:migrate-replit-to-supabase": "tsx scripts/migrate-replit-to-supabase.ts",
+    "db:fix-player-teams": "tsx scripts/fix-player-teams.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

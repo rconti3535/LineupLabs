@@ -362,37 +362,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getBestAvailablePlayer(excludeIds: number[], position?: string): Promise<Player | undefined> {
-    const buildConditions = (includeMLB: boolean) => {
-      const conds: ReturnType<typeof eq>[] = [];
-      if (excludeIds.length > 0) {
-        conds.push(notInArray(players.id, excludeIds));
+    const conds: ReturnType<typeof eq>[] = [];
+    if (excludeIds.length > 0) {
+      conds.push(notInArray(players.id, excludeIds));
+    }
+    if (position) {
+      if (position === "OF") {
+        conds.push(inArray(players.position, ["OF", "LF", "CF", "RF"]));
+      } else {
+        conds.push(eq(players.position, position));
       }
-      if (position) {
-        if (position === "OF") {
-          conds.push(inArray(players.position, ["OF", "LF", "CF", "RF"]));
-        } else {
-          conds.push(eq(players.position, position));
-        }
-      }
-      if (includeMLB) {
-        conds.push(eq(players.mlbLevel, "MLB"));
-      }
-      return conds.length > 0 ? and(...conds) : undefined;
-    };
+    }
+    const where = conds.length > 0 ? and(...conds) : undefined;
 
-    const [mlbPlayer] = await db.select().from(players)
-      .where(buildConditions(true))
+    const [player] = await db.select().from(players)
+      .where(where)
       .orderBy(desc(players.points), asc(players.name))
       .limit(1);
 
-    if (mlbPlayer) return mlbPlayer;
-
-    const [anyPlayer] = await db.select().from(players)
-      .where(buildConditions(false))
-      .orderBy(desc(players.points), asc(players.name))
-      .limit(1);
-
-    return anyPlayer || undefined;
+    return player || undefined;
   }
 
   async getBestAvailableByAdp(excludeIds: number[], leagueType: string, scoringFormat: string, season: number, eligiblePositions: string[]): Promise<Player | undefined> {
@@ -424,42 +412,23 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(players, eq(playerAdp.playerId, players.id))
       .where(and(
         adpConditions,
-        inArray(players.position, uniquePositions),
-        eq(players.mlbLevel, "MLB")
+        inArray(players.position, uniquePositions)
       ))
       .orderBy(asc(playerAdp.adp))
       .limit(1);
 
     if (adpRecords.length > 0) return adpRecords[0].players;
 
-    const adpRecordsFallback = await db.select().from(playerAdp)
-      .innerJoin(players, eq(playerAdp.playerId, players.id))
-      .where(and(
-        adpConditions,
-        inArray(players.position, uniquePositions)
-      ))
-      .orderBy(asc(playerAdp.adp))
-      .limit(1);
-
-    if (adpRecordsFallback.length > 0) return adpRecordsFallback[0].players;
-
     const conds = [
       inArray(players.position, uniquePositions),
       ...(excludeIds.length > 0 ? [notInArray(players.id, excludeIds)] : [])
     ];
     const [fallback] = await db.select().from(players)
-      .where(and(...conds, eq(players.mlbLevel, "MLB")))
-      .orderBy(desc(players.points), asc(players.name))
-      .limit(1);
-
-    if (fallback) return fallback;
-
-    const [anyFallback] = await db.select().from(players)
       .where(and(...conds))
       .orderBy(desc(players.points), asc(players.name))
       .limit(1);
 
-    return anyFallback || undefined;
+    return fallback || undefined;
   }
 
   async getCompletedLeaguesByType(leagueType: string, scoringFormat: string, season: number): Promise<League[]> {
@@ -659,7 +628,6 @@ export class DatabaseStorage implements IStorage {
     const draftedIds = await this.getDraftedPlayerIds(leagueId);
 
     const conditions: ReturnType<typeof eq>[] = [];
-    conditions.push(eq(players.mlbLevel, "MLB"));
     if (rosterStatus === "free_agents" || !rosterStatus) {
       if (draftedIds.length > 0) {
         conditions.push(notInArray(players.id, draftedIds));

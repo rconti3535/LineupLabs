@@ -26,6 +26,8 @@ interface MlbTeam {
   name: string;
   abbreviation: string;
   sport: { id: number; name: string };
+  parentOrgId?: number;
+  parentOrgName?: string;
 }
 
 interface MlbRosterEntry {
@@ -124,6 +126,21 @@ async function importPlayers() {
   const teams = await fetchTeams();
   console.log(`Found ${teams.length} teams across all levels`);
 
+  const mlbTeamMap = new Map<number, { name: string; abbreviation: string }>();
+  for (const t of teams) {
+    if (t.sport.id === 1) {
+      mlbTeamMap.set(t.id, { name: t.name, abbreviation: t.abbreviation });
+    }
+  }
+
+  function resolveParentOrg(team: MlbTeam): { name: string; abbreviation: string } {
+    if (team.sport.id === 1) return { name: team.name, abbreviation: team.abbreviation };
+    if (team.parentOrgId && mlbTeamMap.has(team.parentOrgId)) {
+      return mlbTeamMap.get(team.parentOrgId)!;
+    }
+    return { name: team.name, abbreviation: team.abbreviation };
+  }
+
   const allPlayerEntries: {
     mlbId: number;
     name: string;
@@ -131,14 +148,14 @@ async function importPlayers() {
     team: string;
     teamAbbreviation: string;
     jerseyNumber: string | null;
-    mlbLevel: string;
   }[] = [];
 
   const seenPlayerIds = new Set<number>();
 
   for (const team of teams) {
     const level = SPORT_LEVELS[team.sport.id] || "Other";
-    console.log(`Fetching roster for ${team.name} (${level})...`);
+    const parentOrg = resolveParentOrg(team);
+    console.log(`Fetching roster for ${team.name} (${level}) -> ${parentOrg.abbreviation}...`);
 
     const roster = await fetchRoster(team.id);
 
@@ -151,10 +168,9 @@ async function importPlayers() {
         mlbId,
         name: entry.person.fullName,
         position: mapPosition(entry.position.abbreviation),
-        team: team.name,
-        teamAbbreviation: team.abbreviation,
+        team: parentOrg.name,
+        teamAbbreviation: parentOrg.abbreviation,
         jerseyNumber: entry.jerseyNumber || null,
-        mlbLevel: level,
       });
     }
 
@@ -241,7 +257,7 @@ async function importPlayers() {
         age: detail?.currentAge || null,
         height: detail?.height || null,
         weight: detail?.weight || null,
-        mlbLevel: entry.mlbLevel,
+        mlbLevel: "MLB",
       };
     });
 
@@ -249,15 +265,7 @@ async function importPlayers() {
     console.log(`  Inserted ${Math.min(i + INSERT_BATCH, allPlayerEntries.length)} of ${allPlayerEntries.length}`);
   }
 
-  console.log(`\nDone! Imported ${allPlayerEntries.length} players.`);
-
-  const counts = {
-    MLB: 0, AAA: 0, AA: 0, "A+": 0, A: 0, Rookie: 0
-  };
-  for (const e of allPlayerEntries) {
-    if (e.mlbLevel in counts) counts[e.mlbLevel as keyof typeof counts]++;
-  }
-  console.log("Breakdown by level:", counts);
+  console.log(`\nDone! Imported ${allPlayerEntries.length} players (all mapped to MLB parent orgs).`);
 
   process.exit(0);
 }
