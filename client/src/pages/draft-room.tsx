@@ -301,11 +301,9 @@ export default function DraftRoom() {
 
   const { pickTimeLeft } = usePickTimer(isDraftActive, secondsPerPick, league?.draftPickStartedAt || null);
 
-  const autoPickSentRef = useRef(false);
   const queueAutoPickRef = useRef(false);
   useEffect(() => {
     if (pickTimeLeft > 0) {
-      autoPickSentRef.current = false;
       queueAutoPickRef.current = false;
     }
     if (pickTimeLeft === 0 && isDraftActive && isMyTurn && !queueAutoPickRef.current) {
@@ -324,17 +322,7 @@ export default function DraftRoom() {
         return;
       }
     }
-    if (pickTimeLeft === 0 && isDraftActive && isCommissioner && !autoPickSentRef.current && !queueAutoPickRef.current) {
-      autoPickSentRef.current = true;
-      apiRequest("POST", `/api/leagues/${leagueId}/auto-pick`, { userId: user?.id })
-        .then(() => {
-          queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "draft-picks"] });
-          queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "drafted-player-ids"] });
-          queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId] });
-        })
-        .catch(() => {});
-    }
-  }, [pickTimeLeft, isDraftActive, isCommissioner, isMyTurn, draftQueue]);
+  }, [pickTimeLeft, isDraftActive, isMyTurn, draftQueue]);
 
   const picksByOverall = new Map<number, DraftPick>();
   draftPicks.forEach(p => picksByOverall.set(p.overallPick, p));

@@ -2407,6 +2407,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const totalRounds = getDraftRounds(league);
         if (preNextOverall > totalRounds * numTeams) {
           await storage.updateLeague(league.id, { draftStatus: "completed", draftPickStartedAt: null });
+          broadcastDraftEvent(league.id, "draft-status", { draftStatus: "completed" });
           recalculateAdpForLeague(league).catch(e => console.error("ADP recalc error:", e));
           generateLeagueMatchups(league.id).catch(e => console.error("Matchup gen error:", e));
           autoInitializeRosterSlots(league.id).catch(e => console.error("Roster init error:", e));
@@ -2427,173 +2428,205 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (elapsed < secondsPerPick) continue;
         }
 
-        await withLeagueDraftLock(league.id, async () => {
-          const existingPicks = await storage.getDraftPicksByLeague(league.id);
-          const rosterPositions = league.rosterPositions || [];
-          const nextOverall = existingPicks.length + 1;
-          if (nextOverall > totalRounds * numTeams) {
-            await storage.updateLeague(league.id, { draftStatus: "completed", draftPickStartedAt: null });
-            recalculateAdpForLeague(league).catch(e => console.error("ADP recalc error:", e));
-            generateLeagueMatchups(league.id).catch(e => console.error("Matchup gen error:", e));
-            autoInitializeRosterSlots(league.id).catch(e => console.error("Roster init error:", e));
-            return;
-          }
+        let continuePicking = true;
+        while (continuePicking) {
+          continuePicking = false;
 
-          const round = Math.ceil(nextOverall / numTeams);
-          const pickInRound = ((nextOverall - 1) % numTeams) + 1;
-          const isEvenRound = round % 2 === 1;
-          const teamIndex = isEvenRound ? pickInRound - 1 : numTeams - pickInRound;
-          const currentPickingTeam = leagueTeams[teamIndex];
-          if (!currentPickingTeam) return;
-
-          const draftedPlayerIds = await storage.getDraftedPlayerIds(league.id);
-          const teamPicks = existingPicks.filter(p => p.teamId === currentPickingTeam.id);
-          const teamPlayerIds = teamPicks.map(p => p.playerId);
-
-          const teamPlayers: { position: string }[] = [];
-          for (const pid of teamPlayerIds) {
-            const pl = await storage.getPlayer(pid);
-            if (pl) teamPlayers.push({ position: pl.position });
-          }
-
-          const isBestBallInterval = league.type === "Best Ball";
-          const leagueType = league.type || "Redraft";
-          const scoringFormat = league.scoringFormat || "Roto";
-          const season = new Date().getFullYear();
-
-          const eligiblePositions: string[] = [];
-
-          if (isBestBallInterval) {
-            for (const p of ["C", "1B", "2B", "3B", "SS", "OF", "SP", "RP", "DH"]) {
-              eligiblePositions.push(p);
-            }
-          } else {
-            const filledSlots = new Set<number>();
-            for (const tp of teamPlayers) {
-              const idx = rosterPositions.findIndex((slot, i) => {
-                if (filledSlots.has(i)) return false;
-                if (slot === tp.position) return true;
-                if (slot === "OF" && ["OF", "LF", "CF", "RF"].includes(tp.position)) return true;
-                if (slot === "INF" && INF_POSITIONS.includes(tp.position)) return true;
-                return false;
-              });
-              if (idx !== -1) filledSlots.add(idx);
-              else {
-                if (!["SP", "RP"].includes(tp.position)) {
-                  const utilIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "UT");
-                  if (utilIdx !== -1) filledSlots.add(utilIdx);
-                  else {
-                    const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
-                    if (bnIdx !== -1) filledSlots.add(bnIdx);
-                  }
-                } else {
-                  const pIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "P");
-                  if (pIdx !== -1) filledSlots.add(pIdx);
-                  else {
-                    const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
-                    if (bnIdx !== -1) filledSlots.add(bnIdx);
-                  }
-                }
-              }
-            }
-
-            const emptySlotPositions: string[] = [];
-            for (let i = 0; i < rosterPositions.length; i++) {
-              if (!filledSlots.has(i)) emptySlotPositions.push(rosterPositions[i]);
-            }
-
-            const hasBenchOrIL = emptySlotPositions.some(s => s === "BN" || s === "IL");
-            const hasUtil = emptySlotPositions.some(s => s === "UT");
-            const hasP = emptySlotPositions.some(s => s === "P");
-            const hasInf = emptySlotPositions.some(s => s === "INF");
-
-            for (const slot of emptySlotPositions) {
-              if (slot === "BN" || slot === "IL") continue;
-              if (slot === "UT") continue;
-              if (slot === "P") continue;
-              if (slot === "INF") {
-                for (const p of INF_POSITIONS) {
-                  if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
-                }
-                continue;
-              }
-              if (!eligiblePositions.includes(slot)) eligiblePositions.push(slot);
-            }
-
-            if (hasUtil) {
-              for (const p of ["C", "1B", "2B", "3B", "SS", "OF", "DH"]) {
-                if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
-              }
-            }
-
-            if (hasInf) {
-              for (const p of INF_POSITIONS) {
-                if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
-              }
-            }
-
-            if (hasP) {
-              for (const p of ["SP", "RP"]) {
-                if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
-              }
-            }
-
-            if (hasBenchOrIL) {
-              for (const p of ["C", "1B", "2B", "3B", "SS", "OF", "SP", "RP", "DH"]) {
-                if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
-              }
-            }
-          }
-
-          let selectedPlayer = await storage.getBestAvailableByAdp(
-            draftedPlayerIds, leagueType, scoringFormat, season, eligiblePositions
-          );
-
-          if (!selectedPlayer) {
-            for (const ep of eligiblePositions) {
-              selectedPlayer = await storage.getBestAvailablePlayer(draftedPlayerIds, ep);
-              if (selectedPlayer) break;
-            }
-          }
-
-          if (!selectedPlayer) {
-            selectedPlayer = await storage.getBestAvailablePlayer(draftedPlayerIds);
-          }
-          if (!selectedPlayer) {
-            await storage.updateLeague(league.id, { draftStatus: "completed", draftPickStartedAt: null });
-            recalculateAdpForLeague(league).catch(e => console.error("ADP recalc error:", e));
-            generateLeagueMatchups(league.id).catch(e => console.error("Matchup gen error:", e));
-            autoInitializeRosterSlots(league.id).catch(e => console.error("Roster init error:", e));
-            return;
-          }
-
-          try {
-            await storage.createDraftPick({
-              leagueId: league.id,
-              teamId: currentPickingTeam.id,
-              playerId: selectedPlayer.id,
-              overallPick: nextOverall,
-              round,
-              pickInRound,
-            });
-
-            const totalPicks = totalRounds * numTeams;
-            if (nextOverall >= totalPicks) {
+          const pickResult = await withLeagueDraftLock(league.id, async () => {
+            const existingPicks = await storage.getDraftPicksByLeague(league.id);
+            const rosterPositions = league.rosterPositions || [];
+            const nextOverall = existingPicks.length + 1;
+            if (nextOverall > totalRounds * numTeams) {
               await storage.updateLeague(league.id, { draftStatus: "completed", draftPickStartedAt: null });
               recalculateAdpForLeague(league).catch(e => console.error("ADP recalc error:", e));
               generateLeagueMatchups(league.id).catch(e => console.error("Matchup gen error:", e));
               autoInitializeRosterSlots(league.id).catch(e => console.error("Roster init error:", e));
-            } else {
-              await storage.updateLeague(league.id, { draftPickStartedAt: new Date().toISOString() });
+              return { completed: true, pick: null, nextTeamIsCpu: false };
             }
-          } catch (insertErr: any) {
-            if (insertErr?.message?.includes("unique") || insertErr?.code === "23505") {
-              console.log(`Duplicate pick prevented by DB constraint for league ${league.id}, pick ${nextOverall}`);
-            } else {
-              throw insertErr;
+
+            const round = Math.ceil(nextOverall / numTeams);
+            const pickInRound = ((nextOverall - 1) % numTeams) + 1;
+            const isEvenRound = round % 2 === 1;
+            const teamIndex = isEvenRound ? pickInRound - 1 : numTeams - pickInRound;
+            const currentPickingTeam = leagueTeams[teamIndex];
+            if (!currentPickingTeam) return null;
+
+            const draftedPlayerIds = await storage.getDraftedPlayerIds(league.id);
+            const teamPicks = existingPicks.filter(p => p.teamId === currentPickingTeam.id);
+            const teamPlayerIds = teamPicks.map(p => p.playerId);
+
+            const teamPlayers: { position: string }[] = [];
+            for (const pid of teamPlayerIds) {
+              const pl = await storage.getPlayer(pid);
+              if (pl) teamPlayers.push({ position: pl.position });
             }
+
+            const isBestBallInterval = league.type === "Best Ball";
+            const leagueType = league.type || "Redraft";
+            const scoringFormat = league.scoringFormat || "Roto";
+            const season = new Date().getFullYear();
+
+            const eligiblePositions: string[] = [];
+
+            if (isBestBallInterval) {
+              for (const p of ["C", "1B", "2B", "3B", "SS", "OF", "SP", "RP", "DH"]) {
+                eligiblePositions.push(p);
+              }
+            } else {
+              const filledSlots = new Set<number>();
+              for (const tp of teamPlayers) {
+                const idx = rosterPositions.findIndex((slot, i) => {
+                  if (filledSlots.has(i)) return false;
+                  if (slot === tp.position) return true;
+                  if (slot === "OF" && ["OF", "LF", "CF", "RF"].includes(tp.position)) return true;
+                  if (slot === "INF" && INF_POSITIONS.includes(tp.position)) return true;
+                  return false;
+                });
+                if (idx !== -1) filledSlots.add(idx);
+                else {
+                  if (!["SP", "RP"].includes(tp.position)) {
+                    const utilIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "UT");
+                    if (utilIdx !== -1) filledSlots.add(utilIdx);
+                    else {
+                      const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
+                      if (bnIdx !== -1) filledSlots.add(bnIdx);
+                    }
+                  } else {
+                    const pIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "P");
+                    if (pIdx !== -1) filledSlots.add(pIdx);
+                    else {
+                      const bnIdx = rosterPositions.findIndex((s, i) => !filledSlots.has(i) && s === "BN");
+                      if (bnIdx !== -1) filledSlots.add(bnIdx);
+                    }
+                  }
+                }
+              }
+
+              const emptySlotPositions: string[] = [];
+              for (let i = 0; i < rosterPositions.length; i++) {
+                if (!filledSlots.has(i)) emptySlotPositions.push(rosterPositions[i]);
+              }
+
+              const hasBenchOrIL = emptySlotPositions.some(s => s === "BN" || s === "IL");
+              const hasUtil = emptySlotPositions.some(s => s === "UT");
+              const hasP = emptySlotPositions.some(s => s === "P");
+              const hasInf = emptySlotPositions.some(s => s === "INF");
+
+              for (const slot of emptySlotPositions) {
+                if (slot === "BN" || slot === "IL") continue;
+                if (slot === "UT") continue;
+                if (slot === "P") continue;
+                if (slot === "INF") {
+                  for (const p of INF_POSITIONS) {
+                    if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
+                  }
+                  continue;
+                }
+                if (!eligiblePositions.includes(slot)) eligiblePositions.push(slot);
+              }
+
+              if (hasUtil) {
+                for (const p of ["C", "1B", "2B", "3B", "SS", "OF", "DH"]) {
+                  if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
+                }
+              }
+
+              if (hasInf) {
+                for (const p of INF_POSITIONS) {
+                  if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
+                }
+              }
+
+              if (hasP) {
+                for (const p of ["SP", "RP"]) {
+                  if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
+                }
+              }
+
+              if (hasBenchOrIL) {
+                for (const p of ["C", "1B", "2B", "3B", "SS", "OF", "SP", "RP", "DH"]) {
+                  if (!eligiblePositions.includes(p)) eligiblePositions.push(p);
+                }
+              }
+            }
+
+            let selectedPlayer = await storage.getBestAvailableByAdp(
+              draftedPlayerIds, leagueType, scoringFormat, season, eligiblePositions
+            );
+
+            if (!selectedPlayer) {
+              for (const ep of eligiblePositions) {
+                selectedPlayer = await storage.getBestAvailablePlayer(draftedPlayerIds, ep);
+                if (selectedPlayer) break;
+              }
+            }
+
+            if (!selectedPlayer) {
+              selectedPlayer = await storage.getBestAvailablePlayer(draftedPlayerIds);
+            }
+            if (!selectedPlayer) {
+              await storage.updateLeague(league.id, { draftStatus: "completed", draftPickStartedAt: null });
+              recalculateAdpForLeague(league).catch(e => console.error("ADP recalc error:", e));
+              generateLeagueMatchups(league.id).catch(e => console.error("Matchup gen error:", e));
+              autoInitializeRosterSlots(league.id).catch(e => console.error("Roster init error:", e));
+              return { completed: true, pick: null, nextTeamIsCpu: false };
+            }
+
+            try {
+              await storage.createDraftPick({
+                leagueId: league.id,
+                teamId: currentPickingTeam.id,
+                playerId: selectedPlayer.id,
+                overallPick: nextOverall,
+                round,
+                pickInRound,
+              });
+
+              const totalPicks = totalRounds * numTeams;
+              if (nextOverall >= totalPicks) {
+                await storage.updateLeague(league.id, { draftStatus: "completed", draftPickStartedAt: null });
+                recalculateAdpForLeague(league).catch(e => console.error("ADP recalc error:", e));
+                generateLeagueMatchups(league.id).catch(e => console.error("Matchup gen error:", e));
+                autoInitializeRosterSlots(league.id).catch(e => console.error("Roster init error:", e));
+                return {
+                  completed: true,
+                  pick: { overallPick: nextOverall, playerId: selectedPlayer.id, teamId: currentPickingTeam.id },
+                  nextTeamIsCpu: false,
+                };
+              } else {
+                await storage.updateLeague(league.id, { draftPickStartedAt: new Date().toISOString() });
+                const nextNextOverall = nextOverall + 1;
+                const nextRound = Math.ceil(nextNextOverall / numTeams);
+                const nextPickInRound = ((nextNextOverall - 1) % numTeams) + 1;
+                const nextIsEvenRound = nextRound % 2 === 1;
+                const nextTeamIndex = nextIsEvenRound ? nextPickInRound - 1 : numTeams - nextPickInRound;
+                const nextTeam = leagueTeams[nextTeamIndex];
+                return {
+                  completed: false,
+                  pick: { overallPick: nextOverall, playerId: selectedPlayer.id, teamId: currentPickingTeam.id },
+                  nextTeamIsCpu: nextTeam?.isCpu === true,
+                };
+              }
+            } catch (insertErr: any) {
+              if (insertErr?.message?.includes("unique") || insertErr?.code === "23505") {
+                console.log(`Duplicate pick prevented by DB constraint for league ${league.id}, pick ${nextOverall}`);
+              } else {
+                throw insertErr;
+              }
+              return null;
+            }
+          });
+
+          if (pickResult?.pick) {
+            broadcastDraftEvent(league.id, "pick", pickResult.pick);
           }
-        });
+          if (pickResult?.completed) {
+            broadcastDraftEvent(league.id, "draft-status", { draftStatus: "completed" });
+          } else if (pickResult?.nextTeamIsCpu) {
+            await new Promise(r => setTimeout(r, 1200));
+            continuePicking = true;
+          }
+        }
         } catch (leagueErr) {
           console.error(`Error processing draft for league ${league.id} (${league.name}):`, (leagueErr as Error).message);
         }
@@ -2605,7 +2638,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
 
-  setInterval(checkExpiredDraftPicks, 5000);
+  setInterval(checkExpiredDraftPicks, 3000);
 
   async function processExpiredWaivers() {
     try {
