@@ -1201,17 +1201,20 @@ export default function DraftRoom() {
             <div className="flex items-center justify-center pt-2 pb-1">
               <div className="w-10 h-1 rounded-full bg-gray-600" />
             </div>
-          </div>
-          <div className="flex items-center justify-between px-3 pb-2">
-            <h3 className="text-white text-base font-bold">Draft Queue</h3>
-            {orderedQueuePlayers.length > 0 && (
-              <button
-                onClick={() => setDraftQueue([])}
-                className="text-gray-500 hover:text-red-400 text-[11px]"
-              >
-                Clear All
-              </button>
-            )}
+            <div className="flex items-center justify-between px-4 pb-2">
+              <h3 className="text-white font-semibold text-sm">
+                Draft Queue
+                {orderedQueuePlayers.length > 0 && <span className="text-gray-500 font-normal ml-1.5">({orderedQueuePlayers.length})</span>}
+              </h3>
+              {orderedQueuePlayers.length > 0 && (
+                <button
+                  onClick={() => setDraftQueue([])}
+                  className="text-gray-500 hover:text-red-400 text-[11px]"
+                >
+                  Clear All
+                </button>
+              )}
+            </div>
           </div>
           <div className="flex-1 overflow-auto hide-scrollbar px-1.5 pb-3 space-y-1">
             {orderedQueuePlayers.length === 0 ? (
