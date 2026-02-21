@@ -824,6 +824,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/users/:id/profile-stats", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      const userTeams = await storage.getTeamsByUserId(userId);
+      const leagueIds = [...new Set(userTeams.map(t => t.leagueId).filter(Boolean))] as number[];
+      const leagueMap = new Map<number, { status: string | null }>();
+      for (const lid of leagueIds) {
+        const league = await storage.getLeague(lid);
+        if (league) leagueMap.set(lid, { status: league.status });
+      }
+
+      const allTimeLeagues = leagueIds.length;
+      let gold = 0, silver = 0, bronze = 0;
+      let completedLeagues = 0;
+
+      for (const team of userTeams) {
+        if (!team.leagueId || team.isCpu) continue;
+        const league = leagueMap.get(team.leagueId);
+        if (league?.status === "Completed") {
+          completedLeagues++;
+          if (team.rank === 1) gold++;
+          else if (team.rank === 2) silver++;
+          else if (team.rank === 3) bronze++;
+        }
+      }
+
+      const winRate = completedLeagues > 0 ? (gold / completedLeagues) * 100 : 0;
+      const trophyRate = completedLeagues > 0 ? ((gold + silver + bronze) / completedLeagues) * 100 : 0;
+
+      let gmTier = "Intern";
+      if (allTimeLeagues >= 50 && winRate >= 25) gmTier = "Hall of Fame";
+      else if (allTimeLeagues >= 30 && winRate >= 20) gmTier = "Executive";
+      else if (allTimeLeagues >= 20 && winRate >= 15) gmTier = "Director";
+      else if (allTimeLeagues >= 10 && trophyRate >= 30) gmTier = "Manager";
+      else if (allTimeLeagues >= 5) gmTier = "Scout";
+      else if (allTimeLeagues >= 1) gmTier = "Rookie";
+
+      res.json({ allTimeLeagues, completedLeagues, gold, silver, bronze, winRate, trophyRate, gmTier });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch profile stats" });
+    }
+  });
+
   // Get user profile
   app.get("/api/users/:id", async (req, res) => {
     try {

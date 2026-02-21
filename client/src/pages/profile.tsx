@@ -6,39 +6,51 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { User, LogOut, Mail, Upload, ChevronDown, ChevronUp, Settings, Camera } from "lucide-react";
+import { User, LogOut, Mail, Settings, Camera, Trophy, Award, Medal } from "lucide-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import type { Team } from "@shared/schema";
+
+interface ProfileStats {
+  allTimeLeagues: number;
+  completedLeagues: number;
+  gold: number;
+  silver: number;
+  bronze: number;
+  winRate: number;
+  trophyRate: number;
+  gmTier: string;
+}
+
+const GM_TIER_COLORS: Record<string, string> = {
+  "Intern": "text-gray-400",
+  "Rookie": "text-green-400",
+  "Scout": "text-blue-400",
+  "Manager": "text-purple-400",
+  "Director": "text-orange-400",
+  "Executive": "text-red-400",
+  "Hall of Fame": "text-yellow-400",
+};
 
 export default function Profile() {
   const { user, isLoading, logout } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [showAdpImport, setShowAdpImport] = useState(false);
-  const [adpText, setAdpText] = useState("");
-  const [importing, setImporting] = useState(false);
-  const [importResult, setImportResult] = useState<{ matchedCount: number; totalCount: number; unmatchedCount: number; results: { name: string; adp: number; matched: boolean; playerName?: string }[] } | null>(null);
-  const [importMode, setImportMode] = useState<"merge" | "replace">("replace");
   const [editOpen, setEditOpen] = useState(false);
   const [editUsername, setEditUsername] = useState("");
   const [editAvatar, setEditAvatar] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: userTeams } = useQuery<Team[]>({
-    queryKey: ["/api/teams/user", user?.id],
+  const { data: stats } = useQuery<ProfileStats>({
+    queryKey: ["/api/users", user?.id, "profile-stats"],
     queryFn: async () => {
-      const res = await fetch(`/api/teams/user/${user?.id}`);
+      const res = await fetch(`/api/users/${user?.id}/profile-stats`);
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
     enabled: !!user?.id,
   });
-
-  const leagueCount = new Set((userTeams || []).map(t => t.leagueId).filter(Boolean)).size;
-  const teamCount = (userTeams || []).length;
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: { username?: string; avatar?: string | null }) => {
@@ -91,29 +103,6 @@ export default function Profile() {
     updateProfileMutation.mutate(data);
   };
 
-  const handleAdpImport = async () => {
-    if (!adpText.trim()) return;
-    if (!user) return;
-    setImporting(true);
-    setImportResult(null);
-    try {
-      const res = await apiRequest("POST", "/api/adp/import", {
-        data: adpText,
-        leagueType: "Redraft",
-        scoringFormat: "Roto",
-        season: 2026,
-        weight: 100,
-        userId: user.id,
-        mode: importMode,
-      });
-      const result = await res.json();
-      setImportResult(result);
-    } catch (err) {
-    } finally {
-      setImporting(false);
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="px-4 py-6">
@@ -148,6 +137,8 @@ export default function Profile() {
     );
   }
 
+  const tierColor = GM_TIER_COLORS[stats?.gmTier || "Intern"] || "text-gray-400";
+
   return (
     <div className="px-4 py-6 space-y-6">
       <Card className="gradient-card rounded-xl p-6 border-0">
@@ -176,18 +167,50 @@ export default function Profile() {
           </button>
         </div>
 
-        <div className="grid grid-cols-3 gap-4 text-center mb-6">
-          <div>
-            <div className="text-2xl font-bold text-white">{leagueCount}</div>
-            <div className="text-xs text-gray-400">Leagues</div>
+        <div className="flex items-center justify-between mb-5 px-1">
+          <div className="flex items-center gap-2">
+            <Trophy className="w-4 h-4 text-blue-400" />
+            <span className="text-sm text-gray-400">GM Tier</span>
+            <span className={`text-sm font-bold ${tierColor}`}>{stats?.gmTier || "Intern"}</span>
           </div>
-          <div>
-            <div className="text-2xl font-bold text-white">{teamCount}</div>
-            <div className="text-xs text-gray-400">Teams</div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-2xl font-bold text-white">{stats?.allTimeLeagues ?? 0}</span>
+            <span className="text-xs text-gray-400">Leagues</span>
           </div>
-          <div>
-            <div className="text-lg font-bold text-blue-400">Intern</div>
-            <div className="text-xs text-gray-400">GM Tier</div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3 mb-5">
+          <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl py-3 text-center">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <Award className="w-4 h-4 text-yellow-400" />
+            </div>
+            <div className="text-2xl font-bold text-yellow-400">{stats?.gold ?? 0}</div>
+            <div className="text-[10px] text-yellow-400/70 font-medium">GOLD</div>
+          </div>
+          <div className="bg-gray-400/10 border border-gray-400/20 rounded-xl py-3 text-center">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <Medal className="w-4 h-4 text-gray-300" />
+            </div>
+            <div className="text-2xl font-bold text-gray-300">{stats?.silver ?? 0}</div>
+            <div className="text-[10px] text-gray-400/70 font-medium">SILVER</div>
+          </div>
+          <div className="bg-orange-600/10 border border-orange-600/20 rounded-xl py-3 text-center">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <Medal className="w-4 h-4 text-orange-400" />
+            </div>
+            <div className="text-2xl font-bold text-orange-400">{stats?.bronze ?? 0}</div>
+            <div className="text-[10px] text-orange-500/70 font-medium">BRONZE</div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          <div className="bg-gray-800/60 rounded-xl py-3 text-center">
+            <div className="text-xl font-bold text-white">{(stats?.winRate ?? 0).toFixed(1)}%</div>
+            <div className="text-[10px] text-gray-400 font-medium">WIN RATE</div>
+          </div>
+          <div className="bg-gray-800/60 rounded-xl py-3 text-center">
+            <div className="text-xl font-bold text-white">{(stats?.trophyRate ?? 0).toFixed(1)}%</div>
+            <div className="text-[10px] text-gray-400 font-medium">TROPHY RATE</div>
           </div>
         </div>
 
@@ -199,92 +222,6 @@ export default function Profile() {
           <LogOut className="w-4 h-4 mr-2" />
           Sign Out
         </Button>
-      </Card>
-
-      <Card className="gradient-card rounded-xl p-6 border-0">
-        <h2 className="text-lg font-semibold text-white mb-4">Account Settings</h2>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between py-2">
-            <span className="text-gray-300">Notifications</span>
-            <span className="text-gray-400 text-sm">Enabled</span>
-          </div>
-          <div className="flex items-center justify-between py-2">
-            <span className="text-gray-300">Privacy</span>
-            <span className="text-gray-400 text-sm">Public</span>
-          </div>
-          <div className="flex items-center justify-between py-2">
-            <span className="text-gray-300">League Invites</span>
-            <span className="text-gray-400 text-sm">Open</span>
-          </div>
-        </div>
-      </Card>
-
-      <Card className="gradient-card rounded-xl p-6 border-0">
-        <button
-          onClick={() => setShowAdpImport(!showAdpImport)}
-          className="flex items-center justify-between w-full"
-        >
-          <div className="flex items-center gap-2">
-            <Upload className="w-5 h-5 text-blue-400" />
-            <h2 className="text-lg font-semibold text-white">Import ADP Data</h2>
-          </div>
-          {showAdpImport ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
-        </button>
-
-        {showAdpImport && (
-          <div className="mt-4 space-y-3">
-            <p className="text-gray-400 text-xs">
-              Paste a tab-separated list of player names and ADP values. Each line should be: Player Name [tab] ADP Number
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setImportMode("replace")}
-                className={`flex-1 text-xs py-1.5 rounded-lg border ${importMode === "replace" ? "bg-blue-600 border-blue-500 text-white" : "bg-gray-800 border-gray-700 text-gray-400"}`}
-              >
-                Replace existing
-              </button>
-              <button
-                onClick={() => setImportMode("merge")}
-                className={`flex-1 text-xs py-1.5 rounded-lg border ${importMode === "merge" ? "bg-blue-600 border-blue-500 text-white" : "bg-gray-800 border-gray-700 text-gray-400"}`}
-              >
-                Merge with existing
-              </button>
-            </div>
-            <textarea
-              value={adpText}
-              onChange={(e) => setAdpText(e.target.value)}
-              placeholder={"Player Name\tADP\nShohei Ohtani\t1\nAaron Judge\t2"}
-              className="w-full h-40 bg-gray-800 border border-gray-700 rounded-lg p-3 text-white text-xs font-mono resize-y placeholder:text-gray-600"
-            />
-            <Button
-              onClick={handleAdpImport}
-              disabled={importing || !adpText.trim()}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              {importing ? "Importing..." : "Import ADP Rankings"}
-            </Button>
-
-            {importResult && (
-              <div className="mt-3 space-y-2">
-                <div className="flex gap-3 text-xs">
-                  <span className="text-green-400">{importResult.matchedCount} matched</span>
-                  {importResult.unmatchedCount > 0 && (
-                    <span className="text-yellow-400">{importResult.unmatchedCount} unmatched</span>
-                  )}
-                  <span className="text-gray-400">{importResult.totalCount} total</span>
-                </div>
-                {importResult.unmatchedCount > 0 && (
-                  <div className="bg-gray-800/50 rounded-lg p-2 max-h-32 overflow-y-auto">
-                    <p className="text-yellow-400 text-[10px] font-semibold mb-1">Unmatched players:</p>
-                    {importResult.results.filter(r => !r.matched).map((r, i) => (
-                      <p key={i} className="text-gray-400 text-[10px]">{r.name} (ADP: {r.adp})</p>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
       </Card>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
