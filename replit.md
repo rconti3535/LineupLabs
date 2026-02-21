@@ -67,11 +67,11 @@ Key API routes:
 - **Fallback**: All draft queries also poll every 30 seconds as a safety net in case the SSE connection drops
 
 ### Data Storage
-- **Database**: PostgreSQL via Replit's built-in database, connected using `DATABASE_URL` environment variable.
+- **Database**: PostgreSQL (Supabase). The app uses `pg` (node-postgres) and connects via `DATABASE_URL`. Use Supabase connection string with `?sslmode=require`. No Replit or Neon references.
 - **ORM**: Drizzle ORM with `drizzle-zod` for schema-to-validation integration
 - **Schema Location**: `shared/schema.ts` — shared between client and server
 - **Migrations**: Drizzle Kit with `drizzle-kit push` for schema sync (migrations output to `./migrations`)
-- **Connection**: Requires `DATABASE_URL` environment variable
+- **Connection**: Set `DATABASE_URL` in `.env` (local) or in your host's env (e.g. Railway). Test with `npm run db:test`.
 
 ### Database Schema (defined in `shared/schema.ts`)
 - **users** — id, username, email, password, name, avatar, leagues count, wins, championships
@@ -99,10 +99,16 @@ Key API routes:
 6. **Multiple scoring formats** — Roto (default), H2H Points, H2H Each Category, H2H Most Categories, and Season Points. Scoring logic lives in `server/roto-scoring.ts` (Roto) and `server/scoring.ts` (all formats dispatch + H2H/Points implementations). Standings API dispatches to the correct scoring function based on `league.scoringFormat`.
 7. **Best Ball league type** — Draft-only format; no lineup management, waivers, trades, or roster swaps after draft. Only Roto and Season Points scoring allowed. Optimal lineups are calculated dynamically: Roto calculates a separate optimal lineup per category (e.g., best HR lineup differs from best SB lineup) using a greedy slot-filling algorithm in `server/roto-scoring.ts`; Season Points uses a single optimal lineup for the entire year. The optimizer selects the best subset of players from each team's full 40-player draft pool to fill 13 scoring positions (C, INF×4, OF×3, SP×3, RP×2) respecting position eligibility (INF accepts 1B/2B/3B/SS; OF accepts OF/LF/CF/RF/DH/UT). For ratio categories (AVG, ERA, WHIP, OBP, OPS), the optimizer selects players who best optimize the ratio rather than just maximizing/minimizing the raw stat. Backend routes block all roster/lineup mutations for Best Ball leagues; UI hides add/drop, swap, waiver, and lineup management controls. Pitchers in the DB are properly classified as SP or RP based on career games started percentage (>=50% starts = SP, <50% = RP) using MLB Stats API data.
 
+## Deployment (Railway)
+
+- Set **DATABASE_URL** in Railway to your Supabase PostgreSQL URL (include `?sslmode=require`). If the password contains `#` or `@`, URL-encode them (`#` → `%23`, `@` → `%40`).
+- Build command: `npm run build`. Start command: `npm start`.
+- After deploy, run `npm run db:test` (or a one-off Railway run) to verify the app can reach Supabase. If you see `ENETUNREACH`, the Railway region may be blocked from Supabase; try another region or ensure the project is not paused in the Supabase dashboard.
+
 ## External Dependencies
 
 ### Database
-- **PostgreSQL** via Neon Serverless (`@neondatabase/serverless`) — requires `DATABASE_URL` environment variable
+- **PostgreSQL** via `pg` (node-postgres) — requires `DATABASE_URL` (Supabase or any Postgres). SSL required for Supabase.
 - **connect-pg-simple** — listed as dependency (likely for session store, though not currently wired up)
 
 ### Key NPM Packages
@@ -123,7 +129,3 @@ Key API routes:
 
 ### Fonts
 - **Jura** — Google Fonts, loaded via CDN in `client/index.html`
-
-### Replit-specific
-- **@replit/vite-plugin-runtime-error-modal** — Runtime error overlay in development
-- **@replit/vite-plugin-cartographer** — Replit development tooling (conditionally loaded)
