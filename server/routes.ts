@@ -2423,16 +2423,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   setInterval(processExpiredWaivers, 60000);
 
-  app.post("/api/admin/clear-users-temp", async (_req, res) => {
-    try {
-      const { db } = await import("./db");
-      const schema = await import("@shared/schema");
-      const result = await db.update(schema.users).set({ username: "", password: "", email: "" }).returning({ id: schema.users.id });
-      res.json({ cleared: result.length });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message || "Failed to clear users" });
-    }
-  });
 
   return httpServer;
 }
