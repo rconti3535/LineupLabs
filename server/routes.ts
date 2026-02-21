@@ -1841,9 +1841,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const results: { name: string; adp: number; matched: boolean; playerId?: number; playerName?: string }[] = [];
 
       const allPlayers = await storage.getPlayers();
+      const statsWeight = (p: typeof allPlayers[0]) => (p.statAB || 0) + (p.statSO || 0);
       const nameMap = new Map<string, typeof allPlayers[0]>();
       for (const p of allPlayers) {
-        nameMap.set(p.name.toLowerCase(), p);
+        const key = p.name.toLowerCase();
+        const existing = nameMap.get(key);
+        if (!existing || statsWeight(p) > statsWeight(existing)) {
+          nameMap.set(key, p);
+        }
       }
 
       const parsed: { name: string; adp: number; player?: typeof allPlayers[0] }[] = [];

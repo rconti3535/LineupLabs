@@ -412,18 +412,32 @@ export async function importNfbcAdp(): Promise<{ matched: number; unmatched: num
   }
 
   const allPlayers = await db
-    .select({ id: players.id, name: players.name, firstName: players.firstName, lastName: players.lastName })
+    .select({
+      id: players.id,
+      name: players.name,
+      firstName: players.firstName,
+      lastName: players.lastName,
+      statAB: players.statAB,
+      statSO: players.statSO,
+    })
     .from(players);
 
   console.log(`Found ${allPlayers.length} players in database`);
+
+  const playerStatsWeight = new Map<number, number>();
+  for (const p of allPlayers) {
+    playerStatsWeight.set(p.id, (p.statAB || 0) + (p.statSO || 0));
+  }
 
   const playerNameMap = new Map<string, number>();
   for (const p of allPlayers) {
     const fullName = p.name || `${p.firstName || ""} ${p.lastName || ""}`.trim();
     if (fullName) {
       const variants = buildNameVariants(fullName);
+      const pWeight = playerStatsWeight.get(p.id) || 0;
       for (const v of variants) {
-        if (!playerNameMap.has(v)) {
+        const existing = playerNameMap.get(v);
+        if (!existing || pWeight > (playerStatsWeight.get(existing) || 0)) {
           playerNameMap.set(v, p.id);
         }
       }
