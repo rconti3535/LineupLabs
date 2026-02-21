@@ -18,6 +18,28 @@ type PlayersPanelView = "2025-stats" | "2026-proj";
 
 const POSITION_FILTERS = ["ALL", "C", "1B", "2B", "3B", "SS", "OF", "INF", "SP", "RP", "DH", "UT"];
 
+const HITTING_STAT_KEYS: Record<string, { stat: keyof Player; proj: keyof Player }> = {
+  R: { stat: "statR", proj: "projR" }, HR: { stat: "statHR", proj: "projHR" },
+  RBI: { stat: "statRBI", proj: "projRBI" }, SB: { stat: "statSB", proj: "projSB" },
+  AVG: { stat: "statAVG", proj: "projAVG" }, H: { stat: "statH", proj: "projH" },
+  "2B": { stat: "stat2B", proj: "proj2B" }, "3B": { stat: "stat3B", proj: "proj3B" },
+  BB: { stat: "statBB", proj: "projBB" }, K: { stat: "statK", proj: "projK" },
+  OBP: { stat: "statOBP", proj: "projOBP" }, SLG: { stat: "statSLG", proj: "projSLG" },
+  OPS: { stat: "statOPS", proj: "projOPS" }, TB: { stat: "statTB", proj: "projTB" },
+  CS: { stat: "statCS", proj: "projCS" }, HBP: { stat: "statHBP", proj: "projHBP" },
+  AB: { stat: "statAB", proj: "projAB" }, PA: { stat: "statPA", proj: "projPA" },
+};
+
+const PITCHING_STAT_KEYS: Record<string, { stat: keyof Player; proj: keyof Player }> = {
+  W: { stat: "statW", proj: "projW" }, L: { stat: "statL", proj: "projL" },
+  SV: { stat: "statSV", proj: "projSV" }, HLD: { stat: "statHLD", proj: "projHLD" },
+  ERA: { stat: "statERA", proj: "projERA" }, WHIP: { stat: "statWHIP", proj: "projWHIP" },
+  K: { stat: "statSO", proj: "projSO" }, SO: { stat: "statSO", proj: "projSO" },
+  QS: { stat: "statQS", proj: "projQS" }, IP: { stat: "statIP", proj: "projIP" },
+  CG: { stat: "statCG", proj: "projCG" }, SHO: { stat: "statSHO", proj: "projSHO" },
+  BSV: { stat: "statBSV", proj: "projBSV" },
+};
+
 function useCountdown(targetDate: Date | null) {
   const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number; minutes: number; seconds: number } | null>(null);
   const [hasReached, setHasReached] = useState(false);
@@ -565,6 +587,18 @@ export default function DraftRoom() {
 
   const isPitcher = (pos: string) => pos === "SP" || pos === "RP";
 
+  const hittingCats = league?.hittingCategories || ["R", "HR", "RBI", "SB", "AVG"];
+  const pitchingCats = league?.pitchingCategories || ["W", "SV", "K", "ERA", "WHIP"];
+
+  const getPlayerStat = (player: Player, cat: string, pitcher: boolean, view: PlayersPanelView) => {
+    const map = pitcher ? PITCHING_STAT_KEYS : HITTING_STAT_KEYS;
+    const entry = map[cat];
+    if (!entry) return "-";
+    const key = view === "2025-stats" ? entry.stat : entry.proj;
+    const val = player[key];
+    return val ?? "-";
+  };
+
   return (
     <div className="flex flex-col h-screen overflow-hidden relative">
       <div className="px-3 py-2 shrink-0 border-b border-gray-800">
@@ -972,107 +1006,16 @@ export default function DraftRoom() {
                     <p className="text-[11px]"><span className={`font-medium ${positionTextColor(player.position)}`}>{player.position}</span> <span className="text-gray-500">&middot; {player.teamAbbreviation || player.team}</span></p>
                   </div>
                   <div className="flex-1 flex justify-center">
-                    {playersPanelView === "2025-stats" ? (
-                      <div className="flex gap-1.5">
-                        {isPitcher(player.position) ? (
-                          <>
-                            <div className="text-center min-w-[28px]">
-                              <p className="text-[9px] text-gray-500">W</p>
-                              <p className="text-xs font-medium text-gray-300">{player.statW ?? "-"}</p>
-                            </div>
-                            <div className="text-center min-w-[28px]">
-                              <p className="text-[9px] text-gray-500">SV</p>
-                              <p className="text-xs font-medium text-gray-300">{player.statSV ?? "-"}</p>
-                            </div>
-                            <div className="text-center min-w-[28px]">
-                              <p className="text-[9px] text-gray-500">K</p>
-                              <p className="text-xs font-medium text-gray-300">{player.statSO ?? "-"}</p>
-                            </div>
-                            <div className="text-center min-w-[28px]">
-                              <p className="text-[9px] text-gray-500">ERA</p>
-                              <p className="text-xs font-medium text-gray-300">{player.statERA ?? "-"}</p>
-                            </div>
-                            <div className="text-center min-w-[28px]">
-                              <p className="text-[9px] text-gray-500">WHIP</p>
-                              <p className="text-xs font-medium text-gray-300">{player.statWHIP ?? "-"}</p>
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <div className="text-center min-w-[28px]">
-                              <p className="text-[9px] text-gray-500">R</p>
-                              <p className="text-xs font-medium text-gray-300">{player.statR ?? "-"}</p>
-                            </div>
-                            <div className="text-center min-w-[28px]">
-                              <p className="text-[9px] text-gray-500">HR</p>
-                              <p className="text-xs font-medium text-gray-300">{player.statHR ?? "-"}</p>
-                            </div>
-                            <div className="text-center min-w-[28px]">
-                              <p className="text-[9px] text-gray-500">RBI</p>
-                              <p className="text-xs font-medium text-gray-300">{player.statRBI ?? "-"}</p>
-                            </div>
-                            <div className="text-center min-w-[28px]">
-                              <p className="text-[9px] text-gray-500">SB</p>
-                              <p className="text-xs font-medium text-gray-300">{player.statSB ?? "-"}</p>
-                            </div>
-                            <div className="text-center min-w-[28px]">
-                              <p className="text-[9px] text-gray-500">AVG</p>
-                              <p className="text-xs font-medium text-gray-300">{player.statAVG ?? "-"}</p>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="flex gap-1.5">
-                        {isPitcher(player.position) ? (
-                          <>
-                            <div className="text-center min-w-[28px]">
-                              <p className="text-[9px] text-gray-500">W</p>
-                              <p className="text-xs font-medium text-gray-300">{player.projW ?? "-"}</p>
-                            </div>
-                            <div className="text-center min-w-[28px]">
-                              <p className="text-[9px] text-gray-500">SV</p>
-                              <p className="text-xs font-medium text-gray-300">{player.projSV ?? "-"}</p>
-                            </div>
-                            <div className="text-center min-w-[28px]">
-                              <p className="text-[9px] text-gray-500">K</p>
-                              <p className="text-xs font-medium text-gray-300">{player.projSO ?? "-"}</p>
-                            </div>
-                            <div className="text-center min-w-[28px]">
-                              <p className="text-[9px] text-gray-500">ERA</p>
-                              <p className="text-xs font-medium text-gray-300">{player.projERA ?? "-"}</p>
-                            </div>
-                            <div className="text-center min-w-[28px]">
-                              <p className="text-[9px] text-gray-500">WHIP</p>
-                              <p className="text-xs font-medium text-gray-300">{player.projWHIP ?? "-"}</p>
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <div className="text-center min-w-[28px]">
-                              <p className="text-[9px] text-gray-500">R</p>
-                              <p className="text-xs font-medium text-gray-300">{player.projR ?? "-"}</p>
-                            </div>
-                            <div className="text-center min-w-[28px]">
-                              <p className="text-[9px] text-gray-500">HR</p>
-                              <p className="text-xs font-medium text-gray-300">{player.projHR ?? "-"}</p>
-                            </div>
-                            <div className="text-center min-w-[28px]">
-                              <p className="text-[9px] text-gray-500">RBI</p>
-                              <p className="text-xs font-medium text-gray-300">{player.projRBI ?? "-"}</p>
-                            </div>
-                            <div className="text-center min-w-[28px]">
-                              <p className="text-[9px] text-gray-500">SB</p>
-                              <p className="text-xs font-medium text-gray-300">{player.projSB ?? "-"}</p>
-                            </div>
-                            <div className="text-center min-w-[28px]">
-                              <p className="text-[9px] text-gray-500">AVG</p>
-                              <p className="text-xs font-medium text-gray-300">{player.projAVG ?? "-"}</p>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    )}
+                    <div className="flex gap-1.5">
+                      {(isPitcher(player.position) ? pitchingCats : hittingCats).map((cat) => (
+                        <div key={cat} className="text-center min-w-[28px]">
+                          <p className="text-[9px] text-gray-500">{cat}</p>
+                          <p className="text-xs font-medium text-gray-300">
+                            {getPlayerStat(player, cat, isPitcher(player.position), playersPanelView)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                   {commissionerAssignMode ? (
                     <Button
