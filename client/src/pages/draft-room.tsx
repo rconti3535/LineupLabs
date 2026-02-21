@@ -507,6 +507,15 @@ export default function DraftRoom() {
     return colors[pos] || "bg-gray-600";
   };
 
+  const positionTextColor = (pos: string) => {
+    const colors: Record<string, string> = {
+      C: "text-yellow-500", INF: "text-purple-500", "1B": "text-red-500", "2B": "text-orange-500",
+      "3B": "text-pink-500", SS: "text-purple-500", OF: "text-green-500",
+      SP: "text-blue-500", RP: "text-cyan-500", DH: "text-gray-500", UT: "text-gray-500", P: "text-indigo-500",
+    };
+    return colors[pos] || "text-gray-500";
+  };
+
   const isPitcher = (pos: string) => pos === "SP" || pos === "RP";
 
   return (
@@ -913,7 +922,7 @@ export default function DraftRoom() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-white text-[15px] font-medium leading-tight truncate">{player.name}</p>
-                    <p className="text-gray-500 text-[11px]">{player.position} &middot; {player.teamAbbreviation || player.team}</p>
+                    <p className="text-[11px]"><span className={`font-medium ${positionTextColor(player.position)}`}>{player.position}</span> <span className="text-gray-500">&middot; {player.teamAbbreviation || player.team}</span></p>
                   </div>
                   <div className="shrink-0">
                     {playersPanelView === "2025-stats" ? (
