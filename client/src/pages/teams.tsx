@@ -31,8 +31,8 @@ export default function Teams() {
     enabled: leagueIds.length > 0,
   });
 
-  const leagueMap = new Map<number, { name: string; isPublic: boolean; createdBy: number | null; leagueImage: string | null }>();
-  leagues?.forEach((l) => leagueMap.set(l.id, { name: l.name, isPublic: l.isPublic ?? false, createdBy: l.createdBy, leagueImage: l.leagueImage }));
+  const leagueMap = new Map<number, { name: string; isPublic: boolean; createdBy: number | null; leagueImage: string | null; draftStatus: string | null }>();
+  leagues?.forEach((l) => leagueMap.set(l.id, { name: l.name, isPublic: l.isPublic ?? false, createdBy: l.createdBy, leagueImage: l.leagueImage, draftStatus: l.draftStatus }));
 
   const showSkeleton = isLoading || (teams && teams.length > 0 && leagueIds.length > 0 && leaguesLoading);
 
@@ -60,6 +60,7 @@ export default function Teams() {
               isPublic={leagueMap.get(team.leagueId!)?.isPublic}
               isCommissioner={leagueMap.get(team.leagueId!)?.createdBy === user?.id}
               leagueImage={leagueMap.get(team.leagueId!)?.leagueImage}
+              draftLive={leagueMap.get(team.leagueId!)?.draftStatus === "active"}
             />
           ))
         ) : (
