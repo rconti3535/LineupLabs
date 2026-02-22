@@ -33,7 +33,7 @@ export function QuickActions() {
         onClick={handleJoinPublicLeague}
         className="bg-green-600 hover:bg-green-700 rounded-xl px-6 py-3 text-white font-medium transition-colors w-full"
       >
-        Join Public League
+        Search Public Leagues
       </Button>
 
       <Button

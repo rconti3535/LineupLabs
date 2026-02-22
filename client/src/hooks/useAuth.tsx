@@ -41,12 +41,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryClient.clear();
   }, [queryClient]);
 
+  const isAuthenticated = !!currentUserId && (!!user || isLoading);
+
   return (
     <AuthContext.Provider
       value={{
         user,
-        isLoading,
-        isAuthenticated: !!user && !!currentUserId,
+        isLoading: currentUserId !== null && isLoading,
+        isAuthenticated,
         login,
         logout,
       }}
