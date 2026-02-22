@@ -1068,7 +1068,7 @@ export default function DraftRoom() {
                   <div className="shrink-0 w-7 text-center">
                     <p className="text-[9px] text-gray-500">ADP</p>
                     <p className="text-[11px] font-semibold text-gray-300">
-                      {getAdp(player) != null ? String(getAdp(player)) : "-"}
+                      {getAdp(player) != null ? Number(getAdp(player)).toFixed(1) : "-"}
                     </p>
                   </div>
                   <div className="shrink-0 w-[120px]">
@@ -1254,7 +1254,7 @@ export default function DraftRoom() {
                   <div className="shrink-0 w-8 text-center">
                     <p className="text-[10px] text-gray-500">ADP</p>
                     <p className="text-xs font-semibold text-gray-300">
-                      {getAdp(player) != null ? String(getAdp(player)) : "-"}
+                      {getAdp(player) != null ? Number(getAdp(player)).toFixed(1) : "-"}
                     </p>
                   </div>
                   <div className="flex-1 min-w-0">

@@ -1199,7 +1199,7 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
                     </td>
                     {statView === "adp" ? (
                       <td className="text-center py-1.5">
-                        <span className="text-white text-[11px]">{player.externalAdp ? player.externalAdp : (player.adpValue && player.adpValue < 9999 ? player.adpValue : "-")}</span>
+                        <span className="text-white text-[11px]">{player.externalAdp ? Number(player.externalAdp).toFixed(1) : (player.adpValue && player.adpValue < 9999 ? Number(player.adpValue).toFixed(1) : "-")}</span>
                       </td>
                     ) : (
                       activeCats.map(cat => (

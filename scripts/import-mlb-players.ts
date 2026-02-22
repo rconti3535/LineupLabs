@@ -9,8 +9,11 @@ dns.setDefaultResultOrder("ipv4first");
 
 import { db } from "../server/db";
 import { players } from "../shared/schema";
+import { sql } from "drizzle-orm";
 
 const MLB_API = "https://statsapi.mlb.com/api/v1";
+
+const CURRENT_SEASON = new Date().getFullYear();
 
 const SPORT_LEVELS: Record<number, string> = {
   1: "MLB",
@@ -97,13 +100,13 @@ async function classifyPitcher(mlbId: number): Promise<"SP" | "RP"> {
 
 async function fetchTeams(): Promise<MlbTeam[]> {
   const sportIds = Object.keys(SPORT_LEVELS).join(",");
-  const data = await fetchJson(`${MLB_API}/teams?sportIds=${sportIds}&season=2025&activeStatus=Y`);
+  const data = await fetchJson(`${MLB_API}/teams?sportIds=${sportIds}&season=${CURRENT_SEASON}&activeStatus=Y`);
   return data.teams || [];
 }
 
-async function fetchRoster(teamId: number): Promise<MlbRosterEntry[]> {
+async function fetchRoster(teamId: number, rosterType = "fullRoster"): Promise<MlbRosterEntry[]> {
   try {
-    const data = await fetchJson(`${MLB_API}/teams/${teamId}/roster?rosterType=fullRoster&season=2025`);
+    const data = await fetchJson(`${MLB_API}/teams/${teamId}/roster?rosterType=${rosterType}&season=${CURRENT_SEASON}`);
     return data.roster || [];
   } catch {
     return [];
@@ -152,13 +155,40 @@ async function importPlayers() {
 
   const seenPlayerIds = new Set<number>();
 
-  for (const team of teams) {
+  const mlbTeams = teams.filter(t => t.sport.id === 1);
+  const minorLeagueTeams = teams.filter(t => t.sport.id !== 1);
+
+  for (const team of mlbTeams) {
+    const parentOrg = resolveParentOrg(team);
+    console.log(`Fetching rosters for ${team.name} (MLB)...`);
+
+    const rosterTypes = ["40Man", "fullRoster", "nonRosterInvitees"];
+    for (const rt of rosterTypes) {
+      const roster = await fetchRoster(team.id, rt);
+      for (const entry of roster) {
+        const mlbId = entry.person.id;
+        if (seenPlayerIds.has(mlbId)) continue;
+        seenPlayerIds.add(mlbId);
+
+        allPlayerEntries.push({
+          mlbId,
+          name: entry.person.fullName,
+          position: mapPosition(entry.position.abbreviation),
+          team: parentOrg.name,
+          teamAbbreviation: parentOrg.abbreviation,
+          jerseyNumber: entry.jerseyNumber || null,
+        });
+      }
+      await new Promise(r => setTimeout(r, 50));
+    }
+  }
+
+  for (const team of minorLeagueTeams) {
     const level = SPORT_LEVELS[team.sport.id] || "Other";
     const parentOrg = resolveParentOrg(team);
     console.log(`Fetching roster for ${team.name} (${level}) -> ${parentOrg.abbreviation}...`);
 
     const roster = await fetchRoster(team.id);
-
     for (const entry of roster) {
       const mlbId = entry.person.id;
       if (seenPlayerIds.has(mlbId)) continue;
@@ -227,11 +257,10 @@ async function importPlayers() {
   const rpCount = [...pitcherClassifications.values()].filter(r => r === "RP").length;
   console.log(`  Result: ${pitcherClassifications.size - rpCount} SP, ${rpCount} RP`);
 
-  console.log("\nClearing existing players...");
-  await db.delete(players);
-
-  console.log("Inserting players into database...");
+  console.log("\nUpserting players into database (preserving stats & ADP)...");
   const INSERT_BATCH = 200;
+  let insertedCount = 0;
+  let updatedCount = 0;
 
   for (let i = 0; i < allPlayerEntries.length; i += INSERT_BATCH) {
     const batch = allPlayerEntries.slice(i, i + INSERT_BATCH);
@@ -261,11 +290,31 @@ async function importPlayers() {
       };
     });
 
-    await db.insert(players).values(rows);
-    console.log(`  Inserted ${Math.min(i + INSERT_BATCH, allPlayerEntries.length)} of ${allPlayerEntries.length}`);
+    const result = await db.insert(players).values(rows)
+      .onConflictDoUpdate({
+        target: players.mlbId,
+        set: {
+          name: sql`EXCLUDED.name`,
+          firstName: sql`EXCLUDED.first_name`,
+          lastName: sql`EXCLUDED.last_name`,
+          position: sql`EXCLUDED.position`,
+          team: sql`EXCLUDED.team`,
+          teamAbbreviation: sql`EXCLUDED.team_abbreviation`,
+          jerseyNumber: sql`EXCLUDED.jersey_number`,
+          bats: sql`EXCLUDED.bats`,
+          throws: sql`EXCLUDED.throws`,
+          age: sql`EXCLUDED.age`,
+          height: sql`EXCLUDED.height`,
+          weight: sql`EXCLUDED.weight`,
+          mlbLevel: sql`EXCLUDED.mlb_level`,
+        },
+      });
+
+    console.log(`  Processed ${Math.min(i + INSERT_BATCH, allPlayerEntries.length)} of ${allPlayerEntries.length}`);
   }
 
-  console.log(`\nDone! Imported ${allPlayerEntries.length} players (all mapped to MLB parent orgs).`);
+  console.log(`\nDone! Processed ${allPlayerEntries.length} players (all mapped to MLB parent orgs).`);
+  console.log("Existing stats, projections, and ADP values were preserved.");
 
   process.exit(0);
 }

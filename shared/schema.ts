@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, uniqueIndex, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, uniqueIndex, index, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -179,7 +179,7 @@ export const players = pgTable("players", {
   projCG: integer("proj_cg"),
   projSHO: integer("proj_sho"),
   projBSV: integer("proj_bsv"),
-  externalAdp: integer("external_adp"),
+  externalAdp: real("external_adp"),
 }, (table) => [
   index("players_position_idx").on(table.position),
   index("players_mlb_level_idx").on(table.mlbLevel),
