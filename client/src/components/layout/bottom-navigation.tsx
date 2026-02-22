@@ -19,7 +19,7 @@ export function BottomNavigation() {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-md sleeper-bg border-t sleeper-border px-3 py-2">
+    <nav className="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-md sleeper-bg border-t sleeper-border px-3 py-2 z-50">
       <div className="flex items-center">
         {navItems.map(({ path, icon: Icon, label }, index) => {
           const isActive = location === path;
