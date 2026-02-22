@@ -875,10 +875,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ totalLeagues: 0, players: [] });
       }
 
-      const totalLeagues = leagueIds.length;
+      const completedLeagueIds: number[] = [];
+      for (const lid of leagueIds) {
+        const league = await storage.getLeague(lid);
+        if (league && league.draftStatus === "completed") {
+          completedLeagueIds.push(lid);
+        }
+      }
+
+      if (completedLeagueIds.length === 0) {
+        return res.json({ totalLeagues: 0, players: [] });
+      }
+
+      const totalLeagues = completedLeagueIds.length;
       const playerLeagueMap = new Map<number, Set<number>>();
 
-      for (const lid of leagueIds) {
+      for (const lid of completedLeagueIds) {
         const picks = await storage.getDraftPicksByLeague(lid);
         for (const pick of picks) {
           if (!teamIds.has(pick.teamId)) continue;

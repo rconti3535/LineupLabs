@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { User, LogOut, Mail, Settings, Camera, Trophy, Award, Medal, Trash2, AlertTriangle, Search } from "lucide-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -58,6 +59,7 @@ export default function Profile() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [exposureSearch, setExposureSearch] = useState("");
+  const [exposurePos, setExposurePos] = useState("ALL");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: stats } = useQuery<ProfileStats>({
@@ -68,6 +70,8 @@ export default function Profile() {
       return res.json();
     },
     enabled: !!user?.id,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const { data: exposure } = useQuery<ExposureData>({
@@ -78,18 +82,27 @@ export default function Profile() {
       return res.json();
     },
     enabled: !!user?.id,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const filteredExposure = useMemo(() => {
     if (!exposure?.players) return [];
-    if (!exposureSearch.trim()) return exposure.players;
-    const q = exposureSearch.toLowerCase();
-    return exposure.players.filter(p =>
-      p.name.toLowerCase().includes(q) ||
-      p.position.toLowerCase().includes(q) ||
-      p.team?.toLowerCase().includes(q)
-    );
-  }, [exposure?.players, exposureSearch]);
+    const INF_POSITIONS = ["1B", "2B", "3B", "SS"];
+    const OF_POSITIONS = ["OF", "LF", "CF", "RF", "DH", "UT"];
+    return exposure.players.filter(p => {
+      if (exposurePos !== "ALL") {
+        if (exposurePos === "INF" && !INF_POSITIONS.includes(p.position)) return false;
+        if (exposurePos === "OF" && !OF_POSITIONS.includes(p.position)) return false;
+        if (exposurePos !== "INF" && exposurePos !== "OF" && p.position !== exposurePos) return false;
+      }
+      if (exposureSearch.trim()) {
+        const q = exposureSearch.toLowerCase();
+        if (!p.name.toLowerCase().includes(q) && !p.position.toLowerCase().includes(q) && !p.team?.toLowerCase().includes(q)) return false;
+      }
+      return true;
+    });
+  }, [exposure?.players, exposureSearch, exposurePos]);
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: { username?: string; avatar?: string | null }) => {
@@ -281,15 +294,28 @@ export default function Profile() {
       </Card>
 
       <Card className="gradient-card rounded-xl p-6 border-0">
-        <h2 className="text-lg font-semibold text-white mb-4">Exposure</h2>
-        <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-          <Input
-            value={exposureSearch}
-            onChange={(e) => setExposureSearch(e.target.value)}
-            placeholder="Search players..."
-            className="bg-gray-800 border-gray-700 text-white pl-9 text-sm"
-          />
+        <div className="flex items-center gap-2 mb-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+            <Input
+              value={exposureSearch}
+              onChange={(e) => setExposureSearch(e.target.value)}
+              placeholder="Search players..."
+              className="bg-gray-800 border-gray-700 text-white pl-9 text-sm h-9"
+            />
+          </div>
+          <Select value={exposurePos} onValueChange={setExposurePos}>
+            <SelectTrigger className="h-9 w-[80px] bg-gray-800 border-gray-700 text-gray-200 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-gray-900 border-gray-700">
+              {["ALL", "C", "INF", "OF", "SP", "RP"].map((pos) => (
+                <SelectItem key={pos} value={pos} className="text-gray-200 focus:bg-gray-800 focus:text-white">
+                  {pos}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         {filteredExposure.length === 0 ? (
           <p className="text-gray-500 text-sm text-center py-6">
