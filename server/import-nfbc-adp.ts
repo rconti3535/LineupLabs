@@ -431,15 +431,19 @@ export async function importNfbcAdp(): Promise<{ matched: number; unmatched: num
 
   const playerNameMap = new Map<string, number>();
   for (const p of allPlayers) {
-    const fullName = p.name || `${p.firstName || ""} ${p.lastName || ""}`.trim();
-    if (fullName) {
-      const variants = buildNameVariants(fullName);
-      const pWeight = playerStatsWeight.get(p.id) || 0;
-      for (const v of variants) {
-        const existing = playerNameMap.get(v);
-        if (!existing || pWeight > (playerStatsWeight.get(existing) || 0)) {
-          playerNameMap.set(v, p.id);
-        }
+    const pWeight = playerStatsWeight.get(p.id) || 0;
+    const names = new Set<string>();
+    if (p.name) {
+      for (const v of buildNameVariants(p.name)) names.add(v);
+    }
+    const composed = `${p.firstName || ""} ${p.lastName || ""}`.trim();
+    if (composed && composed !== p.name) {
+      for (const v of buildNameVariants(composed)) names.add(v);
+    }
+    for (const v of names) {
+      const existing = playerNameMap.get(v);
+      if (!existing || pWeight > (playerStatsWeight.get(existing) || 0)) {
+        playerNameMap.set(v, p.id);
       }
     }
   }
@@ -449,12 +453,40 @@ export async function importNfbcAdp(): Promise<{ matched: number; unmatched: num
   let matched = 0;
   let unmatched = 0;
 
+  const lastNameIndex = new Map<string, { id: number; fullNorm: string }[]>();
+  for (const p of allPlayers) {
+    const norm = normalizeName(p.name || "");
+    const parts = norm.split(" ");
+    if (parts.length >= 2) {
+      const lastName = parts[parts.length - 1];
+      if (!lastNameIndex.has(lastName)) lastNameIndex.set(lastName, []);
+      lastNameIndex.get(lastName)!.push({ id: p.id, fullNorm: norm });
+    }
+  }
+
   for (const entry of nfbcData) {
     const variants = buildNameVariants(entry.name);
     let playerId: number | undefined;
     for (const v of variants) {
       playerId = playerNameMap.get(v);
       if (playerId) break;
+    }
+    if (!playerId) {
+      const norm = normalizeName(entry.name);
+      const parts = norm.split(" ");
+      if (parts.length >= 2) {
+        const lastName = parts[parts.length - 1];
+        const firstInitial = parts[0][0];
+        const candidates = lastNameIndex.get(lastName);
+        if (candidates) {
+          const best = candidates
+            .filter(c => c.fullNorm.startsWith(firstInitial))
+            .sort((a, b) => (playerStatsWeight.get(b.id) || 0) - (playerStatsWeight.get(a.id) || 0));
+          if (best.length === 1) {
+            playerId = best[0].id;
+          }
+        }
+      }
     }
     if (playerId) {
       matchedPlayerIds.add(playerId);

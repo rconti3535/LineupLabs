@@ -294,23 +294,14 @@ export class DatabaseStorage implements IStorage {
 
     if (adpLeagueType && adpScoringFormat && adpSeason) {
       const result = await db
-        .select({ player: players, adpValue: playerAdp.adp })
+        .select()
         .from(players)
-        .leftJoin(
-          playerAdp,
-          and(
-            eq(playerAdp.playerId, players.id),
-            eq(playerAdp.leagueType, adpLeagueType),
-            eq(playerAdp.scoringFormat, adpScoringFormat),
-            eq(playerAdp.season, adpSeason)
-          )
-        )
         .where(where)
-        .orderBy(sql`COALESCE(${playerAdp.adp}, 9999) ASC`)
+        .orderBy(sql`COALESCE(${players.externalAdp}, 9999) ASC`, asc(players.name))
         .limit(limit)
         .offset(offset);
 
-      return { players: result.map(r => r.player), total };
+      return { players: result, total };
     }
 
     const result = await db.select().from(players).where(where).orderBy(players.name).limit(limit).offset(offset);
@@ -401,34 +392,17 @@ export class DatabaseStorage implements IStorage {
     }
     const uniquePositions = Array.from(new Set(expandedPositions));
 
-    const adpConditions = and(
-      eq(playerAdp.leagueType, leagueType),
-      eq(playerAdp.scoringFormat, scoringFormat),
-      eq(playerAdp.season, season),
-      ...(excludeIds.length > 0 ? [notInArray(playerAdp.playerId, excludeIds)] : [])
-    );
-
-    const adpRecords = await db.select().from(playerAdp)
-      .innerJoin(players, eq(playerAdp.playerId, players.id))
-      .where(and(
-        adpConditions,
-        inArray(players.position, uniquePositions)
-      ))
-      .orderBy(asc(playerAdp.adp))
-      .limit(1);
-
-    if (adpRecords.length > 0) return adpRecords[0].players;
-
     const conds = [
       inArray(players.position, uniquePositions),
       ...(excludeIds.length > 0 ? [notInArray(players.id, excludeIds)] : [])
     ];
-    const [fallback] = await db.select().from(players)
+
+    const [player] = await db.select().from(players)
       .where(and(...conds))
-      .orderBy(desc(players.points), asc(players.name))
+      .orderBy(sql`COALESCE(${players.externalAdp}, 9999) ASC`, asc(players.name))
       .limit(1);
 
-    return fallback || undefined;
+    return player || undefined;
   }
 
   async getCompletedLeaguesByType(leagueType: string, scoringFormat: string, season: number): Promise<League[]> {

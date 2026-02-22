@@ -184,6 +184,7 @@ export const players = pgTable("players", {
   index("players_position_idx").on(table.position),
   index("players_mlb_level_idx").on(table.mlbLevel),
   index("players_name_idx").on(table.name),
+  index("players_external_adp_idx").on(table.externalAdp),
 ]);
 
 export const draftPicks = pgTable("draft_picks", {

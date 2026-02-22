@@ -1,13 +1,13 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertLeagueSchema, insertTeamSchema, insertUserSchema, insertDraftPickSchema, players, type Player, type InsertLeagueMatchup } from "@shared/schema";
+import { insertLeagueSchema, insertTeamSchema, insertUserSchema, insertDraftPickSchema, players, playerAdp, type Player, type InsertLeagueMatchup } from "@shared/schema";
 import { computeRotoStandings } from "./roto-scoring";
 import { computeStandings, computeMatchups } from "./scoring";
 import { getScheduleForDate, getPlayerGameTimes, type PlayerGameTime } from "./mlb-schedule";
 import { addClient, broadcastDraftEvent } from "./draft-events";
 import { db } from "./db";
-import { eq, ne } from "drizzle-orm";
+import { eq, ne, and, sql } from "drizzle-orm";
 
 const INF_POSITIONS = ["1B", "2B", "3B", "SS"];
 
@@ -1928,18 +1928,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/adp/import-nfbc", async (req, res) => {
-    try {
-      const { importNfbcAdp } = await import("./import-nfbc-adp");
-      const result = await importNfbcAdp();
-      res.json({
-        message: `NFBC ADP import complete: ${result.matched} matched, ${result.unmatched} unmatched, ${result.total} total players`,
-        ...result,
-      });
-    } catch (error) {
-      console.error("NFBC ADP import error:", error);
-      res.status(500).json({ message: "Failed to import NFBC ADP data" });
-    }
+  app.post("/api/adp/import-nfbc", async (_req, res) => {
+    res.status(410).json({ message: "NFBC import disabled. ADP is now managed manually via the external_adp column in Supabase. Use POST /api/adp/sync to sync changes." });
   });
 
   app.get("/api/leagues/:id/available-players", async (req, res) => {
@@ -2820,6 +2810,123 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("[Migration] Failed to migrate minor league teams:", (err as Error).message);
     }
   })();
+
+  (async function createAdpEditorView() {
+    try {
+      await db.execute(sql`
+        CREATE OR REPLACE VIEW player_adp_editor AS
+        SELECT id, name, position, team, team_abbreviation, external_adp
+        FROM players
+        ORDER BY external_adp ASC NULLS LAST, name ASC
+      `);
+      console.log("[Startup] Created/updated player_adp_editor view");
+    } catch (err) {
+      console.error("[Startup] Failed to create player_adp_editor view:", (err as Error).message);
+    }
+  })();
+
+  async function syncExternalAdpToTable() {
+    try {
+      const allPlayers = await db.select({
+        id: players.id,
+        externalAdp: players.externalAdp,
+      }).from(players);
+
+      const LEAGUE_TYPES = ["Redraft", "Best Ball", "Keeper", "Dynasty"];
+      const SCORING_FORMATS = ["Roto", "H2H Points", "H2H Each Category", "H2H Most Categories", "Season Points"];
+      const season = new Date().getFullYear();
+
+      for (const leagueType of LEAGUE_TYPES) {
+        for (const scoringFormat of SCORING_FORMATS) {
+          await db.delete(playerAdp).where(
+            and(
+              eq(playerAdp.leagueType, leagueType),
+              eq(playerAdp.scoringFormat, scoringFormat),
+              eq(playerAdp.season, season)
+            )
+          );
+
+          const rows = allPlayers.map(p => ({
+            playerId: p.id,
+            leagueType,
+            scoringFormat,
+            season,
+            adp: p.externalAdp || 9999,
+            draftCount: p.externalAdp ? 1 : 0,
+            totalPositionSum: p.externalAdp ? p.externalAdp : 0,
+          }));
+
+          const BATCH = 500;
+          for (let i = 0; i < rows.length; i += BATCH) {
+            await db.insert(playerAdp).values(rows.slice(i, i + BATCH));
+          }
+        }
+      }
+
+      const withAdp = allPlayers.filter(p => p.externalAdp != null).length;
+      console.log(`[ADP Sync] Synced ${withAdp} players with ADP across ${LEAGUE_TYPES.length * SCORING_FORMATS.length} combinations`);
+    } catch (err) {
+      console.error("[ADP Sync] Failed:", (err as Error).message);
+    }
+  }
+
+  syncExternalAdpToTable();
+
+  app.post("/api/adp/sync", async (_req, res) => {
+    try {
+      await syncExternalAdpToTable();
+      res.json({ message: "ADP sync complete" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to sync ADP" });
+    }
+  });
+
+  app.post("/api/adp/upload-csv", async (req, res) => {
+    try {
+      const { csv } = req.body;
+      if (!csv || typeof csv !== "string") {
+        return res.status(400).json({ message: "Missing 'csv' field with CSV text" });
+      }
+
+      const lines = csv.split("\n").map(l => l.trim()).filter(l => l);
+      const header = lines[0].toLowerCase();
+      if (!header.includes("id") || !header.includes("external_adp")) {
+        return res.status(400).json({ message: "CSV must have 'id' and 'external_adp' columns" });
+      }
+
+      const cols = lines[0].split(",").map(c => c.trim().toLowerCase());
+      const idIdx = cols.indexOf("id");
+      const adpIdx = cols.findIndex(c => c === "external_adp" || c === "adp");
+      if (idIdx === -1 || adpIdx === -1) {
+        return res.status(400).json({ message: "Could not find 'id' and 'external_adp' columns" });
+      }
+
+      let updated = 0;
+      let skipped = 0;
+      for (let i = 1; i < lines.length; i++) {
+        const cells = lines[i].split(",").map(c => c.trim().replace(/^"|"$/g, ""));
+        const playerId = parseInt(cells[idIdx]);
+        const adpVal = cells[adpIdx];
+
+        if (isNaN(playerId)) { skipped++; continue; }
+
+        if (!adpVal || adpVal === "" || adpVal.toLowerCase() === "null") {
+          await db.update(players).set({ externalAdp: null }).where(eq(players.id, playerId));
+          updated++;
+        } else {
+          const adpNum = parseInt(adpVal);
+          if (isNaN(adpNum)) { skipped++; continue; }
+          await db.update(players).set({ externalAdp: adpNum }).where(eq(players.id, playerId));
+          updated++;
+        }
+      }
+
+      res.json({ message: `Updated ${updated} players, skipped ${skipped} rows` });
+    } catch (error) {
+      console.error("CSV upload error:", error);
+      res.status(500).json({ message: "Failed to process CSV" });
+    }
+  });
 
   return httpServer;
 }

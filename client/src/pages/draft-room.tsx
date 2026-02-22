@@ -10,7 +10,7 @@ import { ArrowLeft, ListFilter, Users2, Search, X, Clock, Timer, Play, Pause, Us
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { League, Team, Player, DraftPick, PlayerAdp } from "@shared/schema";
+import type { League, Team, Player, DraftPick } from "@shared/schema";
 import { assignPlayersToRoster } from "@/lib/roster-utils";
 
 type DraftTab = "board" | "players" | "queue" | "team";
@@ -433,23 +433,7 @@ export default function DraftRoom() {
   const allFetchedPlayers = playersInfinite?.pages.flatMap(p => p.players) || [];
   const playersTotal = playersInfinite?.pages[0]?.total ?? 0;
 
-  const { data: adpData } = useQuery<{ adpRecords: PlayerAdp[]; total: number }>({
-    queryKey: ["/api/adp", league?.type || "Redraft", league?.scoringFormat || "Roto"],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      params.set("type", league?.type || "Redraft");
-      params.set("scoring", league?.scoringFormat || "Roto");
-      params.set("limit", "10000");
-      const res = await fetch(`/api/adp?${params}`);
-      if (!res.ok) throw new Error("Failed to fetch ADP");
-      return res.json();
-    },
-    enabled: (activeTab === "players" || activeTab === "queue" || commissionerAssignMode) && !!league,
-    staleTime: 0,
-  });
-
-  const adpMap = new Map<number, number>();
-  adpData?.adpRecords?.forEach(a => adpMap.set(a.playerId, parseFloat(String(a.adp))));
+  const getAdp = (player: Player) => player.externalAdp ?? null;
 
   const availablePlayers = allFetchedPlayers.filter(p => !draftedPlayerIdsSet.has(p.id));
   const availableTotal = Math.max(0, playersTotal - draftedPlayerIds.length);
@@ -1074,7 +1058,7 @@ export default function DraftRoom() {
                   <div className="shrink-0 w-8 text-center">
                     <p className="text-[10px] text-gray-500">ADP</p>
                     <p className="text-xs font-semibold text-gray-300">
-                      {adpMap.has(player.id) ? adpMap.get(player.id)!.toFixed(0) : "-"}
+                      {getAdp(player) != null ? String(getAdp(player)) : "-"}
                     </p>
                   </div>
                   <div className="shrink-0 w-[110px]">
@@ -1260,7 +1244,7 @@ export default function DraftRoom() {
                   <div className="shrink-0 w-8 text-center">
                     <p className="text-[10px] text-gray-500">ADP</p>
                     <p className="text-xs font-semibold text-gray-300">
-                      {adpMap.has(player.id) ? adpMap.get(player.id)!.toFixed(0) : "-"}
+                      {getAdp(player) != null ? String(getAdp(player)) : "-"}
                     </p>
                   </div>
                   <div className="flex-1 min-w-0">
