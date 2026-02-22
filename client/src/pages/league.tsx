@@ -2055,7 +2055,7 @@ export default function LeaguePage() {
   ];
 
   return (
-    <div className="px-4 py-4">
+    <div className="px-4 py-4 pb-20">
       <div className="grid grid-cols-[48px_1fr_48px] items-center mb-4">
         <div className="flex justify-start">
           <Button
