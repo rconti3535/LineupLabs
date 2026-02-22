@@ -2055,7 +2055,7 @@ export default function LeaguePage() {
   ];
 
   return (
-    <div className="px-4 py-4 pb-20">
+    <div className="px-4 pt-4 pb-32">
       <div className="grid grid-cols-[48px_1fr_48px] items-center mb-4">
         <div className="flex justify-start">
           <Button
@@ -2750,7 +2750,7 @@ export default function LeaguePage() {
 
       {activeTab === "players" && !showSettings && <PlayersTab leagueId={leagueId!} league={league!} user={user} />}
 
-      {activeTab === "standings" && !showSettings && <div className="pb-10"><StandingsTab leagueId={leagueId!} league={league!} teamsLoading={teamsLoading} teams={teams} user={user} /></div>}
+      {activeTab === "standings" && !showSettings && <div className="pb-24"><StandingsTab leagueId={leagueId!} league={league!} teamsLoading={teamsLoading} teams={teams} user={user} /></div>}
 
       {showSettings && (
         <>
