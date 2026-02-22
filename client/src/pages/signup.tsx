@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -26,7 +26,15 @@ export default function Signup() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      const params = new URLSearchParams(window.location.search);
+      const redirect = params.get("redirect");
+      setLocation(redirect || "/");
+    }
+  }, [isAuthenticated, setLocation]);
 
   const form = useForm<SignupForm>({
     resolver: zodResolver(signupSchema),
