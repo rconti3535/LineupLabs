@@ -47,11 +47,8 @@ export default function Login() {
       return await response.json();
     },
     onSuccess: (user) => {
+      queryClient.setQueryData(["/api/users", user.id], user);
       login(user.id);
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-      const params = new URLSearchParams(window.location.search);
-      const redirect = params.get("redirect");
-      setLocation(redirect || "/");
     },
     onError: (error: any) => {
       toast({
