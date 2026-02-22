@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -6,8 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { User, LogOut, Mail, Settings, Camera, Trophy, Award, Medal, Trash2, AlertTriangle, Search } from "lucide-react";
+import { User, LogOut, Mail, Settings, Camera, Trophy, Award, Medal, Trash2, AlertTriangle } from "lucide-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -21,21 +20,6 @@ interface ProfileStats {
   winRate: number;
   trophyRate: number;
   gmTier: string;
-}
-
-interface ExposurePlayer {
-  playerId: number;
-  name: string;
-  position: string;
-  team: string;
-  leagueCount: number;
-  totalLeagues: number;
-  percentage: number;
-}
-
-interface ExposureData {
-  totalLeagues: number;
-  players: ExposurePlayer[];
 }
 
 const GM_TIER_COLORS: Record<string, string> = {
@@ -58,8 +42,6 @@ export default function Profile() {
   const [editAvatar, setEditAvatar] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
-  const [exposureSearch, setExposureSearch] = useState("");
-  const [exposurePos, setExposurePos] = useState("ALL");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: stats } = useQuery<ProfileStats>({
@@ -73,36 +55,6 @@ export default function Profile() {
     staleTime: 0,
     refetchOnMount: "always",
   });
-
-  const { data: exposure } = useQuery<ExposureData>({
-    queryKey: ["/api/users", user?.id, "exposure"],
-    queryFn: async () => {
-      const res = await fetch(`/api/users/${user?.id}/exposure`);
-      if (!res.ok) throw new Error("Failed");
-      return res.json();
-    },
-    enabled: !!user?.id,
-    staleTime: 0,
-    refetchOnMount: "always",
-  });
-
-  const filteredExposure = useMemo(() => {
-    if (!exposure?.players) return [];
-    const INF_POSITIONS = ["1B", "2B", "3B", "SS"];
-    const OF_POSITIONS = ["OF", "LF", "CF", "RF", "DH", "UT"];
-    return exposure.players.filter(p => {
-      if (exposurePos !== "ALL") {
-        if (exposurePos === "INF" && !INF_POSITIONS.includes(p.position)) return false;
-        if (exposurePos === "OF" && !OF_POSITIONS.includes(p.position)) return false;
-        if (exposurePos !== "INF" && exposurePos !== "OF" && p.position !== exposurePos) return false;
-      }
-      if (exposureSearch.trim()) {
-        const q = exposureSearch.toLowerCase();
-        if (!p.name.toLowerCase().includes(q) && !p.position.toLowerCase().includes(q) && !p.team?.toLowerCase().includes(q)) return false;
-      }
-      return true;
-    });
-  }, [exposure?.players, exposureSearch, exposurePos]);
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: { username?: string; avatar?: string | null }) => {
@@ -291,62 +243,6 @@ export default function Profile() {
           <LogOut className="w-4 h-4 mr-2" />
           Sign Out
         </Button>
-      </Card>
-
-      <Card className="gradient-card rounded-xl p-6 border-0">
-        <div className="flex items-center gap-2 mb-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-            <Input
-              value={exposureSearch}
-              onChange={(e) => setExposureSearch(e.target.value)}
-              placeholder="Search players..."
-              className="bg-gray-800 border-gray-700 text-white pl-9 text-sm h-9"
-            />
-          </div>
-          <Select value={exposurePos} onValueChange={setExposurePos}>
-            <SelectTrigger className="h-9 w-[80px] bg-gray-800 border-gray-700 text-gray-200 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="bg-gray-900 border-gray-700">
-              {["ALL", "C", "INF", "OF", "SP", "RP"].map((pos) => (
-                <SelectItem key={pos} value={pos} className="text-gray-200 focus:bg-gray-800 focus:text-white">
-                  {pos}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        {filteredExposure.length === 0 ? (
-          <p className="text-gray-500 text-sm text-center py-6">
-            {exposure?.players?.length === 0 ? "No drafted players yet" : "No players match your search"}
-          </p>
-        ) : (
-          <div className="space-y-1.5 max-h-[400px] overflow-y-auto hide-scrollbar">
-            {filteredExposure.map((p) => (
-              <div key={p.playerId} className="flex items-center gap-3 bg-gray-800/50 rounded-lg px-3 py-2.5">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-white truncate">{p.name}</span>
-                    <span className="text-[10px] text-gray-500 shrink-0">{p.position} · {p.team}</span>
-                  </div>
-                  <div className="flex items-center gap-2 mt-1">
-                    <div className="flex-1 h-1.5 bg-gray-700 rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-blue-500"
-                        style={{ width: `${Math.min(p.percentage, 100)}%` }}
-                      />
-                    </div>
-                    <span className="text-xs text-gray-400 shrink-0 w-8 text-right">{p.leagueCount}/{p.totalLeagues}</span>
-                  </div>
-                </div>
-                <div className="shrink-0 w-14 text-right">
-                  <span className="text-sm font-bold text-blue-400">{p.percentage.toFixed(0)}%</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </Card>
 
       <Card className="gradient-card rounded-xl p-6 border border-red-900/30">
