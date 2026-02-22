@@ -16,7 +16,8 @@ import { assignPlayersToRoster } from "@/lib/roster-utils";
 type DraftTab = "board" | "players" | "queue" | "team";
 type PlayersPanelView = "2025-stats" | "2026-proj";
 
-const POSITION_FILTERS = ["ALL", "C", "1B", "2B", "3B", "SS", "OF", "INF", "SP", "RP", "DH", "UT"];
+const POSITION_FILTERS_BESTBALL = ["ALL", "C", "INF", "OF", "SP", "RP"];
+const POSITION_FILTERS_STANDARD = ["ALL", "C", "1B", "2B", "3B", "SS", "OF", "INF", "SP", "RP", "DH", "UT"];
 
 const HITTING_STAT_KEYS: Record<string, { stat: keyof Player; proj: keyof Player }> = {
   R: { stat: "statR", proj: "projR" }, HR: { stat: "statHR", proj: "projHR" },
@@ -175,6 +176,14 @@ export default function DraftRoom() {
     refetchOnMount: "always",
     refetchInterval: 10000,
   });
+
+  const positionFilters = league?.type === "Best Ball" ? POSITION_FILTERS_BESTBALL : POSITION_FILTERS_STANDARD;
+
+  useEffect(() => {
+    if (!positionFilters.includes(positionFilter)) {
+      setPositionFilter("ALL");
+    }
+  }, [league?.type, positionFilters, positionFilter]);
 
   const { data: rawTeams } = useQuery<Team[]>({
     queryKey: ["/api/teams/league", leagueId],
@@ -904,7 +913,7 @@ export default function DraftRoom() {
         <div
           className="absolute bottom-10 left-0 right-0 bg-gray-900 border-t border-gray-700 rounded-t-2xl flex flex-col z-10 transition-transform duration-200 ease-out"
           style={{
-            height: "66vh",
+            height: "75vh",
             transform: `translateY(${playerPanelDragY}px)`,
             opacity: playerPanelDragY > 0 ? Math.max(0.3, 1 - playerPanelDragY / 300) : 1,
           }}
@@ -1014,7 +1023,7 @@ export default function DraftRoom() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-gray-900 border-gray-700">
-                  {POSITION_FILTERS.map((pos) => (
+                  {positionFilters.map((pos) => (
                     <SelectItem key={pos} value={pos} className="text-gray-200 focus:bg-gray-800 focus:text-white">
                       {pos}
                     </SelectItem>
@@ -1061,7 +1070,7 @@ export default function DraftRoom() {
                       {getAdp(player) != null ? String(getAdp(player)) : "-"}
                     </p>
                   </div>
-                  <div className="shrink-0 w-[105px]">
+                  <div className="shrink-0 w-[120px]">
                     <p className="text-white text-[13px] font-medium leading-tight truncate">{player.name}</p>
                     <p className="text-[10px] truncate"><span className={`font-medium ${positionTextColor(player.position)}`}>{player.position}</span> <span className="text-gray-500">&middot; {player.teamAbbreviation || player.team}</span></p>
                   </div>
@@ -1156,7 +1165,7 @@ export default function DraftRoom() {
         <div
           className="absolute bottom-10 left-0 right-0 bg-gray-900 border-t border-gray-700 rounded-t-2xl flex flex-col z-10 transition-transform duration-200 ease-out"
           style={{
-            height: "66vh",
+            height: "75vh",
             transform: `translateY(${queuePanelDragY}px)`,
             opacity: queuePanelDragY > 0 ? Math.max(0.3, 1 - queuePanelDragY / 300) : 1,
           }}
@@ -1327,7 +1336,7 @@ export default function DraftRoom() {
         <div
           className="absolute bottom-10 left-0 right-0 bg-gray-900 border-t border-gray-700 rounded-t-2xl flex flex-col z-10 transition-transform duration-200 ease-out"
           style={{
-            height: "66vh",
+            height: "75vh",
             transform: `translateY(${teamPanelDragY}px)`,
             opacity: teamPanelDragY > 0 ? Math.max(0.3, 1 - teamPanelDragY / 300) : 1,
           }}

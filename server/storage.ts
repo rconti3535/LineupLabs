@@ -282,7 +282,13 @@ export class DatabaseStorage implements IStorage {
       conditions.push(ilike(players.name, `%${query}%`));
     }
     if (position && position !== "ALL") {
-      conditions.push(eq(players.position, position));
+      if (position === "INF") {
+        conditions.push(inArray(players.position, ["1B", "2B", "3B", "SS"]));
+      } else if (position === "OF") {
+        conditions.push(inArray(players.position, ["OF", "LF", "CF", "RF", "DH", "UT"]));
+      } else {
+        conditions.push(eq(players.position, position));
+      }
     }
     if (mlbLevel && mlbLevel !== "ALL") {
       conditions.push(eq(players.mlbLevel, mlbLevel));
