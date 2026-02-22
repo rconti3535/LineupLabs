@@ -1124,11 +1124,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Join a public league
   app.post("/api/leagues/:id/join", async (req, res) => {
     try {
       const leagueId = parseInt(req.params.id);
-      const { userId } = req.body;
+      const { userId, invite } = req.body;
       if (!userId) {
         return res.status(400).json({ message: "User ID is required" });
       }
@@ -1136,7 +1135,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!league) {
         return res.status(404).json({ message: "League not found" });
       }
-      if (!league.isPublic) {
+      if (!league.isPublic && !invite) {
         return res.status(403).json({ message: "This league is private" });
       }
       const existingTeams = await storage.getTeamsByLeagueId(leagueId);

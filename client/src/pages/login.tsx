@@ -140,7 +140,7 @@ export default function Login() {
         <div className="mt-3 text-center">
           <p className="text-gray-400 text-sm">
             Don't have an account?{" "}
-            <Link href="/signup">
+            <Link href={`/signup${window.location.search}`}>
               <span className="text-blue-400 hover:text-blue-300 cursor-pointer">
                 Create one here
               </span>

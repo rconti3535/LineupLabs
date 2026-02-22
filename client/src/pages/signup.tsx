@@ -48,7 +48,9 @@ export default function Signup() {
     onSuccess: (user) => {
       login(user.id);
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-      setLocation("/");
+      const params = new URLSearchParams(window.location.search);
+      const redirect = params.get("redirect");
+      setLocation(redirect || "/");
     },
     onError: (error: any) => {
       let description = "Could not create account. Please try again.";
@@ -190,7 +192,7 @@ export default function Signup() {
         <div className="mt-6 text-center">
           <p className="text-gray-400 text-sm">
             Already have an account?{" "}
-            <Link href="/login">
+            <Link href={`/login${window.location.search}`}>
               <span className="text-blue-400 hover:text-blue-300 cursor-pointer">
                 Sign in here
               </span>
