@@ -1037,11 +1037,11 @@ export default function DraftRoom() {
           <div
             ref={scrollContainerRef}
             onScroll={handlePlayersScroll}
-            className="flex-1 overflow-auto hide-scrollbar px-1.5 pb-3 space-y-1"
+            className="flex-1 overflow-auto hide-scrollbar px-1 pb-3"
           >
             {playersLoading ? (
               Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="flex items-center gap-2 px-1.5 py-1.5 rounded-lg sleeper-card-bg">
+                <div key={i} className="flex items-center gap-2 px-1 py-1.5 border-b border-gray-800/60">
                   <Skeleton className="w-8 h-8 shrink-0 rounded" />
                   <div className="flex-1">
                     <Skeleton className="h-4 w-32 mb-1" />
@@ -1053,17 +1053,17 @@ export default function DraftRoom() {
               availablePlayers.map((player) => (
                 <div
                   key={player.id}
-                  className="flex items-center gap-2 px-1.5 py-1.5 rounded-lg sleeper-card-bg"
+                  className="flex items-center gap-1.5 px-1 py-1.5 border-b border-gray-800/60"
                 >
-                  <div className="shrink-0 w-8 text-center">
-                    <p className="text-[10px] text-gray-500">ADP</p>
-                    <p className="text-xs font-semibold text-gray-300">
+                  <div className="shrink-0 w-7 text-center">
+                    <p className="text-[9px] text-gray-500">ADP</p>
+                    <p className="text-[11px] font-semibold text-gray-300">
                       {getAdp(player) != null ? String(getAdp(player)) : "-"}
                     </p>
                   </div>
-                  <div className="shrink-0 w-[110px]">
-                    <p className="text-white text-[15px] font-medium leading-tight truncate">{player.name}</p>
-                    <p className="text-[11px] truncate"><span className={`font-medium ${positionTextColor(player.position)}`}>{player.position}</span> <span className="text-gray-500">&middot; {player.teamAbbreviation || player.team}</span></p>
+                  <div className="shrink-0 w-[105px]">
+                    <p className="text-white text-[13px] font-medium leading-tight truncate">{player.name}</p>
+                    <p className="text-[10px] truncate"><span className={`font-medium ${positionTextColor(player.position)}`}>{player.position}</span> <span className="text-gray-500">&middot; {player.teamAbbreviation || player.team}</span></p>
                   </div>
                   {isPointsFormat && (
                     <div className="shrink-0 text-center w-10">
