@@ -370,19 +370,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Cannot restart a completed draft" });
       }
 
-      if (action === "start" && fillWithCpu) {
+      if (action === "start" && !fillWithCpu) {
         const existingTeams = await storage.getTeamsByLeagueId(id);
-        const targetTeams = league.maxTeams || league.numberOfTeams || 12;
-        const cpuNeeded = targetTeams - existingTeams.length;
-        for (let i = 0; i < cpuNeeded; i++) {
-          await storage.createTeam({
-            name: `CPU Team ${existingTeams.length + i + 1}`,
-            leagueId: id,
-            userId: null,
-            logo: null,
-            nextOpponent: null,
-            isCpu: true,
-          });
+        const humanTeams = existingTeams.filter(t => !t.isCpu);
+        const cpuTeams = existingTeams.filter(t => t.isCpu);
+        if (cpuTeams.length > 0) {
+          for (const cpu of cpuTeams) {
+            await storage.deleteTeam(cpu.id);
+          }
+          await storage.updateLeague(id, { maxTeams: humanTeams.length, numberOfTeams: humanTeams.length } as any);
         }
       }
 
@@ -407,10 +403,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               await storage.updateTeam(t.id, { draftPosition: availablePositions[idx++] } as any);
             }
           }
-        }
-        const targetTeams = league.maxTeams || league.numberOfTeams || 12;
-        if (allTeams.length < targetTeams && !fillWithCpu) {
-          await storage.updateLeague(id, { maxTeams: allTeams.length, numberOfTeams: allTeams.length } as any);
         }
       }
 

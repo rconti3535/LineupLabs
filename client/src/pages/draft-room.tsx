@@ -366,9 +366,10 @@ export default function DraftRoom() {
   }, [hasReached, isCommissioner, serverDraftStatus, draftControlMutation.isPending]);
 
   const targetTeamCount = league?.maxTeams || league?.numberOfTeams || 12;
+  const humanTeamCount = teams ? teams.filter(t => t && !t.isCpu).length : 0;
   const currentTeamCount = teams ? teams.filter(Boolean).length : 0;
-  const teamsShort = targetTeamCount - currentTeamCount;
-  const hasEnoughTeams = currentTeamCount >= targetTeamCount;
+  const teamsShort = targetTeamCount - humanTeamCount;
+  const hasEnoughTeams = humanTeamCount >= targetTeamCount;
 
   const handleStartDraft = () => {
     if (!hasEnoughTeams && serverDraftStatus === "pending") {
@@ -1641,7 +1642,7 @@ export default function DraftRoom() {
               <DialogTitle className="text-white text-lg">Not Enough Teams</DialogTitle>
             </div>
             <DialogDescription className="text-gray-400 text-sm pt-2">
-              This league is set for <span className="text-white font-semibold">{targetTeamCount} teams</span>, but only <span className="text-white font-semibold">{currentTeamCount}</span> {currentTeamCount === 1 ? "has" : "have"} joined. You're short <span className="text-yellow-400 font-semibold">{teamsShort} {teamsShort === 1 ? "team" : "teams"}</span>.
+              This league is set for <span className="text-white font-semibold">{targetTeamCount} teams</span>, but only <span className="text-white font-semibold">{humanTeamCount}</span> real {humanTeamCount === 1 ? "user has" : "users have"} joined. You're short <span className="text-yellow-400 font-semibold">{teamsShort} {teamsShort === 1 ? "team" : "teams"}</span>.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 mt-2">
@@ -1651,7 +1652,7 @@ export default function DraftRoom() {
               className="w-full bg-green-600 hover:bg-green-700 text-white gap-2 h-11"
             >
               <Play className="w-4 h-4" />
-              {draftControlMutation.isPending ? "Starting..." : `Start Draft with ${currentTeamCount} ${currentTeamCount === 1 ? "Team" : "Teams"}`}
+              {draftControlMutation.isPending ? "Starting..." : `Start Draft with ${humanTeamCount} ${humanTeamCount === 1 ? "Team" : "Teams"}`}
             </Button>
             <Button
               onClick={() => draftControlMutation.mutate({ action: "start", fillWithCpu: true })}
