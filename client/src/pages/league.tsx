@@ -2137,7 +2137,7 @@ export default function LeaguePage() {
                   <Calendar className={`w-5 h-5 ${["active", "paused"].includes(league.draftStatus || "") ? "text-green-400" : "text-blue-400"}`} />
                 </div>
                 {["active", "paused"].includes(league.draftStatus || "") ? (
-                  <div className="flex-1">
+                  <div className="flex-1 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <p className="text-green-400 font-semibold text-sm">Draft is Live</p>
                       <span className="relative flex h-2.5 w-2.5">
@@ -2145,10 +2145,9 @@ export default function LeaguePage() {
                         <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
                       </span>
                     </div>
-                    <p className="text-gray-400 text-xs">{league.draftType || "Snake"} Draft is currently in progress.</p>
                     <Button
                       onClick={() => setLocation(`/league/${leagueId}/draft`)}
-                      className="mt-2 bg-green-600 hover:bg-green-700 text-white text-xs h-8 px-4"
+                      className="bg-green-600 hover:bg-green-700 text-white text-xs h-8 px-4"
                       size="sm"
                     >
                       Join Draft Room
