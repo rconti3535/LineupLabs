@@ -2265,7 +2265,7 @@ export default function LeaguePage() {
             
             const isDraftCompleted = league.draftStatus === "completed";
 
-            const STAT_COL = "w-[42px] text-center text-[11px] shrink-0";
+            const STAT_COL = "w-[38px] text-center text-[11px] shrink-0";
 
             const statPrefix = rosterStatView === "2026proj" ? "proj" : (rosterStatView === "2026stats" || rosterStatView === "daily") ? "s26" : "stat";
 
@@ -2395,7 +2395,7 @@ export default function LeaguePage() {
                                 <thead>
                                   <tr className="border-b border-gray-700">
                                     <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-9 pl-1">Pos</th>
-                                    <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[140px]">Player</th>
+                                    <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[125px]">Player</th>
                                     {isLeaguePointsFormat && <th className={`${STAT_COL} text-yellow-500 font-semibold pb-1.5`}>PTS</th>}
                                     {statCats.map(stat => (
                                       <th key={stat} className={`${STAT_COL} text-gray-400 font-semibold pb-1.5`}>{stat}</th>
@@ -2412,7 +2412,7 @@ export default function LeaguePage() {
                                         </td>
                                         <td className="py-1.5 pr-2">
                                           <div>
-                                            <p className="text-white text-xs font-medium truncate max-w-[130px]">{p.name as string}</p>
+                                            <p className="text-white text-xs font-medium truncate max-w-[115px]">{p.name as string}</p>
                                             <p className="text-gray-500 text-[10px]">{p.position as string} — {(p.teamAbbreviation || p.team) as string}</p>
                                           </div>
                                         </td>
@@ -2439,7 +2439,7 @@ export default function LeaguePage() {
                           <thead>
                             <tr className="border-b border-gray-700">
                               <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-9 pl-1">Pos</th>
-                              <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[140px]">Player</th>
+                              <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[125px]">Player</th>
                               <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[70px]">Game</th>
                               {isLeaguePointsFormat && <th className={`${STAT_COL} text-yellow-500 font-semibold pb-1.5`}>PTS</th>}
                               {leagueHittingCats.map(stat => (
@@ -2473,7 +2473,7 @@ export default function LeaguePage() {
                                   <td className="py-1.5 pr-2">
                                     {p ? (
                                       <div className="cursor-pointer" onClick={() => isDraftCompleted && p && handleSwapSelect(entry.slotIndex)}>
-                                        <p className="text-white text-xs font-medium truncate max-w-[130px]">{p.name as string}</p>
+                                        <p className="text-white text-xs font-medium truncate max-w-[115px]">{p.name as string}</p>
                                         <p className="text-gray-500 text-[10px]">{p.position as string} — {(p.teamAbbreviation || p.team) as string}</p>
                                       </div>
                                     ) : (
@@ -2573,7 +2573,7 @@ export default function LeaguePage() {
                           <thead>
                             <tr className="border-b border-gray-700">
                               <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-9 pl-1">Pos</th>
-                              <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[140px]">Player</th>
+                              <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[125px]">Player</th>
                               <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 w-[70px]">Game</th>
                               {isLeaguePointsFormat && <th className={`${STAT_COL} text-yellow-500 font-semibold pb-1.5`}>PTS</th>}
                               {leaguePitchingCats.map(stat => (
@@ -2607,7 +2607,7 @@ export default function LeaguePage() {
                                   <td className="py-1.5 pr-2">
                                     {p ? (
                                       <div className="cursor-pointer" onClick={() => isDraftCompleted && p && handleSwapSelect(entry.slotIndex)}>
-                                        <p className="text-white text-xs font-medium truncate max-w-[130px]">{p.name as string}</p>
+                                        <p className="text-white text-xs font-medium truncate max-w-[115px]">{p.name as string}</p>
                                         <p className="text-gray-500 text-[10px]">{p.position as string} — {(p.teamAbbreviation || p.team) as string}</p>
                                       </div>
                                     ) : (
