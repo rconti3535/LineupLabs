@@ -428,10 +428,12 @@ function scheduleBotJoinForLeague(leagueId: number): void {
 
   const elapsed = Date.now() - (lastLeagueJoinEventTime.get(leagueId) ?? Date.now());
   const wait = poissonWait(BOT_JOIN_LAMBDA, elapsed);
+  console.log(`[Bot Sim] Scheduled join timer for league ${leagueId} in ${(wait / 1000).toFixed(1)}s`);
 
   const timer = setTimeout(async () => {
     // Event fired for this specific league scheduler
     lastLeagueJoinEventTime.set(leagueId, Date.now());
+    console.log(`[Bot Sim] Join event fired for league ${leagueId}`);
     await joinBotToLeague(leagueId);
 
     if (await isLeagueJoinEligible(leagueId)) {
@@ -474,7 +476,7 @@ function scheduleJoinReconcileLoop(): void {
   joinReconcileTimer = setTimeout(async () => {
     await reconcileLeagueJoinSchedulers();
     scheduleJoinReconcileLoop();
-  }, 30000);
+  }, 5000);
 }
 
 // ---------------------------------------------------------------------------
