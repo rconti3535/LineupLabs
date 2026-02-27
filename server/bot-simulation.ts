@@ -323,7 +323,7 @@ async function createBotLeague(): Promise<void> {
       draftType: "Snake",
       draftDate,
       draftOrder: "Random",
-      secondsPerPick: 60,
+      secondsPerPick: 30,
       rosterPositions: bestBallPositions,
       maxRosterSize: 35,
       status: "Open",
@@ -688,10 +688,9 @@ function scheduleBotPick(leagueId: number): void {
     clearTimeout(activeDraftTimers.get(leagueId)!);
   }
 
-  // Bot picks use a tighter Poisson — average 25-40 seconds
-  const wait = poissonWait(BOT_PICK_LAMBDA, 0);
-  // Clamp to 5-55 second range for realism
-  const clampedWait = Math.max(5000, Math.min(55000, wait));
+  // Bot pick pace: random integer from 4 to 18 seconds per pick.
+  const randomSeconds = Math.floor(Math.random() * 15) + 4;
+  const clampedWait = randomSeconds * 1000;
 
   const timer = setTimeout(() => {
     activeDraftTimers.delete(leagueId);
