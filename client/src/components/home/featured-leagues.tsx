@@ -78,7 +78,7 @@ export function FeaturedLeagues() {
       <div className="space-y-2">
         {isLoading ? (
           Array.from({ length: 2 }).map((_, i) => (
-            <div key={i} className="league-card rounded-md p-2.5 border border-gray-800/70">
+            <div key={i} className="league-card rounded-md p-2.5 border border-white/15 bg-white/[0.03] backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <Skeleton className="h-4 w-24" />
@@ -92,7 +92,7 @@ export function FeaturedLeagues() {
           ))
         ) : leagues && leagues.length > 0 ? (
           leagues.map((league) => (
-            <div key={league.id} className="league-card rounded-md p-2.5 border border-gray-800/70">
+            <div key={league.id} className="league-card rounded-md p-2.5 border border-white/15 bg-white/[0.03] backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
               <div className="mb-1">
                 <h4 className="text-white text-sm font-medium truncate">{league.name}</h4>
               </div>
@@ -126,7 +126,7 @@ export function FeaturedLeagues() {
             </div>
           ))
         ) : (
-          <Card className="league-card rounded-lg p-6 text-center border-0">
+          <Card className="league-card rounded-lg p-6 text-center border border-white/10 bg-white/[0.02] backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
             <p className="text-gray-400">No public leagues available yet</p>
             <p className="text-sm text-gray-500 mt-1">Create a public league to get started!</p>
           </Card>
