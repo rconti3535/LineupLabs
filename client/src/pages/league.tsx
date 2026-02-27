@@ -1558,6 +1558,10 @@ export default function LeaguePage() {
       return res.json();
     },
     enabled: leagueId !== null,
+    // Poll during active drafts as a fallback in case an SSE event is missed.
+    refetchInterval: ["active", "paused"].includes(league?.draftStatus || "") ? 2000 : false,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const liveDraftTurnState = useMemo(() => {
@@ -1572,7 +1576,8 @@ export default function LeaguePage() {
     if (numTeams <= 0 || totalRounds <= 0) return { isMyTurn: false, picksUntilTurn: null as number | null };
 
     const totalPicks = totalRounds * numTeams;
-    const nextOverall = draftPicks.length + 1;
+    const highestOverallPick = draftPicks.reduce((max, pick) => Math.max(max, pick.overallPick || 0), 0);
+    const nextOverall = highestOverallPick + 1;
     if (nextOverall > totalPicks) return { isMyTurn: false, picksUntilTurn: null as number | null };
 
     const getPickingTeamIdForOverall = (overallPick: number): number | null => {

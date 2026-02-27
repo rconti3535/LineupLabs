@@ -62,7 +62,8 @@ export default function Teams() {
           const sortedTeams = [...leagueTeams].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999));
           const numTeams = sortedTeams.length;
           const totalRounds = league.maxRosterSize || (league.rosterPositions || []).length;
-          const nextOverall = picks.length + 1;
+          const highestOverallPick = picks.reduce((max, pick) => Math.max(max, pick.overallPick || 0), 0);
+          const nextOverall = highestOverallPick + 1;
           if (nextOverall > totalRounds * numTeams) return [leagueId, null] as const;
 
           const round = Math.ceil(nextOverall / numTeams);
