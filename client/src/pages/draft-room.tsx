@@ -418,7 +418,7 @@ export default function DraftRoom() {
     hasNextPage,
     isFetchingNextPage,
   } = useInfiniteQuery<{ players: Player[]; total: number }>({
-    queryKey: ["/api/players", debouncedQuery, positionFilter, league?.type, league?.scoringFormat],
+    queryKey: ["/api/leagues", leagueId, "available-players", debouncedQuery, positionFilter, league?.type, league?.scoringFormat],
     queryFn: async ({ pageParam }) => {
       const params = new URLSearchParams();
       if (debouncedQuery) params.set("q", debouncedQuery);
@@ -435,7 +435,7 @@ export default function DraftRoom() {
       const loaded = allPages.reduce((sum, p) => sum + p.players.length, 0);
       return loaded < lastPage.total ? loaded : undefined;
     },
-    enabled: (activeTab === "players" || commissionerAssignMode) && !!league,
+    enabled: (activeTab === "players" || commissionerAssignMode) && !!league && !!leagueId,
   });
 
   const allFetchedPlayers = playersInfinite?.pages.flatMap(p => p.players) || [];

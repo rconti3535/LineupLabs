@@ -50,8 +50,8 @@ import { broadcastDraftEvent } from "./draft-events";
 // ---------------------------------------------------------------------------
 
 // Base lambda for league creation events.
-// 0.001667 ≈ 1 event per ~600 seconds (10 minutes).
-const LEAGUE_CREATION_LAMBDA = parseFloat(process.env.LEAGUE_CREATION_LAMBDA || "0.001667");
+// 0.002083 ≈ 1 event per ~480 seconds (8 minutes).
+const LEAGUE_CREATION_LAMBDA = parseFloat(process.env.LEAGUE_CREATION_LAMBDA || "0.002083");
 
 // Base lambda for bot-join events.
 // 0.01776 ≈ 1 event per 56.3 seconds (0.94 minutes).
