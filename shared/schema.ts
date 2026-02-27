@@ -12,6 +12,12 @@ export const users = pgTable("users", {
   leagues: integer("leagues").default(0),
   wins: integer("wins").default(0),
   championships: integer("championships").default(0),
+  isBot: boolean("is_bot").default(false),
+});
+
+export const botState = pgTable("bot_state", {
+  key: text("key").primaryKey(),
+  value: integer("value").notNull().default(0),
 });
 
 export const leagues = pgTable("leagues", {
@@ -247,6 +253,7 @@ export const insertUserSchema = createInsertSchema(users).omit({
   leagues: true,
   wins: true,
   championships: true,
+  isBot: true,
 });
 
 export const insertLeagueSchema = createInsertSchema(leagues).omit({

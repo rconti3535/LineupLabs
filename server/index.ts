@@ -4,6 +4,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { startWaiverProcessor } from "./waiver-processor";
+import { startBotSimulation } from "./bot-simulation";
 
 const app = express();
 app.use(express.json({ limit: "5mb" }));
@@ -70,5 +71,6 @@ app.use((req, res, next) => {
   }, () => {
     log(`serving on port ${port}`);
     startWaiverProcessor();
+    startBotSimulation().catch(err => console.error("[Bot Sim] Startup error:", err));
   });
 })();

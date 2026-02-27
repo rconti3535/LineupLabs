@@ -11,6 +11,11 @@ import { eq, ne, and, sql } from "drizzle-orm";
 
 const INF_POSITIONS = ["1B", "2B", "3B", "SS"];
 
+function stripBotFlag<T extends Record<string, unknown>>(user: T): Omit<T, "isBot"> {
+  const { isBot, ...rest } = user as any;
+  return rest;
+}
+
 function getDraftRounds(league: { rosterPositions?: string[] | null; maxRosterSize?: number | null }): number {
   return league.maxRosterSize || (league.rosterPositions || []).length;
 }
@@ -940,7 +945,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
-      res.json(user);
+      res.json(stripBotFlag(user));
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch user" });
     }
@@ -958,7 +963,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const updated = await storage.updateUserProfile(id, { username, avatar });
       if (!updated) return res.status(404).json({ message: "User not found" });
-      res.json(updated);
+      res.json(stripBotFlag(updated));
     } catch (error) {
       res.status(500).json({ message: "Failed to update profile" });
     }
@@ -999,7 +1004,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("Signup: createUser returned no user");
         return res.status(500).json({ message: "Account could not be created. Please try again." });
       }
-      res.status(201).json(user);
+      res.status(201).json(stripBotFlag(user));
     } catch (error: any) {
       console.error("Signup error:", error?.message || error);
       if (error?.stack) console.error(error.stack);
@@ -1024,7 +1029,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user || user.password !== trimmedPassword) {
         return res.status(401).json({ message: "Invalid username or password" });
       }
-      res.json(user);
+      res.json(stripBotFlag(user));
     } catch (error: any) {
       console.error("Login error:", error?.message || error);
       res.status(500).json({ message: "Login failed" });
@@ -2693,6 +2698,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (isNaN(draftTime) || Date.now() < draftTime) continue;
 
           const allTeams = await storage.getTeamsByLeagueId(league.id);
+
+          // Only start if the league is full (all spots occupied by real users or bots)
+          const humanAndBotCount = allTeams.filter(t => !t.isCpu).length;
+          const maxT = league.maxTeams || league.numberOfTeams || 12;
+          if (humanAndBotCount < maxT) continue;
+
           const hasPositions = allTeams.some(t => t.draftPosition);
           if (!hasPositions) {
             const shuffled = [...allTeams].sort(() => Math.random() - 0.5);
@@ -2700,7 +2711,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               await storage.updateTeam(shuffled[i].id, { draftPosition: i + 1 } as any);
             }
           } else {
-            const maxSlots = league.maxTeams || league.numberOfTeams || 12;
+            const maxSlots = maxT;
             const usedPositions = new Set(allTeams.filter(t => t.draftPosition).map(t => t.draftPosition!));
             const availablePositions: number[] = [];
             for (let p = 1; p <= maxSlots; p++) {
