@@ -572,8 +572,14 @@ async function reconcileLeagueJoinSchedulers(): Promise<void> {
 
 function scheduleJoinReconcileLoop(): void {
   joinReconcileTimer = setTimeout(async () => {
-    await reconcileLeagueJoinSchedulers();
-    scheduleJoinReconcileLoop();
+    try {
+      await reconcileLeagueJoinSchedulers();
+    } catch (err) {
+      console.error("[Bot Sim] Reconcile loop error:", (err as Error).message);
+    } finally {
+      // Keep this self-healing even if one reconcile cycle fails.
+      scheduleJoinReconcileLoop();
+    }
   }, 30000);
 }
 
@@ -1058,7 +1064,11 @@ export async function startBotSimulation(): Promise<void> {
   // is reached, and keep replenishing as leagues fill.
   // Step 5: Start per-league bot join schedulers (independent Poisson process
   // for each eligible open public league).
-  await reconcileLeagueJoinSchedulers();
+  try {
+    await reconcileLeagueJoinSchedulers();
+  } catch (err) {
+    console.error("[Bot Sim] Initial reconcile failed:", (err as Error).message);
+  }
   scheduleJoinReconcileLoop();
 
   // Step 6: Check for draft-ready leagues every 60 seconds
