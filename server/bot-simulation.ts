@@ -41,7 +41,7 @@
  */
 
 import { db } from "./db";
-import { users, leagues, teams, players, draftPicks, botState } from "@shared/schema";
+import { users, leagues, teams, players, draftPicks } from "@shared/schema";
 import { eq, and, ne, sql, asc, inArray, notInArray, desc, isNull, or, lte } from "drizzle-orm";
 import { broadcastDraftEvent } from "./draft-events";
 
@@ -202,14 +202,28 @@ const activeDraftTimers = new Map<number, ReturnType<typeof setTimeout>>();
 //  Database helpers
 // ---------------------------------------------------------------------------
 
-async function getLeagueCounter(): Promise<number> {
-  const [row] = await db.select().from(botState).where(eq(botState.key, "league_counter"));
-  return row?.value ?? 0;
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-async function setLeagueCounter(value: number): Promise<void> {
-  await db.insert(botState).values({ key: "league_counter", value })
-    .onConflictDoUpdate({ target: botState.key, set: { value } });
+async function getNextLeagueSequence(city: string, scoringFormat: "Roto" | "Season Points"): Promise<number> {
+  const likePattern = `${city} % ${scoringFormat}`;
+  const rows = await db
+    .select({ name: leagues.name })
+    .from(leagues)
+    .where(sql`${leagues.name} LIKE ${likePattern}`);
+
+  const nameRegex = new RegExp(`^${escapeRegExp(city)}\\s+(\\d+)\\s+${escapeRegExp(scoringFormat)}$`);
+  let maxExisting = 0;
+
+  for (const row of rows) {
+    const match = row.name.match(nameRegex);
+    if (!match) continue;
+    const parsed = parseInt(match[1], 10);
+    if (!Number.isNaN(parsed) && parsed > maxExisting) maxExisting = parsed;
+  }
+
+  return maxExisting + 1;
 }
 
 function getDraftRounds(league: { rosterPositions?: string[] | null; maxRosterSize?: number | null }): number {
@@ -299,13 +313,11 @@ function releaseBots(leagueId: number, teamList: { userId: number | null }[]): v
 
 async function createBotLeague(): Promise<void> {
   try {
-    const counter = await getLeagueCounter();
-    const nextNum = counter + 1;
-    const cityIndex = (nextNum - 1) % MINOR_LEAGUE_CITIES.length;
-    const city = MINOR_LEAGUE_CITIES[cityIndex];
     // Randomize scoring and team size independently so all combinations appear over time:
     // 10 Roto, 10 Season Points, 12 Roto, 12 Season Points.
-    const scoringFormat = Math.random() < 0.5 ? "Roto" : "Season Points";
+    const scoringFormat: "Roto" | "Season Points" = Math.random() < 0.5 ? "Roto" : "Season Points";
+    const city = MINOR_LEAGUE_CITIES[Math.floor(Math.random() * MINOR_LEAGUE_CITIES.length)];
+    const nextNum = await getNextLeagueSequence(city, scoringFormat);
     const maxTeams = Math.random() < 0.5 ? 10 : 12;
     const leagueName = `${city} ${nextNum} ${scoringFormat}`;
 
@@ -329,7 +341,6 @@ async function createBotLeague(): Promise<void> {
       status: "Open",
     }).returning();
 
-    await setLeagueCounter(nextNum);
     console.log(`[Bot Sim] League created: "${leagueName}" (id=${league.id}, ${maxTeams} teams, draft at ${draftDate})`);
   } catch (err) {
     console.error("[Bot Sim] League creation error:", (err as Error).message);
