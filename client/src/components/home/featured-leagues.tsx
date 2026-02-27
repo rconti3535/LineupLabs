@@ -72,13 +72,13 @@ export function FeaturedLeagues() {
   });
 
   return (
-    <div id="public-leagues">
+    <div id="public-leagues" className="bg-[#556068] rounded-2xl p-3">
       <h3 className="text-lg font-semibold text-white mb-4">Quick Join</h3>
       
       <div className="space-y-2">
         {isLoading ? (
           Array.from({ length: 2 }).map((_, i) => (
-            <div key={i} className="league-card rounded-md p-2.5 border border-white/15 bg-white/[0.03] backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+            <div key={i} className="league-card skeuo-glass rounded-[9999px] p-2.5 border border-white/15">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <Skeleton className="h-4 w-24" />
@@ -92,24 +92,24 @@ export function FeaturedLeagues() {
           ))
         ) : leagues && leagues.length > 0 ? (
           leagues.map((league) => (
-            <div key={league.id} className="league-card rounded-md p-2.5 border border-white/15 bg-white/[0.03] backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+            <div key={league.id} className="league-card skeuo-glass rounded-[9999px] p-2.5 border border-white/15 text-white">
               <div className="mb-1">
                 <h4 className="text-white text-sm font-medium truncate">{league.name}</h4>
               </div>
               <div className="flex items-center justify-between gap-1.5">
                 <div className="flex items-center gap-2 text-[11px] min-w-0 overflow-x-auto hide-scrollbar pr-1">
-                  <div className="shrink-0 text-gray-300">
-                    <span className="text-gray-500">Teams</span> {league.currentTeams}/{league.maxTeams}
+                  <div className="shrink-0 text-white/95">
+                    <span className="text-white/80">Teams</span> {league.currentTeams}/{league.maxTeams}
                   </div>
-                  <div className="shrink-0 text-gray-300">
+                  <div className="shrink-0 text-white/95">
                     {league.type}
                   </div>
-                  <div className="shrink-0 text-gray-300">
+                  <div className="shrink-0 text-white/95">
                     {league.scoringFormat}
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <div className="text-[11px] text-gray-300 text-right whitespace-nowrap">
+                  <div className="text-[11px] text-white/95 text-right whitespace-nowrap">
                     {league.draftDate
                       ? `${new Date(league.draftDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })} ${new Date(league.draftDate).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`
                       : "TBD"}
@@ -117,7 +117,7 @@ export function FeaturedLeagues() {
                   <Button
                     onClick={() => joinMutation.mutate(league.id)}
                     disabled={joinMutation.isPending}
-                    className="bg-green-600 hover:bg-green-700 rounded-md text-white text-xs font-semibold h-7 px-2.5 shrink-0"
+                    className="skeuo-glass-button rounded-full text-white text-xs font-semibold h-7 px-3 shrink-0"
                   >
                     {joinMutation.isPending ? "Joining..." : "Join"}
                   </Button>
@@ -126,9 +126,9 @@ export function FeaturedLeagues() {
             </div>
           ))
         ) : (
-          <Card className="league-card rounded-lg p-6 text-center border border-white/10 bg-white/[0.02] backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-            <p className="text-gray-400">No public leagues available yet</p>
-            <p className="text-sm text-gray-500 mt-1">Create a public league to get started!</p>
+          <Card className="league-card skeuo-glass rounded-[9999px] p-6 text-center border border-white/10 text-white">
+            <p className="text-white/95">No public leagues available yet</p>
+            <p className="text-sm text-white/80 mt-1">Create a public league to get started!</p>
           </Card>
         )}
       </div>
