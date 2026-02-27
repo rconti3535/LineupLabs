@@ -122,7 +122,7 @@ export function FeaturedLeagues() {
                   <Button
                     onClick={() => joinMutation.mutate(league.id)}
                     disabled={joinMutation.isPending}
-                    className="bg-green-600 hover:bg-green-700 rounded-md text-white text-[11px] font-medium h-6 px-2 shrink-0"
+                    className="bg-green-600 hover:bg-green-700 rounded-md text-white text-[10px] font-medium h-5 px-1.5 shrink-0"
                   >
                     {joinMutation.isPending ? "Joining..." : "Join"}
                   </Button>
