@@ -16,7 +16,7 @@ export function FeaturedLeagues() {
   const { data: allPublicLeagues, isLoading } = useQuery<League[]>({
     queryKey: ["/api/leagues/public"],
     staleTime: 0,
-    refetchInterval: 30000,
+    refetchInterval: 120000,
     refetchOnMount: "always",
   });
 

@@ -2704,7 +2704,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
 
-  setInterval(checkExpiredDraftPicks, 3000);
+  setInterval(checkExpiredDraftPicks, 15000);
 
   const AUTO_DRAFT_PUSHBACK_MS = 5 * 60 * 1000;
 
@@ -2770,7 +2770,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error checking scheduled drafts:", error);
     }
   }
-  setInterval(checkScheduledDrafts, 10000);
+  setInterval(checkScheduledDrafts, 60000);
 
   async function processExpiredWaivers() {
     try {
