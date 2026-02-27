@@ -70,6 +70,7 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
+    log(`[startup] BOT_SIMULATION_ENABLED=${process.env.BOT_SIMULATION_ENABLED ?? "<unset>"}`);
     startWaiverProcessor();
     startBotSimulation().catch(err => console.error("[Bot Sim] Startup error:", err));
   });

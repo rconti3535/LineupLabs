@@ -858,9 +858,16 @@ async function recoverActiveDrafts(): Promise<void> {
 
 let draftStartInterval: ReturnType<typeof setInterval> | null = null;
 
+function isBotSimulationEnabled(): boolean {
+  const raw = (process.env.BOT_SIMULATION_ENABLED || "").trim().toLowerCase();
+  // Enabled by default unless explicitly disabled.
+  if (!raw) return true;
+  return ["1", "true", "yes", "on", "enabled"].includes(raw);
+}
+
 export async function startBotSimulation(): Promise<void> {
-  if (process.env.BOT_SIMULATION_ENABLED !== "true") {
-    console.log("[Bot Sim] Disabled (set BOT_SIMULATION_ENABLED=true to enable).");
+  if (!isBotSimulationEnabled()) {
+    console.log(`[Bot Sim] Disabled by BOT_SIMULATION_ENABLED=${process.env.BOT_SIMULATION_ENABLED ?? "<unset>"}`);
     return;
   }
 
@@ -878,6 +885,19 @@ export async function startBotSimulation(): Promise<void> {
 
   // Step 3: Recover active drafts
   await recoverActiveDrafts();
+
+  // Step 3.5: Bootstrap at least one public pending league immediately so
+  // users see activity right away after startup.
+  const existingOpenPublic = await db.select({ id: leagues.id }).from(leagues).where(
+    and(
+      eq(leagues.isPublic, true),
+      eq(leagues.draftStatus, "pending"),
+    )
+  );
+  if (existingOpenPublic.length === 0) {
+    await createBotLeague();
+    lastLeagueCreationTime = Date.now();
+  }
 
   // Step 4: Start the league creation scheduler (recursive setTimeout)
   scheduleNextLeagueCreation();
