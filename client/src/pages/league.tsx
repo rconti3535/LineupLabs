@@ -1399,6 +1399,7 @@ export default function LeaguePage() {
   const [selectedSwapIndex, setSelectedSwapIndex] = useState<number | null>(null);
   const [swapTargets, setSwapTargets] = useState<number[]>([]);
   const [rosterStatView, setRosterStatView] = useState<"2025stats" | "2026stats" | "2026proj" | "daily">("daily");
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const [dailyDate, setDailyDate] = useState(() => {
     const now = new Date();
     return now.toISOString().split("T")[0];
@@ -1486,6 +1487,37 @@ export default function LeaguePage() {
 
   const myTeam = teams?.find((t) => t.userId === user?.id);
   const isCommissioner = league?.createdBy === user?.id;
+  const humanTeamCount = teams?.filter(t => !t.isCpu).length || 0;
+  const maxTeamCount = league?.maxTeams || league?.numberOfTeams || 12;
+
+  useEffect(() => {
+    const shouldTick = !!league?.draftDate && league?.draftStatus === "pending";
+    if (!shouldTick) return;
+
+    const timer = setInterval(() => {
+      setNowMs(Date.now());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [league?.draftDate, league?.draftStatus]);
+
+  const draftCountdownLabel = useMemo(() => {
+    if (!league?.draftDate || league?.draftStatus !== "pending") return null;
+    const diffMs = new Date(league.draftDate).getTime() - nowMs;
+    if (isNaN(diffMs)) return null;
+    if (diffMs <= 0) return "Starting soon";
+
+    const totalSeconds = Math.floor(diffMs / 1000);
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    if (days > 0) {
+      return `${days}d ${hours}h ${minutes}m`;
+    }
+    return `${hours}h ${minutes}m ${seconds}s`;
+  }, [league?.draftDate, league?.draftStatus, nowMs]);
   const isLeaguePointsFormat = league?.scoringFormat === "H2H Points" || league?.scoringFormat === "Season Points";
   const leaguePointValues: Record<string, number> = useMemo(() => {
     if (!isLeaguePointsFormat) return {};
@@ -2154,14 +2186,19 @@ export default function LeaguePage() {
                     </Button>
                   </div>
                 ) : league.draftDate ? (
-                  <div className="flex-1">
-                    <p className="text-white font-semibold text-sm">Draft Scheduled</p>
-                    <p className="text-gray-400 text-xs">
-                      {league.draftType || "Snake"} Draft — {new Date(league.draftDate).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })} at {new Date(league.draftDate).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-                    </p>
+                  <div className="flex-1 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-white font-semibold text-sm">Draft Scheduled</p>
+                      <p className="text-gray-300 text-xs">
+                        Countdown: <span className="text-blue-400 font-semibold">{draftCountdownLabel || "TBD"}</span>
+                      </p>
+                      <p className="text-gray-400 text-xs">
+                        Users: {humanTeamCount}/{maxTeamCount}
+                      </p>
+                    </div>
                     <Button
                       onClick={() => setLocation(`/league/${leagueId}/draft`)}
-                      className="mt-2 bg-blue-600 hover:bg-blue-700 text-white text-xs h-8 px-4"
+                      className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-8 px-4 shrink-0"
                       size="sm"
                     >
                       Join Draft Room
