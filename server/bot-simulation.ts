@@ -74,6 +74,11 @@ const DRAFT_OFFSET_MS = 15 * 60 * 1000;
 
 const INF_POSITIONS = ["1B", "2B", "3B", "SS"];
 
+function isAutoLeagueCreationEnabled(): boolean {
+  const raw = (process.env.AUTO_LEAGUE_CREATION_ENABLED || "true").trim().toLowerCase();
+  return ["1", "true", "yes", "on", "enabled"].includes(raw);
+}
+
 // ---------------------------------------------------------------------------
 //  Stepwise Poisson helper
 // ---------------------------------------------------------------------------
@@ -920,6 +925,7 @@ export async function startBotSimulation(): Promise<void> {
     `join λ=${BOT_JOIN_LAMBDA}/s (avg ${Math.round(1/BOT_JOIN_LAMBDA)}s), ` +
     `pick λ=${BOT_PICK_LAMBDA}/s (avg ${Math.round(1/BOT_PICK_LAMBDA)}s)`);
   console.log(`[Bot Sim] Zones: accel after ${ACCELERATION_THRESHOLD_MS/60000}min, hard cap at ${HARD_CAP_MS/60000}min`);
+  console.log(`[Bot Sim] AUTO_LEAGUE_CREATION_ENABLED=${process.env.AUTO_LEAGUE_CREATION_ENABLED ?? "<unset>"} (effective=${isAutoLeagueCreationEnabled()})`);
 
   // Step 1: Seed bots
   await seedBots();
@@ -930,21 +936,27 @@ export async function startBotSimulation(): Promise<void> {
   // Step 3: Recover active drafts
   await recoverActiveDrafts();
 
-  // Step 3.5: Bootstrap at least one public pending league immediately so
-  // users see activity right away after startup.
-  const existingOpenPublic = await db.select({ id: leagues.id }).from(leagues).where(
-    and(
-      eq(leagues.isPublic, true),
-      eq(leagues.draftStatus, "pending"),
-    )
-  );
-  if (existingOpenPublic.length === 0) {
-    await createBotLeague();
-    lastLeagueCreationTime = Date.now();
+  if (isAutoLeagueCreationEnabled()) {
+    // Step 3.5: Bootstrap at least one public pending league immediately so
+    // users see activity right away after startup.
+    const existingOpenPublic = await db.select({ id: leagues.id }).from(leagues).where(
+      and(
+        eq(leagues.isPublic, true),
+        eq(leagues.draftStatus, "pending"),
+      )
+    );
+    if (existingOpenPublic.length === 0) {
+      await createBotLeague();
+      lastLeagueCreationTime = Date.now();
+    }
+  } else {
+    console.log("[Bot Sim] Auto-league creation is paused.");
   }
 
   // Step 4: Start the league creation scheduler (recursive setTimeout)
-  scheduleNextLeagueCreation();
+  if (isAutoLeagueCreationEnabled()) {
+    scheduleNextLeagueCreation();
+  }
 
   // Step 5: Start per-league bot join schedulers (independent Poisson process
   // for each eligible open public league).
