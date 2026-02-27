@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { TeamCard } from "@/components/teams/team-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
-import type { Team, League } from "@shared/schema";
+import type { Team, League, DraftPick } from "@shared/schema";
 
 export default function Teams() {
   const { user } = useAuth();
@@ -34,6 +34,49 @@ export default function Teams() {
   const leagueMap = new Map<number, { name: string; isPublic: boolean; createdBy: number | null; leagueImage: string | null; draftStatus: string | null }>();
   leagues?.forEach((l) => leagueMap.set(l.id, { name: l.name, isPublic: l.isPublic ?? false, createdBy: l.createdBy, leagueImage: l.leagueImage, draftStatus: l.draftStatus }));
 
+  const liveLeagueIds = (leagues || [])
+    .filter(l => l.draftStatus === "active")
+    .map(l => l.id);
+
+  const { data: liveTurnMap } = useQuery<Record<number, number | null>>({
+    queryKey: ["/api/teams/live-turn-map", ...liveLeagueIds],
+    queryFn: async () => {
+      const entries = await Promise.all(
+        liveLeagueIds.map(async (leagueId) => {
+          const [teamsRes, picksRes] = await Promise.all([
+            fetch(`/api/teams/league/${leagueId}`),
+            fetch(`/api/leagues/${leagueId}/draft-picks`),
+          ]);
+          if (!teamsRes.ok || !picksRes.ok) return [leagueId, null] as const;
+
+          const leagueTeams: Team[] = await teamsRes.json();
+          const picks: DraftPick[] = await picksRes.json();
+          const league = leagues?.find(l => l.id === leagueId);
+          if (!league || leagueTeams.length === 0) return [leagueId, null] as const;
+
+          const sortedTeams = [...leagueTeams].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999));
+          const numTeams = sortedTeams.length;
+          const totalRounds = league.maxRosterSize || (league.rosterPositions || []).length;
+          const nextOverall = picks.length + 1;
+          if (nextOverall > totalRounds * numTeams) return [leagueId, null] as const;
+
+          const round = Math.ceil(nextOverall / numTeams);
+          const pickInRound = ((nextOverall - 1) % numTeams) + 1;
+          const isOddRound = round % 2 === 1;
+          const teamIndex = isOddRound ? pickInRound - 1 : numTeams - pickInRound;
+          const pickingTeam = sortedTeams[teamIndex];
+
+          return [leagueId, pickingTeam?.id ?? null] as const;
+        })
+      );
+
+      return Object.fromEntries(entries);
+    },
+    enabled: liveLeagueIds.length > 0,
+    refetchInterval: 5000,
+    staleTime: 0,
+  });
+
   const showSkeleton = isLoading || (teams && teams.length > 0 && leagueIds.length > 0 && leaguesLoading);
 
   return (
@@ -61,6 +104,7 @@ export default function Teams() {
               isCommissioner={leagueMap.get(team.leagueId!)?.createdBy === user?.id}
               leagueImage={leagueMap.get(team.leagueId!)?.leagueImage}
               draftLive={leagueMap.get(team.leagueId!)?.draftStatus === "active"}
+              userTurn={!!team.leagueId && !!liveTurnMap && liveTurnMap[team.leagueId] === team.id}
             />
           ))
         ) : (
