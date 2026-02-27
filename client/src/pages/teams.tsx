@@ -1,8 +1,10 @@
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { TeamCard } from "@/components/teams/team-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
 import type { Team, League, DraftPick } from "@shared/schema";
+import { queryClient } from "@/lib/queryClient";
 
 export default function Teams() {
   const { user } = useAuth();
@@ -29,6 +31,9 @@ export default function Teams() {
       return results.filter(Boolean);
     },
     enabled: leagueIds.length > 0,
+    staleTime: 0,
+    refetchInterval: 10000,
+    refetchOnWindowFocus: true,
   });
 
   const leagueMap = new Map<number, { name: string; isPublic: boolean; createdBy: number | null; leagueImage: string | null; draftStatus: string | null }>();
@@ -73,9 +78,53 @@ export default function Teams() {
       return Object.fromEntries(entries);
     },
     enabled: liveLeagueIds.length > 0,
-    refetchInterval: 5000,
+    refetchInterval: 2000,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
     staleTime: 0,
   });
+
+  useEffect(() => {
+    if (liveLeagueIds.length === 0) return;
+
+    const sources: EventSource[] = [];
+    const reconnectTimers: ReturnType<typeof setTimeout>[] = [];
+    let closed = false;
+
+    const connectLeague = (leagueId: number) => {
+      const es = new EventSource(`/api/leagues/${leagueId}/draft-events`);
+      sources.push(es);
+
+      es.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === "pick" || data.type === "draft-status" || data.type === "teams-update" || data.type === "league-settings") {
+            queryClient.refetchQueries({ queryKey: ["/api/teams/live-turn-map"] });
+            queryClient.refetchQueries({ queryKey: ["/api/leagues", leagueId, "draft-picks"] });
+            queryClient.refetchQueries({ queryKey: ["/api/leagues/batch"] });
+          }
+        } catch {
+          // Ignore malformed SSE payloads.
+        }
+      };
+
+      es.onerror = () => {
+        es.close();
+        if (!closed) {
+          const timer = setTimeout(() => connectLeague(leagueId), 3000);
+          reconnectTimers.push(timer);
+        }
+      };
+    };
+
+    liveLeagueIds.forEach(connectLeague);
+
+    return () => {
+      closed = true;
+      sources.forEach((es) => es.close());
+      reconnectTimers.forEach((t) => clearTimeout(t));
+    };
+  }, [liveLeagueIds.join(",")]);
 
   const showSkeleton = isLoading || (teams && teams.length > 0 && leagueIds.length > 0 && leaguesLoading);
 
