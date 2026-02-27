@@ -423,12 +423,10 @@ export default function DraftRoom() {
       const params = new URLSearchParams();
       if (debouncedQuery) params.set("q", debouncedQuery);
       if (positionFilter !== "ALL") params.set("position", positionFilter);
+      params.set("status", "free_agents");
       params.set("limit", String(PAGE_SIZE));
       params.set("offset", String(pageParam));
-      params.set("adpType", league?.type || "Redraft");
-      params.set("adpScoring", league?.scoringFormat || "Roto");
-      params.set("adpSeason", String(new Date().getFullYear()));
-      const res = await fetch(`/api/players?${params}`);
+      const res = await fetch(`/api/leagues/${leagueId}/available-players?${params}`);
       if (!res.ok) throw new Error("Failed to fetch players");
       return res.json();
     },
@@ -445,8 +443,8 @@ export default function DraftRoom() {
 
   const getAdp = (player: Player) => player.externalAdp ?? null;
 
-  const availablePlayers = allFetchedPlayers.filter(p => !draftedPlayerIdsSet.has(p.id));
-  const availableTotal = Math.max(0, playersTotal - draftedPlayerIds.length);
+  const availablePlayers = allFetchedPlayers;
+  const availableTotal = playersTotal;
 
   const queueIdsKey = [...draftQueue].sort((a, b) => a - b).join(",");
   const { data: queuePlayers } = useQuery<Player[]>({
