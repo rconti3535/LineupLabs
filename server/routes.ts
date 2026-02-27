@@ -1,13 +1,13 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertLeagueSchema, insertTeamSchema, insertUserSchema, insertDraftPickSchema, players, playerAdp, type Player, type InsertLeagueMatchup } from "@shared/schema";
+import { insertLeagueSchema, insertTeamSchema, insertUserSchema, insertDraftPickSchema, players, playerAdp, teams as teamsTable, type Player, type InsertLeagueMatchup } from "@shared/schema";
 import { computeRotoStandings } from "./roto-scoring";
 import { computeStandings, computeMatchups } from "./scoring";
 import { getScheduleForDate, getPlayerGameTimes, type PlayerGameTime } from "./mlb-schedule";
 import { addClient, broadcastDraftEvent } from "./draft-events";
 import { db } from "./db";
-import { eq, ne, and, sql } from "drizzle-orm";
+import { eq, ne, and, sql, inArray } from "drizzle-orm";
 
 const INF_POSITIONS = ["1B", "2B", "3B", "SS"];
 
@@ -217,18 +217,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const teamCountMap = new Map<number, number>();
 
       if (leagueIds.length > 0) {
-        const counts = await db.execute(sql`
-          SELECT
-            league_id,
-            COUNT(*) FILTER (WHERE COALESCE(is_cpu, FALSE) = FALSE)::int AS current_teams
-          FROM teams
-          WHERE league_id = ANY(${leagueIds})
-          GROUP BY league_id
-        `);
+        const counts = await db
+          .select({
+            leagueId: teamsTable.leagueId,
+            currentTeams: sql<number>`COUNT(*) FILTER (WHERE COALESCE(${teamsTable.isCpu}, FALSE) = FALSE)`,
+          })
+          .from(teamsTable)
+          .where(inArray(teamsTable.leagueId, leagueIds))
+          .groupBy(teamsTable.leagueId);
 
-        const rows = counts.rows as Array<{ league_id: number; current_teams: number }>;
-        for (const row of rows) {
-          teamCountMap.set(Number(row.league_id), Number(row.current_teams));
+        for (const row of counts) {
+          if (row.leagueId != null) {
+            teamCountMap.set(Number(row.leagueId), Number(row.currentTeams || 0));
+          }
         }
       }
 
