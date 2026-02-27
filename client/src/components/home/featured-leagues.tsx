@@ -83,7 +83,7 @@ export function FeaturedLeagues() {
       <div className="space-y-2">
         {isLoading ? (
           Array.from({ length: 2 }).map((_, i) => (
-            <div key={i} className="border-b border-gray-800/70 pb-2">
+            <div key={i} className="league-card rounded-md p-2.5 border border-gray-800/70">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <Skeleton className="h-4 w-24" />
@@ -97,12 +97,12 @@ export function FeaturedLeagues() {
           ))
         ) : leagues && leagues.length > 0 ? (
           leagues.map((league) => (
-            <div key={league.id} className="border-b border-gray-800/70 pb-2">
-              <div className="mb-1.5">
+            <div key={league.id} className="league-card rounded-md p-2.5 border border-gray-800/70">
+              <div className="mb-1">
                 <h4 className="text-white text-sm font-medium truncate">{league.name}</h4>
               </div>
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-3 text-[11px] min-w-0 overflow-x-auto hide-scrollbar pr-1">
+              <div className="flex items-center justify-between gap-1.5">
+                <div className="flex items-center gap-2 text-[11px] min-w-0 overflow-x-auto hide-scrollbar pr-1">
                   <div className="shrink-0 text-gray-300">
                     <span className="text-gray-500">Teams</span> {league.currentTeams}/{league.maxTeams}
                   </div>
@@ -113,7 +113,7 @@ export function FeaturedLeagues() {
                     {league.scoringFormat}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-1.5 shrink-0">
                   <div className="text-[11px] text-gray-300 text-right whitespace-nowrap">
                     {league.draftDate
                       ? `${new Date(league.draftDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })} ${new Date(league.draftDate).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`
@@ -122,7 +122,7 @@ export function FeaturedLeagues() {
                   <Button
                     onClick={() => joinMutation.mutate(league.id)}
                     disabled={joinMutation.isPending}
-                    className="bg-green-600 hover:bg-green-700 rounded-md text-white text-[11px] font-medium h-7 px-2.5 shrink-0"
+                    className="bg-green-600 hover:bg-green-700 rounded-md text-white text-[11px] font-medium h-6 px-2 shrink-0"
                   >
                     {joinMutation.isPending ? "Joining..." : "Join"}
                   </Button>
