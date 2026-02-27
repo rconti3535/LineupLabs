@@ -1560,6 +1560,43 @@ export default function LeaguePage() {
     enabled: leagueId !== null,
   });
 
+  const liveDraftTurnState = useMemo(() => {
+    if (!league || !teams || !myTeam) return { isMyTurn: false, picksUntilTurn: null as number | null };
+    if (!["active", "paused"].includes(league.draftStatus || "")) {
+      return { isMyTurn: false, picksUntilTurn: null as number | null };
+    }
+
+    const sortedTeams = [...teams].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999));
+    const numTeams = sortedTeams.length;
+    const totalRounds = league.maxRosterSize || (league.rosterPositions || []).length;
+    if (numTeams <= 0 || totalRounds <= 0) return { isMyTurn: false, picksUntilTurn: null as number | null };
+
+    const totalPicks = totalRounds * numTeams;
+    const nextOverall = draftPicks.length + 1;
+    if (nextOverall > totalPicks) return { isMyTurn: false, picksUntilTurn: null as number | null };
+
+    const getPickingTeamIdForOverall = (overallPick: number): number | null => {
+      const round = Math.ceil(overallPick / numTeams);
+      const pickInRound = ((overallPick - 1) % numTeams) + 1;
+      const isOddRound = round % 2 === 1;
+      const teamIndex = isOddRound ? pickInRound - 1 : numTeams - pickInRound;
+      return sortedTeams[teamIndex]?.id ?? null;
+    };
+
+    const currentTeamId = getPickingTeamIdForOverall(nextOverall);
+    if (currentTeamId === myTeam.id) {
+      return { isMyTurn: true, picksUntilTurn: 0 };
+    }
+
+    for (let pick = nextOverall + 1; pick <= totalPicks; pick++) {
+      if (getPickingTeamIdForOverall(pick) === myTeam.id) {
+        return { isMyTurn: false, picksUntilTurn: pick - nextOverall };
+      }
+    }
+
+    return { isMyTurn: false, picksUntilTurn: null as number | null };
+  }, [league, teams, myTeam, draftPicks]);
+
   const myPicks = draftPicks.filter(p => myTeam && p.teamId === myTeam.id);
 
   const myPickPlayerIds = myPicks.map(p => p.playerId).sort((a, b) => a - b);
@@ -2170,16 +2207,25 @@ export default function LeaguePage() {
                 </div>
                 {["active", "paused"].includes(league.draftStatus || "") ? (
                   <div className="flex-1 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <p className="text-green-400 font-semibold text-sm">Draft is Live</p>
-                      <span className="relative flex h-2.5 w-2.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
-                      </span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-green-400 font-semibold text-sm">Draft is Live</p>
+                        <span className="relative flex h-2.5 w-2.5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+                        </span>
+                      </div>
+                      {liveDraftTurnState.isMyTurn ? (
+                        <p className="text-blue-400 text-xs font-semibold mt-0.5">Your Turn!</p>
+                      ) : liveDraftTurnState.picksUntilTurn !== null ? (
+                        <p className="text-gray-300 text-xs mt-0.5">
+                          {liveDraftTurnState.picksUntilTurn} {liveDraftTurnState.picksUntilTurn === 1 ? "pick" : "picks"} until your turn
+                        </p>
+                      ) : null}
                     </div>
                     <Button
                       onClick={() => setLocation(`/league/${leagueId}/draft`)}
-                      className="bg-green-600 hover:bg-green-700 text-white text-xs h-8 px-4"
+                      className={`${liveDraftTurnState.isMyTurn ? "bg-blue-600 hover:bg-blue-700" : "bg-green-600 hover:bg-green-700"} text-white text-xs h-8 px-4`}
                       size="sm"
                     >
                       Join Draft Room
