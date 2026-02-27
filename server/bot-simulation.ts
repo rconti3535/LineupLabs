@@ -303,8 +303,10 @@ async function createBotLeague(): Promise<void> {
     const nextNum = counter + 1;
     const cityIndex = (nextNum - 1) % MINOR_LEAGUE_CITIES.length;
     const city = MINOR_LEAGUE_CITIES[cityIndex];
-    const scoringFormat = nextNum % 2 === 1 ? "Roto" : "Season Points";
-    const maxTeams = nextNum % 2 === 1 ? 10 : 12;
+    // Randomize scoring and team size independently so all combinations appear over time:
+    // 10 Roto, 10 Season Points, 12 Roto, 12 Season Points.
+    const scoringFormat = Math.random() < 0.5 ? "Roto" : "Season Points";
+    const maxTeams = Math.random() < 0.5 ? 10 : 12;
     const leagueName = `${city} ${nextNum} ${scoringFormat}`;
 
     const draftDate = new Date(Date.now() + DRAFT_OFFSET_MS).toISOString();
