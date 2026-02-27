@@ -562,7 +562,8 @@ export default function DraftRoom() {
       const row: { round: number; pick: number; overall: number; teamIndex: number }[] = [];
       for (let col = 0; col < numTeams; col++) {
         const isEven = round % 2 === 0;
-        const teamIndex = isEven ? col : numTeams - 1 - col;
+        // Keep columns fixed to draft-order teams; snake only changes pick number flow.
+        const teamIndex = col;
         const pickInRound = isEven ? col + 1 : numTeams - col;
         const overall = round * numTeams + pickInRound;
         row.push({ round: round + 1, pick: pickInRound, overall, teamIndex });
@@ -830,7 +831,7 @@ export default function DraftRoom() {
                   isDraftActive && currentTeamIndex === i
                     ? "text-green-400"
                     : myTeam && teams?.[i]?.id === myTeam.id
-                      ? "text-blue-400"
+                      ? "text-green-400"
                       : "text-gray-500"
                 }`}
               >
@@ -859,7 +860,7 @@ export default function DraftRoom() {
                         : isCurrentPick
                           ? "border-green-400 bg-green-900/40 ring-1 ring-green-400/50 shadow-lg shadow-green-400/20"
                           : isMyTeamCell
-                            ? "border-blue-500/70 bg-blue-900/25 ring-1 ring-blue-400/30"
+                            ? "border-green-500/70 bg-green-900/25 ring-1 ring-green-400/30"
                           : pick
                             ? "border-gray-600 bg-gray-700/60"
                             : "border-gray-700 bg-gray-800/60 hover:border-gray-500"
