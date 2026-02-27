@@ -199,6 +199,7 @@ const leagueJoinNextFireAt = new Map<number, number>();
 const lastLeagueJoinEventTime = new Map<number, number>();
 let joinReconcileTimer: ReturnType<typeof setTimeout> | null = null;
 const activeDraftTimers = new Map<number, ReturnType<typeof setTimeout>>();
+let lastJoinSchedulerHealthLogAt = 0;
 
 // ---------------------------------------------------------------------------
 //  Database helpers
@@ -491,7 +492,12 @@ async function reconcileLeagueJoinSchedulers(): Promise<void> {
       const nextFireAt = leagueJoinNextFireAt.get(lg.id) ?? 0;
       const missingOrStale = !leagueJoinTimers.has(lg.id) || nextFireAt < Date.now() - 5000;
       if (missingOrStale) {
-        lastLeagueJoinEventTime.set(lg.id, Date.now());
+        // Initialize each league with independent jitter so first join events
+        // don't appear globally synchronized across leagues.
+        if (!lastLeagueJoinEventTime.has(lg.id)) {
+          const jitterMs = Math.floor(Math.random() * ACCELERATION_THRESHOLD_MS);
+          lastLeagueJoinEventTime.set(lg.id, Date.now() - jitterMs);
+        }
         scheduleBotJoinForLeague(lg.id);
       }
     }
@@ -501,6 +507,14 @@ async function reconcileLeagueJoinSchedulers(): Promise<void> {
     if (!eligible.has(leagueId)) {
       clearLeagueJoinScheduler(leagueId);
     }
+  }
+
+  const now = Date.now();
+  if (now - lastJoinSchedulerHealthLogAt >= 30000) {
+    lastJoinSchedulerHealthLogAt = now;
+    console.log(
+      `[Bot Sim] Join scheduler health: eligible=${eligible.size}, activeTimers=${leagueJoinTimers.size}`
+    );
   }
 }
 
