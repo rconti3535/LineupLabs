@@ -112,19 +112,21 @@ export function FeaturedLeagues() {
                   <div className="shrink-0 text-gray-300">
                     {league.scoringFormat}
                   </div>
-                  <div className="shrink-0 text-gray-300">
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="text-[11px] text-gray-300 text-right whitespace-nowrap">
                     {league.draftDate
                       ? `${new Date(league.draftDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })} ${new Date(league.draftDate).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`
                       : "TBD"}
                   </div>
+                  <Button
+                    onClick={() => joinMutation.mutate(league.id)}
+                    disabled={joinMutation.isPending}
+                    className="bg-green-600 hover:bg-green-700 rounded-md text-white text-[11px] font-medium h-7 px-2.5 shrink-0"
+                  >
+                    {joinMutation.isPending ? "Joining..." : "Join"}
+                  </Button>
                 </div>
-                <Button
-                  onClick={() => joinMutation.mutate(league.id)}
-                  disabled={joinMutation.isPending}
-                  className="bg-green-600 hover:bg-green-700 rounded-md text-white text-[11px] font-medium h-7 px-2.5 shrink-0"
-                >
-                  {joinMutation.isPending ? "Joining..." : "Join"}
-                </Button>
               </div>
             </div>
           ))
