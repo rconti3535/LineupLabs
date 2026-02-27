@@ -196,7 +196,7 @@ let lastLeagueCreationTime = Date.now();
 let leagueCreationTimer: ReturnType<typeof setTimeout> | null = null;
 const leagueJoinTimers = new Map<number, ReturnType<typeof setTimeout>>();
 const leagueJoinNextFireAt = new Map<number, number>();
-const lastLeagueJoinEventTime = new Map<number, number>();
+const lastLeagueJoinSuccessTime = new Map<number, number>();
 let joinReconcileTimer: ReturnType<typeof setTimeout> | null = null;
 const activeDraftTimers = new Map<number, ReturnType<typeof setTimeout>>();
 let lastJoinSchedulerHealthLogAt = 0;
@@ -382,32 +382,32 @@ function clearLeagueJoinScheduler(leagueId: number): void {
   if (timer) clearTimeout(timer);
   leagueJoinTimers.delete(leagueId);
   leagueJoinNextFireAt.delete(leagueId);
-  lastLeagueJoinEventTime.delete(leagueId);
+  lastLeagueJoinSuccessTime.delete(leagueId);
 }
 
-async function joinBotToLeague(leagueId: number): Promise<void> {
+async function joinBotToLeague(leagueId: number): Promise<boolean> {
   try {
     const [league] = await db.select().from(leagues).where(eq(leagues.id, leagueId));
-    if (!league || !league.isPublic || league.draftStatus !== "pending") return;
+    if (!league || !league.isPublic || league.draftStatus !== "pending") return false;
 
     const lgTeams = await db.select().from(teams).where(eq(teams.leagueId, league.id));
     const humanAndBotCount = lgTeams.filter(t => !t.isCpu).length;
     const maxT = league.maxTeams || league.numberOfTeams || 12;
-    if (humanAndBotCount >= maxT) return;
+    if (humanAndBotCount >= maxT) return false;
 
     const botId = getAvailableBot();
     if (botId === null) {
       console.warn(`[Bot Sim] WARNING: No available bots for league ${league.id} join event.`);
-      return;
+      return false;
     }
 
     // Check bot isn't already in this league
     const existingTeam = await db.select({ id: teams.id }).from(teams)
       .where(and(eq(teams.leagueId, league.id), eq(teams.userId, botId)));
-    if (existingTeam.length > 0) return;
+    if (existingTeam.length > 0) return false;
 
     const bot = await db.select().from(users).where(eq(users.id, botId)).then(r => r[0]);
-    if (!bot) return;
+    if (!bot) return false;
 
     const teamName = `${bot.username}'s Team`;
 
@@ -434,8 +434,10 @@ async function joinBotToLeague(leagueId: number): Promise<void> {
 
     broadcastDraftEvent(league.id, "teams-update");
     console.log(`[Bot Sim] Bot "${bot.username}" joined league ${league.id} ("${league.name}")`);
+    return true;
   } catch (err) {
     console.error("[Bot Sim] Bot join error:", (err as Error).message);
+    return false;
   }
 }
 
@@ -443,7 +445,7 @@ function scheduleBotJoinForLeague(leagueId: number): void {
   const existing = leagueJoinTimers.get(leagueId);
   if (existing) clearTimeout(existing);
 
-  const elapsed = Date.now() - (lastLeagueJoinEventTime.get(leagueId) ?? Date.now());
+  const elapsed = Date.now() - (lastLeagueJoinSuccessTime.get(leagueId) ?? Date.now());
   const wait = poissonWait(BOT_JOIN_LAMBDA, elapsed);
   console.log(`[Bot Sim] Scheduled join timer for league ${leagueId} in ${(wait / 1000).toFixed(1)}s`);
 
@@ -454,9 +456,12 @@ function scheduleBotJoinForLeague(leagueId: number): void {
     leagueJoinTimers.delete(leagueId);
     leagueJoinNextFireAt.delete(leagueId);
     try {
-      lastLeagueJoinEventTime.set(leagueId, Date.now());
       console.log(`[Bot Sim] Join event fired for league ${leagueId}`);
-      await joinBotToLeague(leagueId);
+      const joined = await joinBotToLeague(leagueId);
+      if (joined) {
+        // Successful join resets acceleration so next schedule returns to Zone 1.
+        lastLeagueJoinSuccessTime.set(leagueId, Date.now());
+      }
 
       if (await isLeagueJoinEligible(leagueId)) {
         scheduleBotJoinForLeague(leagueId);
@@ -494,9 +499,9 @@ async function reconcileLeagueJoinSchedulers(): Promise<void> {
       if (missingOrStale) {
         // Initialize each league with independent jitter so first join events
         // don't appear globally synchronized across leagues.
-        if (!lastLeagueJoinEventTime.has(lg.id)) {
+        if (!lastLeagueJoinSuccessTime.has(lg.id)) {
           const jitterMs = Math.floor(Math.random() * ACCELERATION_THRESHOLD_MS);
-          lastLeagueJoinEventTime.set(lg.id, Date.now() - jitterMs);
+          lastLeagueJoinSuccessTime.set(lg.id, Date.now() - jitterMs);
         }
         scheduleBotJoinForLeague(lg.id);
       }
@@ -1038,7 +1043,7 @@ export function stopBotSimulation(): void {
   for (const timer of leagueJoinTimers.values()) clearTimeout(timer);
   leagueJoinTimers.clear();
   leagueJoinNextFireAt.clear();
-  lastLeagueJoinEventTime.clear();
+  lastLeagueJoinSuccessTime.clear();
   if (draftStartInterval) clearInterval(draftStartInterval);
   for (const timer of activeDraftTimers.values()) clearTimeout(timer);
   activeDraftTimers.clear();
