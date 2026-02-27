@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
@@ -81,74 +80,54 @@ export function FeaturedLeagues() {
     <div id="public-leagues">
       <h3 className="text-lg font-semibold text-white mb-4">Quick Join</h3>
       
-      <div className="space-y-3">
+      <div className="space-y-2">
         {isLoading ? (
           Array.from({ length: 2 }).map((_, i) => (
-            <Card key={i} className="league-card rounded-lg p-4">
-              <div className="flex items-center justify-between mb-3">
-                <Skeleton className="h-6 w-32" />
-                <Skeleton className="h-6 w-12 rounded-full" />
+            <div key={i} className="border-b border-gray-800/70 pb-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-10" />
+                  <Skeleton className="h-4 w-14" />
+                  <Skeleton className="h-4 w-16" />
+                </div>
+                <Skeleton className="h-7 w-20 rounded-md shrink-0" />
               </div>
-              <div className="grid grid-cols-3 gap-4 text-sm">
-                {Array.from({ length: 3 }).map((_, j) => (
-                  <div key={j}>
-                    <Skeleton className="h-4 w-12 mb-1" />
-                    <Skeleton className="h-5 w-16" />
-                  </div>
-                ))}
-              </div>
-            </Card>
+            </div>
           ))
         ) : leagues && leagues.length > 0 ? (
           leagues.map((league) => (
-            <Card 
-              key={league.id} 
-              className="league-card rounded-lg p-4 border-0"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="text-white font-medium">{league.name}</h4>
-                <Badge 
-                  className={`text-xs px-2 py-1 ${
-                    league.buyin === "Free" 
-                      ? "bg-blue-600 text-white" 
-                      : "bg-green-600 text-white"
-                  }`}
-                >
-                  Public
-                </Badge>
+            <div key={league.id} className="border-b border-gray-800/70 pb-2">
+              <div className="mb-1.5">
+                <h4 className="text-white text-sm font-medium truncate">{league.name}</h4>
               </div>
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-4 text-sm min-w-0 overflow-x-auto hide-scrollbar pr-1">
-                  <div className="shrink-0">
-                    <p className="text-gray-400">Teams</p>
-                    <p className="text-white font-medium">{league.currentTeams}/{league.maxTeams}</p>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-3 text-[11px] min-w-0 overflow-x-auto hide-scrollbar pr-1">
+                  <div className="shrink-0 text-gray-300">
+                    <span className="text-gray-500">Teams</span> {league.currentTeams}/{league.maxTeams}
                   </div>
-                  <div className="shrink-0">
-                    <p className="text-gray-400">Type</p>
-                    <p className="text-white font-medium">{league.type}</p>
+                  <div className="shrink-0 text-gray-300">
+                    <span className="text-gray-500">Type</span> {league.type}
                   </div>
-                  <div className="shrink-0">
-                    <p className="text-gray-400">Scoring</p>
-                    <p className="text-white font-medium">{league.scoringFormat}</p>
+                  <div className="shrink-0 text-gray-300">
+                    <span className="text-gray-500">Scoring</span> {league.scoringFormat}
                   </div>
-                  <div className="shrink-0">
-                    <p className="text-gray-400">Draft</p>
-                    <p className="text-white font-medium">
-                      {league.draftDate
-                        ? `${new Date(league.draftDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })} ${new Date(league.draftDate).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`
-                        : "TBD"}
-                    </p>
+                  <div className="shrink-0 text-gray-300">
+                    <span className="text-gray-500">Draft</span>{" "}
+                    {league.draftDate
+                      ? `${new Date(league.draftDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })} ${new Date(league.draftDate).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`
+                      : "TBD"}
                   </div>
                 </div>
                 <Button
                   onClick={() => joinMutation.mutate(league.id)}
                   disabled={joinMutation.isPending}
-                  className="bg-green-600 hover:bg-green-700 rounded-lg text-white text-sm font-medium shrink-0"
+                  className="bg-green-600 hover:bg-green-700 rounded-md text-white text-[11px] font-medium h-7 px-2.5 shrink-0"
                 >
-                  {joinMutation.isPending ? "Joining..." : "Join League"}
+                  {joinMutation.isPending ? "Joining..." : "Join"}
                 </Button>
               </div>
-            </Card>
+            </div>
           ))
         ) : (
           <Card className="league-card rounded-lg p-6 text-center border-0">
