@@ -483,16 +483,38 @@ function scheduleBotJoinForLeague(leagueId: number): void {
 }
 
 async function reconcileLeagueJoinSchedulers(): Promise<void> {
-  const publicPendingLeagues = await db.select({ id: leagues.id }).from(leagues).where(
+  const publicPendingLeagues = await db.select({
+    id: leagues.id,
+    maxTeams: leagues.maxTeams,
+    numberOfTeams: leagues.numberOfTeams,
+  }).from(leagues).where(
     and(
       eq(leagues.isPublic, true),
       eq(leagues.draftStatus, "pending"),
     )
   );
 
+  const pendingLeagueIds = publicPendingLeagues.map(lg => lg.id);
+  const teamCounts = new Map<number, number>();
+  if (pendingLeagueIds.length > 0) {
+    const rows = await db.execute(sql`
+      SELECT
+        league_id,
+        COUNT(*) FILTER (WHERE COALESCE(is_cpu, FALSE) = FALSE)::int AS human_and_bot_count
+      FROM teams
+      WHERE league_id = ANY(${pendingLeagueIds})
+      GROUP BY league_id
+    `);
+    for (const row of rows.rows as Array<{ league_id: number; human_and_bot_count: number }>) {
+      teamCounts.set(Number(row.league_id), Number(row.human_and_bot_count));
+    }
+  }
+
   const eligible = new Set<number>();
   for (const lg of publicPendingLeagues) {
-    if (await isLeagueJoinEligible(lg.id)) {
+    const maxT = lg.maxTeams || lg.numberOfTeams || 12;
+    const count = teamCounts.get(lg.id) ?? 0;
+    if (count < maxT) {
       eligible.add(lg.id);
       const nextFireAt = leagueJoinNextFireAt.get(lg.id) ?? 0;
       const missingOrStale = !leagueJoinTimers.has(lg.id) || nextFireAt < Date.now() - 5000;
@@ -527,7 +549,7 @@ function scheduleJoinReconcileLoop(): void {
   joinReconcileTimer = setTimeout(async () => {
     await reconcileLeagueJoinSchedulers();
     scheduleJoinReconcileLoop();
-  }, 5000);
+  }, 30000);
 }
 
 // ---------------------------------------------------------------------------

@@ -213,12 +213,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/leagues/public", async (req, res) => {
     try {
       const leagues = await storage.getPublicLeagues();
-      const leaguesWithTeamCount = await Promise.all(
-        leagues.map(async (league) => {
-          const teams = await storage.getTeamsByLeagueId(league.id);
-          return { ...league, currentTeams: teams.filter(t => !t.isCpu).length };
-        })
-      );
+      const leagueIds = leagues.map((league) => league.id);
+      const teamCountMap = new Map<number, number>();
+
+      if (leagueIds.length > 0) {
+        const counts = await db.execute(sql`
+          SELECT
+            league_id,
+            COUNT(*) FILTER (WHERE COALESCE(is_cpu, FALSE) = FALSE)::int AS current_teams
+          FROM teams
+          WHERE league_id = ANY(${leagueIds})
+          GROUP BY league_id
+        `);
+
+        const rows = counts.rows as Array<{ league_id: number; current_teams: number }>;
+        for (const row of rows) {
+          teamCountMap.set(Number(row.league_id), Number(row.current_teams));
+        }
+      }
+
+      const leaguesWithTeamCount = leagues.map((league) => ({
+        ...league,
+        currentTeams: teamCountMap.get(league.id) ?? 0,
+      }));
       res.json(leaguesWithTeamCount);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch public leagues" });
@@ -2899,7 +2916,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
 
-  syncExternalAdpToTable();
+  const adpStartupSyncEnabled = ["1", "true", "yes", "on", "enabled"]
+    .includes((process.env.ADP_STARTUP_SYNC_ENABLED || "false").trim().toLowerCase());
+  if (adpStartupSyncEnabled) {
+    syncExternalAdpToTable();
+  } else {
+    console.log("[ADP Sync] Startup sync skipped (set ADP_STARTUP_SYNC_ENABLED=true to enable)");
+  }
 
   app.post("/api/adp/sync", async (_req, res) => {
     try {
