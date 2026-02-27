@@ -53,8 +53,9 @@ import { broadcastDraftEvent } from "./draft-events";
 // 0.00111 ≈ 1 event per 900 seconds (15 minutes).
 const LEAGUE_CREATION_LAMBDA = parseFloat(process.env.LEAGUE_CREATION_LAMBDA || "0.00111");
 
-// Base lambda for bot-join events. Same default as creation.
-const BOT_JOIN_LAMBDA = parseFloat(process.env.BOT_JOIN_LAMBDA || "0.00111");
+// Base lambda for bot-join events.
+// 0.00222 ≈ 1 event per 450 seconds (7.5 minutes).
+const BOT_JOIN_LAMBDA = parseFloat(process.env.BOT_JOIN_LAMBDA || "0.00222");
 
 // Base lambda for bot draft picks.
 // 0.03 ≈ 1 pick per ~33 seconds — realistic human pace (25-40s range).
