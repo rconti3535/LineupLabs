@@ -51,6 +51,7 @@ export default function JoinLeague() {
   const humanTeams = teams?.filter(t => !t.isCpu) || [];
   const maxTeams = league?.maxTeams || league?.numberOfTeams || 12;
   const isFull = humanTeams.length >= maxTeams;
+  const isDraftStarted = ["active", "paused", "completed"].includes(league?.draftStatus || "");
 
   const joinMutation = useMutation({
     mutationFn: async () => {
@@ -160,7 +161,14 @@ export default function JoinLeague() {
             </div>
           </div>
 
-          {isFull ? (
+          {isDraftStarted ? (
+            <>
+              <p className="text-red-400 text-sm mb-4">This draft has already started. New users cannot join.</p>
+              <Button onClick={() => setLocation("/")} className="w-full bg-gray-700 hover:bg-gray-600 text-white rounded-xl h-11">
+                Go Home
+              </Button>
+            </>
+          ) : isFull ? (
             <>
               <p className="text-red-400 text-sm mb-4">This league is full.</p>
               <Button onClick={() => setLocation("/")} className="w-full bg-gray-700 hover:bg-gray-600 text-white rounded-xl h-11">
@@ -178,7 +186,7 @@ export default function JoinLeague() {
               </Button>
               <Button
                 onClick={() => joinMutation.mutate()}
-                disabled={joinMutation.isPending}
+                disabled={joinMutation.isPending || isDraftStarted}
                 className="flex-1 bg-green-600 hover:bg-green-700 text-white rounded-xl h-11 font-semibold"
               >
                 {joinMutation.isPending ? "Joining..." : "Accept"}

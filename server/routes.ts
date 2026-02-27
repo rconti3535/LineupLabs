@@ -1138,6 +1138,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!league.isPublic && !invite) {
         return res.status(403).json({ message: "This league is private" });
       }
+      if (["active", "paused", "completed"].includes(league.draftStatus || "")) {
+        return res.status(400).json({ message: "Cannot join a league after the draft has started" });
+      }
       const existingTeams = await storage.getTeamsByLeagueId(leagueId);
       if (existingTeams.some(t => t.userId === userId)) {
         return res.status(400).json({ message: "You are already in this league" });
