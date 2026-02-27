@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertLeagueSchema, insertTeamSchema, insertUserSchema, insertDraftPickSchema, players, playerAdp, teams as teamsTable, type Player, type InsertLeagueMatchup } from "@shared/schema";
+import { insertLeagueSchema, insertTeamSchema, insertUserSchema, insertDraftPickSchema, players, playerAdp, teams as teamsTable, users, type Player, type InsertLeagueMatchup } from "@shared/schema";
 import { computeRotoStandings } from "./roto-scoring";
 import { computeStandings, computeMatchups } from "./scoring";
 import { getScheduleForDate, getPlayerGameTimes, type PlayerGameTime } from "./mlb-schedule";
@@ -2722,6 +2722,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Only start if the league is full (all spots occupied by real users or bots)
           const humanAndBotCount = allTeams.filter(t => !t.isCpu).length;
           const maxT = league.maxTeams || league.numberOfTeams || 12;
+
+          // If full but all teams are bots, do not run the draft — delete the league.
+          const nonCpuUserIds = allTeams
+            .filter(t => !t.isCpu && t.userId != null)
+            .map(t => t.userId!) as number[];
+          let realUserCount = 0;
+          if (nonCpuUserIds.length > 0) {
+            const realUsers = await db.select({ id: users.id })
+              .from(users)
+              .where(and(inArray(users.id, nonCpuUserIds), eq(users.isBot, false)));
+            realUserCount = realUsers.length;
+          }
+          if (humanAndBotCount >= maxT && realUserCount === 0) {
+            await storage.deleteLeague(league.id);
+            console.log(`[Auto-start] Deleted full all-bot league ${league.id} (${league.name}) before draft start`);
+            continue;
+          }
+
           if (humanAndBotCount < maxT) {
             // Auto-created leagues have no commissioner (createdBy null).
             // If they are not full at scheduled time, defer by 5 minutes.

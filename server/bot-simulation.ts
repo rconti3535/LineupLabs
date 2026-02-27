@@ -41,6 +41,7 @@
  */
 
 import { db } from "./db";
+import { storage } from "./storage";
 import { users, leagues, teams, players, draftPicks } from "@shared/schema";
 import { eq, and, ne, sql, asc, inArray, notInArray, desc, isNull, or, lte } from "drizzle-orm";
 import { broadcastDraftEvent } from "./draft-events";
@@ -502,6 +503,14 @@ async function checkBotDraftStarts(): Promise<void> {
       const lgTeams = await db.select().from(teams).where(eq(teams.leagueId, league.id));
       const humanAndBotCount = lgTeams.filter(t => !t.isCpu).length;
       const maxT = league.maxTeams || league.numberOfTeams || 12;
+
+      // If full but all teams are bots, do not run the draft — delete the league.
+      const realUserCount = lgTeams.filter(t => !t.isCpu && t.userId != null && !allBotIds.includes(t.userId)).length;
+      if (humanAndBotCount >= maxT && realUserCount === 0) {
+        await storage.deleteLeague(league.id);
+        console.log(`[Bot Sim] Deleted full all-bot league ${league.id} ("${league.name}") before draft start.`);
+        continue;
+      }
 
       if (humanAndBotCount < maxT) {
         // Auto-created leagues (createdBy is null) are deferred by 5 minutes
