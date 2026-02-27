@@ -106,6 +106,17 @@ export function FeaturedLeagues() {
                   <div className="shrink-0 text-gray-300">
                     <span className="text-gray-500">Teams</span> {league.currentTeams}/{league.maxTeams}
                   </div>
+                  <div className="shrink-0 text-gray-300">
+                    {league.type}
+                  </div>
+                  <div className="shrink-0 text-gray-300">
+                    {league.scoringFormat}
+                  </div>
+                  <div className="shrink-0 text-gray-300">
+                    {league.draftDate
+                      ? `${new Date(league.draftDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })} ${new Date(league.draftDate).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`
+                      : "TBD"}
+                  </div>
                 </div>
                 <Button
                   onClick={() => joinMutation.mutate(league.id)}
