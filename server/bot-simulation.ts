@@ -187,9 +187,10 @@ const BOT_USERNAMES: string[] = [
 const busyBotIds = new Set<number>();
 let allBotIds: number[] = [];
 let lastLeagueCreationTime = Date.now();
-let lastBotJoinTime = Date.now();
 let leagueCreationTimer: ReturnType<typeof setTimeout> | null = null;
-let botJoinTimer: ReturnType<typeof setTimeout> | null = null;
+const leagueJoinTimers = new Map<number, ReturnType<typeof setTimeout>>();
+const lastLeagueJoinEventTime = new Map<number, number>();
+let joinReconcileTimer: ReturnType<typeof setTimeout> | null = null;
 const activeDraftTimers = new Map<number, ReturnType<typeof setTimeout>>();
 
 // ---------------------------------------------------------------------------
@@ -274,10 +275,9 @@ async function restoreBusyBots(): Promise<void> {
 }
 
 function getAvailableBot(): number | null {
-  for (const id of allBotIds) {
-    if (!busyBotIds.has(id)) return id;
-  }
-  return null;
+  const available = allBotIds.filter(id => !busyBotIds.has(id));
+  if (available.length === 0) return null;
+  return available[Math.floor(Math.random() * available.length)];
 }
 
 function releaseBots(leagueId: number, teamList: { userId: number | null }[]): void {
@@ -335,6 +335,7 @@ function scheduleNextLeagueCreation(): void {
   leagueCreationTimer = setTimeout(async () => {
     await createBotLeague();
     lastLeagueCreationTime = Date.now();
+    await reconcileLeagueJoinSchedulers();
     scheduleNextLeagueCreation();
   }, wait);
 }
@@ -343,46 +344,44 @@ function scheduleNextLeagueCreation(): void {
 //  Bot join scheduler
 // ---------------------------------------------------------------------------
 
-async function botJoinEvent(): Promise<void> {
+async function isLeagueJoinEligible(leagueId: number): Promise<boolean> {
+  const [league] = await db.select().from(leagues).where(eq(leagues.id, leagueId));
+  if (!league) return false;
+  if (!league.isPublic) return false;
+  if (league.draftStatus !== "pending") return false;
+
+  const lgTeams = await db.select().from(teams).where(eq(teams.leagueId, leagueId));
+  const humanAndBotCount = lgTeams.filter(t => !t.isCpu).length;
+  const maxT = league.maxTeams || league.numberOfTeams || 12;
+  return humanAndBotCount < maxT;
+}
+
+function clearLeagueJoinScheduler(leagueId: number): void {
+  const timer = leagueJoinTimers.get(leagueId);
+  if (timer) clearTimeout(timer);
+  leagueJoinTimers.delete(leagueId);
+  lastLeagueJoinEventTime.delete(leagueId);
+}
+
+async function joinBotToLeague(leagueId: number): Promise<void> {
   try {
-    // Find all public leagues with open spots that haven't started drafting
-    const openLeagues = await db.select().from(leagues).where(
-      and(
-        eq(leagues.isPublic, true),
-        eq(leagues.draftStatus, "pending"),
-      )
-    );
+    const [league] = await db.select().from(leagues).where(eq(leagues.id, leagueId));
+    if (!league || !league.isPublic || league.draftStatus !== "pending") return;
 
-    if (openLeagues.length === 0) return;
-
-    // For each league, check if there are open spots
-    const candidates: { league: typeof openLeagues[0]; openSlots: number; draftTime: number }[] = [];
-
-    for (const lg of openLeagues) {
-      const lgTeams = await db.select().from(teams).where(eq(teams.leagueId, lg.id));
-      const humanAndBotCount = lgTeams.filter(t => !t.isCpu).length;
-      const maxT = lg.maxTeams || lg.numberOfTeams || 12;
-      if (humanAndBotCount < maxT) {
-        const draftTime = lg.draftDate ? new Date(lg.draftDate).getTime() : Infinity;
-        candidates.push({ league: lg, openSlots: maxT - humanAndBotCount, draftTime });
-      }
-    }
-
-    if (candidates.length === 0) return;
-
-    // Prioritize leagues closest to their draft time
-    candidates.sort((a, b) => a.draftTime - b.draftTime);
-    const target = candidates[0];
+    const lgTeams = await db.select().from(teams).where(eq(teams.leagueId, league.id));
+    const humanAndBotCount = lgTeams.filter(t => !t.isCpu).length;
+    const maxT = league.maxTeams || league.numberOfTeams || 12;
+    if (humanAndBotCount >= maxT) return;
 
     const botId = getAvailableBot();
     if (botId === null) {
-      console.warn("[Bot Sim] WARNING: No available bots for join event.");
+      console.warn(`[Bot Sim] WARNING: No available bots for league ${league.id} join event.`);
       return;
     }
 
     // Check bot isn't already in this league
     const existingTeam = await db.select({ id: teams.id }).from(teams)
-      .where(and(eq(teams.leagueId, target.league.id), eq(teams.userId, botId)));
+      .where(and(eq(teams.leagueId, league.id), eq(teams.userId, botId)));
     if (existingTeam.length > 0) return;
 
     const bot = await db.select().from(users).where(eq(users.id, botId)).then(r => r[0]);
@@ -391,7 +390,6 @@ async function botJoinEvent(): Promise<void> {
     const teamName = `${bot.username}'s Team`;
 
     // Replace a CPU placeholder if one exists
-    const lgTeams = await db.select().from(teams).where(eq(teams.leagueId, target.league.id));
     const cpuTeams = lgTeams.filter(t => t.isCpu).sort((a, b) => (b.draftPosition || 999) - (a.draftPosition || 999));
     const replacedCpu = cpuTeams[0];
     const inheritedPosition = replacedCpu?.draftPosition || null;
@@ -402,7 +400,7 @@ async function botJoinEvent(): Promise<void> {
 
     const [newTeam] = await db.insert(teams).values({
       name: teamName,
-      leagueId: target.league.id,
+      leagueId: league.id,
       userId: botId,
       logo: "",
       nextOpponent: "",
@@ -412,21 +410,66 @@ async function botJoinEvent(): Promise<void> {
       await db.update(teams).set({ draftPosition: inheritedPosition }).where(eq(teams.id, newTeam.id));
     }
 
-    broadcastDraftEvent(target.league.id, "teams-update");
-    console.log(`[Bot Sim] Bot "${bot.username}" joined league ${target.league.id} ("${target.league.name}")`);
+    broadcastDraftEvent(league.id, "teams-update");
+    console.log(`[Bot Sim] Bot "${bot.username}" joined league ${league.id} ("${league.name}")`);
   } catch (err) {
     console.error("[Bot Sim] Bot join error:", (err as Error).message);
   }
 }
 
-function scheduleNextBotJoin(): void {
-  const elapsed = Date.now() - lastBotJoinTime;
+function scheduleBotJoinForLeague(leagueId: number): void {
+  const existing = leagueJoinTimers.get(leagueId);
+  if (existing) clearTimeout(existing);
+
+  const elapsed = Date.now() - (lastLeagueJoinEventTime.get(leagueId) ?? Date.now());
   const wait = poissonWait(BOT_JOIN_LAMBDA, elapsed);
-  botJoinTimer = setTimeout(async () => {
-    await botJoinEvent();
-    lastBotJoinTime = Date.now();
-    scheduleNextBotJoin();
+
+  const timer = setTimeout(async () => {
+    // Event fired for this specific league scheduler
+    lastLeagueJoinEventTime.set(leagueId, Date.now());
+    await joinBotToLeague(leagueId);
+
+    if (await isLeagueJoinEligible(leagueId)) {
+      scheduleBotJoinForLeague(leagueId);
+    } else {
+      clearLeagueJoinScheduler(leagueId);
+    }
   }, wait);
+
+  leagueJoinTimers.set(leagueId, timer);
+}
+
+async function reconcileLeagueJoinSchedulers(): Promise<void> {
+  const publicPendingLeagues = await db.select({ id: leagues.id }).from(leagues).where(
+    and(
+      eq(leagues.isPublic, true),
+      eq(leagues.draftStatus, "pending"),
+    )
+  );
+
+  const eligible = new Set<number>();
+  for (const lg of publicPendingLeagues) {
+    if (await isLeagueJoinEligible(lg.id)) {
+      eligible.add(lg.id);
+      if (!leagueJoinTimers.has(lg.id)) {
+        lastLeagueJoinEventTime.set(lg.id, Date.now());
+        scheduleBotJoinForLeague(lg.id);
+      }
+    }
+  }
+
+  for (const leagueId of Array.from(leagueJoinTimers.keys())) {
+    if (!eligible.has(leagueId)) {
+      clearLeagueJoinScheduler(leagueId);
+    }
+  }
+}
+
+function scheduleJoinReconcileLoop(): void {
+  joinReconcileTimer = setTimeout(async () => {
+    await reconcileLeagueJoinSchedulers();
+    scheduleJoinReconcileLoop();
+  }, 30000);
 }
 
 // ---------------------------------------------------------------------------
@@ -903,8 +946,10 @@ export async function startBotSimulation(): Promise<void> {
   // Step 4: Start the league creation scheduler (recursive setTimeout)
   scheduleNextLeagueCreation();
 
-  // Step 5: Start the bot join scheduler (recursive setTimeout)
-  scheduleNextBotJoin();
+  // Step 5: Start per-league bot join schedulers (independent Poisson process
+  // for each eligible open public league).
+  await reconcileLeagueJoinSchedulers();
+  scheduleJoinReconcileLoop();
 
   // Step 6: Check for draft-ready leagues every 60 seconds
   draftStartInterval = setInterval(checkBotDraftStarts, 60_000);
@@ -916,7 +961,10 @@ export async function startBotSimulation(): Promise<void> {
 
 export function stopBotSimulation(): void {
   if (leagueCreationTimer) clearTimeout(leagueCreationTimer);
-  if (botJoinTimer) clearTimeout(botJoinTimer);
+  if (joinReconcileTimer) clearTimeout(joinReconcileTimer);
+  for (const timer of leagueJoinTimers.values()) clearTimeout(timer);
+  leagueJoinTimers.clear();
+  lastLeagueJoinEventTime.clear();
   if (draftStartInterval) clearInterval(draftStartInterval);
   for (const timer of activeDraftTimers.values()) clearTimeout(timer);
   activeDraftTimers.clear();
