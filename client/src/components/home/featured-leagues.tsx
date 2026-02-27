@@ -32,9 +32,25 @@ export function FeaturedLeagues() {
   });
 
   const userLeagueIds = new Set((userTeams || []).map(t => t.leagueId));
-  const leagues = (allPublicLeagues || []).filter(
-    league => !userLeagueIds.has(league.id) && (league.currentTeams || 0) < (league.maxTeams || 0) && (!league.draftStatus || league.draftStatus === "pending")
-  );
+  const leagues = (allPublicLeagues || [])
+    .filter(
+      league => !userLeagueIds.has(league.id) && (league.currentTeams || 0) < (league.maxTeams || 0) && (!league.draftStatus || league.draftStatus === "pending")
+    )
+    .sort((a, b) => {
+      const aMax = a.maxTeams || 1;
+      const bMax = b.maxTeams || 1;
+      const aFillRatio = (a.currentTeams || 0) / aMax;
+      const bFillRatio = (b.currentTeams || 0) / bMax;
+      if (bFillRatio !== aFillRatio) return bFillRatio - aFillRatio;
+
+      const aOpen = aMax - (a.currentTeams || 0);
+      const bOpen = bMax - (b.currentTeams || 0);
+      if (aOpen !== bOpen) return aOpen - bOpen;
+
+      const aDraft = a.draftDate ? new Date(a.draftDate).getTime() : Number.MAX_SAFE_INTEGER;
+      const bDraft = b.draftDate ? new Date(b.draftDate).getTime() : Number.MAX_SAFE_INTEGER;
+      return aDraft - bDraft;
+    });
 
   const joinMutation = useMutation({
     mutationFn: async (leagueId: number) => {
@@ -101,27 +117,37 @@ export function FeaturedLeagues() {
                   Public
                 </Badge>
               </div>
-              <div className="grid grid-cols-3 gap-4 text-sm mb-3">
-                <div>
-                  <p className="text-gray-400">Teams</p>
-                  <p className="text-white font-medium">{league.currentTeams}/{league.maxTeams}</p>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-4 text-sm min-w-0 overflow-x-auto hide-scrollbar pr-1">
+                  <div className="shrink-0">
+                    <p className="text-gray-400">Teams</p>
+                    <p className="text-white font-medium">{league.currentTeams}/{league.maxTeams}</p>
+                  </div>
+                  <div className="shrink-0">
+                    <p className="text-gray-400">Type</p>
+                    <p className="text-white font-medium">{league.type}</p>
+                  </div>
+                  <div className="shrink-0">
+                    <p className="text-gray-400">Scoring</p>
+                    <p className="text-white font-medium">{league.scoringFormat}</p>
+                  </div>
+                  <div className="shrink-0">
+                    <p className="text-gray-400">Draft</p>
+                    <p className="text-white font-medium">
+                      {league.draftDate
+                        ? `${new Date(league.draftDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })} ${new Date(league.draftDate).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`
+                        : "TBD"}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-gray-400">Type</p>
-                  <p className="text-white font-medium">{league.type}</p>
-                </div>
-                <div>
-                  <p className="text-gray-400">Scoring</p>
-                  <p className="text-white font-medium">{league.scoringFormat}</p>
-                </div>
+                <Button
+                  onClick={() => joinMutation.mutate(league.id)}
+                  disabled={joinMutation.isPending}
+                  className="bg-green-600 hover:bg-green-700 rounded-lg text-white text-sm font-medium shrink-0"
+                >
+                  {joinMutation.isPending ? "Joining..." : "Join League"}
+                </Button>
               </div>
-              <Button
-                onClick={() => joinMutation.mutate(league.id)}
-                disabled={joinMutation.isPending}
-                className="w-full bg-green-600 hover:bg-green-700 rounded-lg text-white text-sm font-medium"
-              >
-                {joinMutation.isPending ? "Joining..." : "Join League"}
-              </Button>
             </Card>
           ))
         ) : (
