@@ -195,6 +195,7 @@ let allBotIds: number[] = [];
 let lastLeagueCreationTime = Date.now();
 let leagueCreationTimer: ReturnType<typeof setTimeout> | null = null;
 const leagueJoinTimers = new Map<number, ReturnType<typeof setTimeout>>();
+const leagueJoinNextFireAt = new Map<number, number>();
 const lastLeagueJoinEventTime = new Map<number, number>();
 let joinReconcileTimer: ReturnType<typeof setTimeout> | null = null;
 const activeDraftTimers = new Map<number, ReturnType<typeof setTimeout>>();
@@ -379,6 +380,7 @@ function clearLeagueJoinScheduler(leagueId: number): void {
   const timer = leagueJoinTimers.get(leagueId);
   if (timer) clearTimeout(timer);
   leagueJoinTimers.delete(leagueId);
+  leagueJoinNextFireAt.delete(leagueId);
   lastLeagueJoinEventTime.delete(leagueId);
 }
 
@@ -444,16 +446,30 @@ function scheduleBotJoinForLeague(leagueId: number): void {
   const wait = poissonWait(BOT_JOIN_LAMBDA, elapsed);
   console.log(`[Bot Sim] Scheduled join timer for league ${leagueId} in ${(wait / 1000).toFixed(1)}s`);
 
+  const nextFireAt = Date.now() + wait;
+  leagueJoinNextFireAt.set(leagueId, nextFireAt);
   const timer = setTimeout(async () => {
-    // Event fired for this specific league scheduler
-    lastLeagueJoinEventTime.set(leagueId, Date.now());
-    console.log(`[Bot Sim] Join event fired for league ${leagueId}`);
-    await joinBotToLeague(leagueId);
+    // Remove fired timer handle first so reconcile can recover from any errors.
+    leagueJoinTimers.delete(leagueId);
+    leagueJoinNextFireAt.delete(leagueId);
+    try {
+      lastLeagueJoinEventTime.set(leagueId, Date.now());
+      console.log(`[Bot Sim] Join event fired for league ${leagueId}`);
+      await joinBotToLeague(leagueId);
 
-    if (await isLeagueJoinEligible(leagueId)) {
-      scheduleBotJoinForLeague(leagueId);
-    } else {
-      clearLeagueJoinScheduler(leagueId);
+      if (await isLeagueJoinEligible(leagueId)) {
+        scheduleBotJoinForLeague(leagueId);
+      } else {
+        clearLeagueJoinScheduler(leagueId);
+      }
+    } catch (err) {
+      console.error(`[Bot Sim] Join scheduler error for league ${leagueId}:`, (err as Error).message);
+      // Self-heal: if still eligible, arm a fresh independent timer.
+      if (await isLeagueJoinEligible(leagueId)) {
+        scheduleBotJoinForLeague(leagueId);
+      } else {
+        clearLeagueJoinScheduler(leagueId);
+      }
     }
   }, wait);
 
@@ -472,7 +488,9 @@ async function reconcileLeagueJoinSchedulers(): Promise<void> {
   for (const lg of publicPendingLeagues) {
     if (await isLeagueJoinEligible(lg.id)) {
       eligible.add(lg.id);
-      if (!leagueJoinTimers.has(lg.id)) {
+      const nextFireAt = leagueJoinNextFireAt.get(lg.id) ?? 0;
+      const missingOrStale = !leagueJoinTimers.has(lg.id) || nextFireAt < Date.now() - 5000;
+      if (missingOrStale) {
         lastLeagueJoinEventTime.set(lg.id, Date.now());
         scheduleBotJoinForLeague(lg.id);
       }
@@ -1005,6 +1023,7 @@ export function stopBotSimulation(): void {
   if (joinReconcileTimer) clearTimeout(joinReconcileTimer);
   for (const timer of leagueJoinTimers.values()) clearTimeout(timer);
   leagueJoinTimers.clear();
+  leagueJoinNextFireAt.clear();
   lastLeagueJoinEventTime.clear();
   if (draftStartInterval) clearInterval(draftStartInterval);
   for (const timer of activeDraftTimers.values()) clearTimeout(timer);
