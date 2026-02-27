@@ -43,7 +43,8 @@ export function FeaturedLeagues() {
       const aDraft = a.draftDate ? new Date(a.draftDate).getTime() : Number.MAX_SAFE_INTEGER;
       const bDraft = b.draftDate ? new Date(b.draftDate).getTime() : Number.MAX_SAFE_INTEGER;
       return aDraft - bDraft;
-    });
+    })
+    .slice(0, 20);
 
   const joinMutation = useMutation({
     mutationFn: async (leagueId: number) => {

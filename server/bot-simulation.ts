@@ -72,6 +72,7 @@ const HARD_CAP_MS =
 // Draft time offset — leagues are scheduled 15 minutes after creation.
 const DRAFT_OFFSET_MS = 15 * 60 * 1000;
 const AUTO_DRAFT_PUSHBACK_MS = 5 * 60 * 1000;
+const TARGET_OPEN_PUBLIC_LEAGUES = 20;
 
 const INF_POSITIONS = ["1B", "2B", "3B", "SS"];
 
@@ -192,8 +193,6 @@ const BOT_USERNAMES: string[] = [
 // ---------------------------------------------------------------------------
 const busyBotIds = new Set<number>();
 let allBotIds: number[] = [];
-let lastLeagueCreationTime = Date.now();
-let leagueCreationTimer: ReturnType<typeof setTimeout> | null = null;
 const leagueJoinTimers = new Map<number, ReturnType<typeof setTimeout>>();
 const leagueJoinNextFireAt = new Map<number, number>();
 const lastLeagueJoinSuccessTime = new Map<number, number>();
@@ -350,17 +349,6 @@ async function createBotLeague(): Promise<void> {
   }
 }
 
-function scheduleNextLeagueCreation(): void {
-  const elapsed = Date.now() - lastLeagueCreationTime;
-  const wait = poissonWait(LEAGUE_CREATION_LAMBDA, elapsed);
-  leagueCreationTimer = setTimeout(async () => {
-    await createBotLeague();
-    lastLeagueCreationTime = Date.now();
-    await reconcileLeagueJoinSchedulers();
-    scheduleNextLeagueCreation();
-  }, wait);
-}
-
 // ---------------------------------------------------------------------------
 //  Bot join scheduler
 // ---------------------------------------------------------------------------
@@ -483,7 +471,7 @@ function scheduleBotJoinForLeague(leagueId: number): void {
 }
 
 async function reconcileLeagueJoinSchedulers(): Promise<void> {
-  const publicPendingLeagues = await db.select({
+  let publicPendingLeagues = await db.select({
     id: leagues.id,
     maxTeams: leagues.maxTeams,
     numberOfTeams: leagues.numberOfTeams,
@@ -494,19 +482,56 @@ async function reconcileLeagueJoinSchedulers(): Promise<void> {
     )
   );
 
-  const pendingLeagueIds = publicPendingLeagues.map(lg => lg.id);
-  const teamCounts = new Map<number, number>();
-  if (pendingLeagueIds.length > 0) {
+  const loadTeamCounts = async (leagueIds: number[]): Promise<Map<number, number>> => {
+    const counts = new Map<number, number>();
+    if (leagueIds.length === 0) return counts;
     const rows = await db.execute(sql`
       SELECT
         league_id,
         COUNT(*) FILTER (WHERE COALESCE(is_cpu, FALSE) = FALSE)::int AS human_and_bot_count
       FROM teams
-      WHERE league_id = ANY(${pendingLeagueIds})
+      WHERE league_id = ANY(${leagueIds})
       GROUP BY league_id
     `);
     for (const row of rows.rows as Array<{ league_id: number; human_and_bot_count: number }>) {
-      teamCounts.set(Number(row.league_id), Number(row.human_and_bot_count));
+      counts.set(Number(row.league_id), Number(row.human_and_bot_count));
+    }
+    return counts;
+  };
+
+  let pendingLeagueIds = publicPendingLeagues.map(lg => lg.id);
+  let teamCounts = await loadTeamCounts(pendingLeagueIds);
+
+  // Keep the quick-join supply stable: always maintain exactly 20 open public
+  // pending leagues that still have at least one joinable slot.
+  if (isAutoLeagueCreationEnabled()) {
+    let openCount = 0;
+    for (const lg of publicPendingLeagues) {
+      const maxT = lg.maxTeams || lg.numberOfTeams || 12;
+      const count = teamCounts.get(lg.id) ?? 0;
+      if (count < maxT) openCount++;
+    }
+
+    if (openCount < TARGET_OPEN_PUBLIC_LEAGUES) {
+      const deficit = TARGET_OPEN_PUBLIC_LEAGUES - openCount;
+      console.log(`[Bot Sim] Open league supply low (${openCount}/${TARGET_OPEN_PUBLIC_LEAGUES}); creating ${deficit} league(s).`);
+      for (let i = 0; i < deficit; i++) {
+        await createBotLeague();
+      }
+
+      // Refresh league/team snapshots after creating replacements.
+      publicPendingLeagues = await db.select({
+        id: leagues.id,
+        maxTeams: leagues.maxTeams,
+        numberOfTeams: leagues.numberOfTeams,
+      }).from(leagues).where(
+        and(
+          eq(leagues.isPublic, true),
+          eq(leagues.draftStatus, "pending"),
+        )
+      );
+      pendingLeagueIds = publicPendingLeagues.map(lg => lg.id);
+      teamCounts = await loadTeamCounts(pendingLeagueIds);
     }
   }
 
@@ -1009,7 +1034,7 @@ export async function startBotSimulation(): Promise<void> {
   }
 
   console.log("[Bot Sim] Initializing...");
-  console.log(`[Bot Sim] Config: creation λ=${LEAGUE_CREATION_LAMBDA}/s (avg ${Math.round(1/LEAGUE_CREATION_LAMBDA)}s), ` +
+  console.log(`[Bot Sim] Config: open-league target=${TARGET_OPEN_PUBLIC_LEAGUES}, ` +
     `join λ=${BOT_JOIN_LAMBDA}/s (avg ${Math.round(1/BOT_JOIN_LAMBDA)}s), ` +
     `pick λ=${BOT_PICK_LAMBDA}/s (avg ${Math.round(1/BOT_PICK_LAMBDA)}s)`);
   console.log(`[Bot Sim] Zones: accel after ${ACCELERATION_THRESHOLD_MS/60000}min, hard cap at ${HARD_CAP_MS/60000}min`);
@@ -1024,28 +1049,13 @@ export async function startBotSimulation(): Promise<void> {
   // Step 3: Recover active drafts
   await recoverActiveDrafts();
 
-  if (isAutoLeagueCreationEnabled()) {
-    // Step 3.5: Bootstrap at least one public pending league immediately so
-    // users see activity right away after startup.
-    const existingOpenPublic = await db.select({ id: leagues.id }).from(leagues).where(
-      and(
-        eq(leagues.isPublic, true),
-        eq(leagues.draftStatus, "pending"),
-      )
-    );
-    if (existingOpenPublic.length === 0) {
-      await createBotLeague();
-      lastLeagueCreationTime = Date.now();
-    }
-  } else {
+  if (!isAutoLeagueCreationEnabled()) {
     console.log("[Bot Sim] Auto-league creation is paused.");
   }
 
-  // Step 4: Start the league creation scheduler (recursive setTimeout)
-  if (isAutoLeagueCreationEnabled()) {
-    scheduleNextLeagueCreation();
-  }
-
+  // Step 4: Start per-league bot join schedulers and enforce open-league supply.
+  // This will auto-create leagues until the open public pending supply target
+  // is reached, and keep replenishing as leagues fill.
   // Step 5: Start per-league bot join schedulers (independent Poisson process
   // for each eligible open public league).
   await reconcileLeagueJoinSchedulers();
@@ -1060,7 +1070,6 @@ export async function startBotSimulation(): Promise<void> {
 }
 
 export function stopBotSimulation(): void {
-  if (leagueCreationTimer) clearTimeout(leagueCreationTimer);
   if (joinReconcileTimer) clearTimeout(joinReconcileTimer);
   for (const timer of leagueJoinTimers.values()) clearTimeout(timer);
   leagueJoinTimers.clear();
