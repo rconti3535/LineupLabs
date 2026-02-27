@@ -2688,6 +2688,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   setInterval(checkExpiredDraftPicks, 3000);
 
+  const AUTO_DRAFT_PUSHBACK_MS = 5 * 60 * 1000;
+
   async function checkScheduledDrafts() {
     try {
       const scheduled = await storage.getScheduledDraftLeagues();
@@ -2702,7 +2704,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Only start if the league is full (all spots occupied by real users or bots)
           const humanAndBotCount = allTeams.filter(t => !t.isCpu).length;
           const maxT = league.maxTeams || league.numberOfTeams || 12;
-          if (humanAndBotCount < maxT) continue;
+          if (humanAndBotCount < maxT) {
+            // Auto-created leagues have no commissioner (createdBy null).
+            // If they are not full at scheduled time, defer by 5 minutes.
+            if (league.createdBy == null) {
+              const nextDraftDate = new Date(draftTime + AUTO_DRAFT_PUSHBACK_MS).toISOString();
+              await storage.updateLeague(league.id, { draftDate: nextDraftDate } as any);
+              broadcastDraftEvent(league.id, "league-settings", { draftDate: nextDraftDate });
+              console.log(`[Auto-start] League ${league.id} not full; pushed draftDate +5m to ${nextDraftDate}`);
+            }
+            continue;
+          }
 
           const hasPositions = allTeams.some(t => t.draftPosition);
           if (!hasPositions) {

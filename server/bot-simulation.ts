@@ -22,9 +22,9 @@
  *
  * DRAFT START RULE:
  *   A draft starts ONLY when a league is completely full (all slots occupied
- *   by real users or bots) AND the scheduled draft time has passed. There are
- *   no push-backs, no backfills, and no forced starts — the Poisson model is
- *   trusted to fill leagues organically.
+ *   by real users or bots) AND the scheduled draft time has passed.
+ *   If an auto-created league reaches draft time and is still not full, the
+ *   draft is pushed back by 5 minutes and checked again later.
  *
  * DRAFT LOCK RULE:
  *   Once a draft starts, NO additional users or bots may join the league.
@@ -71,6 +71,7 @@ const HARD_CAP_MS =
 
 // Draft time offset — leagues are scheduled 15 minutes after creation.
 const DRAFT_OFFSET_MS = 15 * 60 * 1000;
+const AUTO_DRAFT_PUSHBACK_MS = 5 * 60 * 1000;
 
 const INF_POSITIONS = ["1B", "2B", "3B", "SS"];
 
@@ -516,7 +517,21 @@ async function checkBotDraftStarts(): Promise<void> {
       const humanAndBotCount = lgTeams.filter(t => !t.isCpu).length;
       const maxT = league.maxTeams || league.numberOfTeams || 12;
 
-      if (humanAndBotCount < maxT) continue; // Not full — wait for more joins
+      if (humanAndBotCount < maxT) {
+        // Auto-created leagues (createdBy is null) are deferred by 5 minutes
+        // whenever they hit draft time but are still not full.
+        if (league.createdBy == null) {
+          const nextDraftTime = new Date(draftTime + AUTO_DRAFT_PUSHBACK_MS).toISOString();
+          await db.update(leagues)
+            .set({ draftDate: nextDraftTime })
+            .where(eq(leagues.id, league.id));
+          broadcastDraftEvent(league.id, "league-settings", { draftDate: nextDraftTime });
+          console.log(
+            `[Bot Sim] League ${league.id} not full at draft time; pushed draftDate +5m to ${nextDraftTime}`
+          );
+        }
+        continue;
+      }
 
       // Atomic check-and-lock: set to "starting" to prevent races
       const [locked] = await db.update(leagues)
