@@ -36,15 +36,9 @@ export function FeaturedLeagues() {
       league => !userLeagueIds.has(league.id) && (league.currentTeams || 0) < (league.maxTeams || 0) && (!league.draftStatus || league.draftStatus === "pending")
     )
     .sort((a, b) => {
-      const aMax = a.maxTeams || 1;
-      const bMax = b.maxTeams || 1;
-      const aFillRatio = (a.currentTeams || 0) / aMax;
-      const bFillRatio = (b.currentTeams || 0) / bMax;
-      if (bFillRatio !== aFillRatio) return bFillRatio - aFillRatio;
-
-      const aOpen = aMax - (a.currentTeams || 0);
-      const bOpen = bMax - (b.currentTeams || 0);
-      if (aOpen !== bOpen) return aOpen - bOpen;
+      const aJoined = a.currentTeams || 0;
+      const bJoined = b.currentTeams || 0;
+      if (bJoined !== aJoined) return bJoined - aJoined;
 
       const aDraft = a.draftDate ? new Date(a.draftDate).getTime() : Number.MAX_SAFE_INTEGER;
       const bDraft = b.draftDate ? new Date(b.draftDate).getTime() : Number.MAX_SAFE_INTEGER;
