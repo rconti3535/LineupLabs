@@ -827,7 +827,11 @@ export default function DraftRoom() {
                 key={i}
                 style={{ width: CELL_W }}
                 className={`text-center text-[10px] font-medium truncate px-0.5 ${
-                  isDraftActive && currentTeamIndex === i ? "text-green-400" : "text-gray-500"
+                  isDraftActive && currentTeamIndex === i
+                    ? "text-green-400"
+                    : myTeam && teams?.[i]?.id === myTeam.id
+                      ? "text-blue-400"
+                      : "text-gray-500"
                 }`}
               >
                 {teams?.[i]?.isCpu ? "🤖 " : ""}{teams?.[i]?.name || `Team${i + 1}`}
@@ -854,6 +858,8 @@ export default function DraftRoom() {
                         ? "border-yellow-400 bg-yellow-900/40 ring-1 ring-yellow-400/50 shadow-lg shadow-yellow-400/20"
                         : isCurrentPick
                           ? "border-green-400 bg-green-900/40 ring-1 ring-green-400/50 shadow-lg shadow-green-400/20"
+                          : isMyTeamCell
+                            ? "border-blue-500/70 bg-blue-900/25 ring-1 ring-blue-400/30"
                           : pick
                             ? "border-gray-600 bg-gray-700/60"
                             : "border-gray-700 bg-gray-800/60 hover:border-gray-500"
