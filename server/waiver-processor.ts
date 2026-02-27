@@ -92,9 +92,20 @@ async function processExpiredWaivers(): Promise<void> {
 
 export function startWaiverProcessor(): void {
   if (processingInterval) return;
-  console.log("[Waiver Processor] Started — checking every 5 minutes");
-  processExpiredWaivers();
-  processingInterval = setInterval(processExpiredWaivers, 5 * 60 * 1000);
+  (async () => {
+    const leagues = await storage.getLeagues();
+    const hasNonBestBall = leagues.some(l => (l.type || "").toLowerCase() !== "best ball");
+    if (!hasNonBestBall) {
+      console.log("[Waiver Processor] Skipped — all leagues are Best Ball");
+      return;
+    }
+
+    console.log("[Waiver Processor] Started — checking every 5 minutes");
+    processExpiredWaivers();
+    processingInterval = setInterval(processExpiredWaivers, 5 * 60 * 1000);
+  })().catch((err) => {
+    console.error("[Waiver Processor] Failed to start:", err);
+  });
 }
 
 export function stopWaiverProcessor(): void {

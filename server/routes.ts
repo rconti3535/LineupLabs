@@ -2790,38 +2790,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
   setInterval(checkScheduledDrafts, 60000);
 
-  async function processExpiredWaivers() {
-    try {
-      const expiredWaivers = await storage.getExpiredWaivers();
-      for (const waiver of expiredWaivers) {
-        const claims = await storage.getClaimsForWaiver(waiver.id);
-        if (claims.length > 0) {
-          const winningClaim = claims[0];
-          if (winningClaim.dropPickId) {
-            const dropPick = await storage.getDraftPickById(winningClaim.dropPickId);
-            if (dropPick) {
-              const rosterSlot = dropPick.rosterSlot ?? 0;
-              await storage.dropPlayerFromTeam(winningClaim.dropPickId);
-              await storage.addPlayerToTeam(waiver.leagueId, winningClaim.teamId, waiver.playerId, rosterSlot);
-            }
-          } else {
-            const rosterPositions = (await storage.getLeague(waiver.leagueId))?.rosterPositions || [];
-            const benchIndex = rosterPositions.findIndex(s => s === "BN");
-            const rosterSlot = benchIndex !== -1 ? benchIndex : rosterPositions.length - 1;
-            await storage.addPlayerToTeam(waiver.leagueId, winningClaim.teamId, waiver.playerId, rosterSlot);
-          }
-          await storage.completeWaiver(waiver.id, "claimed");
-        } else {
-          await storage.completeWaiver(waiver.id, "cleared");
-        }
-      }
-    } catch (error) {
-      console.error("Error processing expired waivers:", error);
-    }
-  }
-
-  setInterval(processExpiredWaivers, 60000);
-
   (async function migrateMinorLeagueTeams() {
     try {
       const nonMlb = await db.select({ id: players.id }).from(players).where(ne(players.mlbLevel, "MLB")).limit(1);
