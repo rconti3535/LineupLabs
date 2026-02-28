@@ -167,29 +167,23 @@ export default function Teams() {
         )}
       </div>
 
-      <div className="mt-6 pt-4 border-t border-white/10 space-y-3">
+      <div className="mt-6 pt-4 border-t border-white/10 grid grid-cols-2 gap-[10px]">
         <button
           type="button"
           onClick={() => setLocation("/create-league")}
-          className="w-full rounded-xl border border-white/15 bg-white/[0.03] px-4 py-4 text-left text-white transition-transform active:scale-[0.97]"
+          className="rounded-xl border border-white/15 bg-white/[0.03] px-4 py-4 text-left text-white transition-transform active:scale-[0.97]"
         >
-          <div className="inline-flex items-center justify-center rounded-full px-2.5 py-1 text-xs bg-black/20 text-gray-200 border border-white/15">
-            🏆
-          </div>
-          <p className="mt-3 text-[10px] uppercase tracking-[0.12em] text-gray-400">Start fresh</p>
-          <h3 className="mt-1 text-lg font-semibold text-white">Create League</h3>
+          <h3 className="text-lg font-semibold text-white">Create League</h3>
+          <p className="mt-1 text-[10px] uppercase tracking-[0.12em] text-gray-400">Start fresh</p>
         </button>
 
         <button
           type="button"
           onClick={() => setLocation("/join-public")}
-          className="w-full rounded-xl border border-white/15 bg-white/[0.03] px-4 py-4 text-left text-white transition-transform active:scale-[0.97]"
+          className="rounded-xl border border-white/15 bg-white/[0.03] px-4 py-4 text-left text-white transition-transform active:scale-[0.97]"
         >
-          <div className="inline-flex items-center justify-center rounded-full px-2.5 py-1 text-xs bg-black/20 text-gray-200 border border-white/15">
-            🌐
-          </div>
-          <p className="mt-3 text-[10px] uppercase tracking-[0.12em] text-gray-400">Find a spot</p>
-          <h3 className="mt-1 text-lg font-semibold text-white">Join Public</h3>
+          <h3 className="text-lg font-semibold text-white">Join Public</h3>
+          <p className="mt-1 text-[10px] uppercase tracking-[0.12em] text-gray-400">Find a spot</p>
         </button>
       </div>
     </div>
