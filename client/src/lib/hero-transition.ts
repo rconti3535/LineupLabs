@@ -201,6 +201,8 @@ export function runTeamCardHeroBack(contentEl: HTMLElement | null, navigateToTea
     contentEl.style.transform = "translateY(6px)";
   }
 
+  // Build a full-frame shell that visually matches the opened league container,
+  // then collapse it back to the exact original team-card rect.
   const overlay = document.createElement("div");
   overlay.classList.add("hero-clone");
   overlay.style.position = "fixed";
@@ -210,6 +212,8 @@ export function runTeamCardHeroBack(contentEl: HTMLElement | null, navigateToTea
   overlay.style.height = `${frameRect.height}px`;
   overlay.style.borderRadius = HERO_RADIUS;
   overlay.style.backgroundColor = "#080C10";
+  overlay.style.border = "1px solid rgba(255, 255, 255, 0.15)";
+  overlay.style.boxShadow = "inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 6px 16px rgba(0, 0, 0, 0.25)";
   overlay.style.pointerEvents = "none";
   overlay.style.zIndex = "1200";
   overlay.style.transition = "none";
@@ -217,25 +221,26 @@ export function runTeamCardHeroBack(contentEl: HTMLElement | null, navigateToTea
   document.body.appendChild(overlay);
   activeOverlay = overlay;
 
+  // Let the content retreat first, then run the reverse collapse.
   window.setTimeout(() => {
     navigateToTeams();
-  }, 20);
 
-  commitNextFrame(() => {
-    if (!activeOverlay || !originRect) return;
-    activeOverlay.style.transition =
-      `top 420ms ${CLOSE_EASING}, left 420ms ${CLOSE_EASING}, width 420ms ${CLOSE_EASING}, ` +
-      `height 420ms ${CLOSE_EASING}, border-radius 420ms ${CLOSE_EASING}, opacity 80ms linear`;
-    activeOverlay.style.top = `${originRect.top}px`;
-    activeOverlay.style.left = `${originRect.left}px`;
-    activeOverlay.style.width = `${originRect.width}px`;
-    activeOverlay.style.height = `${originRect.height}px`;
-    activeOverlay.style.borderRadius = originRect.borderRadius || "18px";
-  });
+    commitNextFrame(() => {
+      if (!activeOverlay || !originRect) return;
+      activeOverlay.style.transition =
+        `top 500ms ${CLOSE_EASING}, left 500ms ${CLOSE_EASING}, width 500ms ${CLOSE_EASING}, ` +
+        `height 500ms ${CLOSE_EASING}, border-radius 500ms ${CLOSE_EASING}, opacity 80ms linear`;
+      activeOverlay.style.top = `${originRect.top}px`;
+      activeOverlay.style.left = `${originRect.left}px`;
+      activeOverlay.style.width = `${originRect.width}px`;
+      activeOverlay.style.height = `${originRect.height}px`;
+      activeOverlay.style.borderRadius = originRect.borderRadius || HERO_RADIUS;
+    });
 
-  window.setTimeout(() => {
-    if (activeOverlay) activeOverlay.style.opacity = "0";
-  }, 340);
+    window.setTimeout(() => {
+      if (activeOverlay) activeOverlay.style.opacity = "0";
+    }, 420);
+  }, 160);
 
   const tryRestore = (attempt = 0) => {
     if (restoreTeamsCards()) return;
@@ -247,5 +252,5 @@ export function runTeamCardHeroBack(contentEl: HTMLElement | null, navigateToTea
     activeOverlay?.remove();
     activeOverlay = null;
     setInteractionLocked(false);
-  }, 420);
+  }, 660);
 }
