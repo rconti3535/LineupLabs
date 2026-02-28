@@ -92,24 +92,6 @@ function fadeTeamsCards(targetOpacity: number, durationMs: number, easing: strin
   });
 }
 
-function restoreTeamsCards() {
-  const cards = Array.from(document.querySelectorAll<HTMLElement>("[data-hero-card]"));
-  if (cards.length === 0) return false;
-
-  cards.forEach((card) => {
-    card.style.transition = "none";
-    card.style.opacity = "0";
-  });
-
-  requestAnimationFrame(() => {
-    cards.forEach((card) => {
-      card.style.transition = "opacity 150ms ease";
-      card.style.opacity = "1";
-    });
-  });
-  return true;
-}
-
 export function runTeamCardHeroOpen(
   sourceEl: HTMLElement,
   navigate: () => void,
@@ -158,11 +140,11 @@ export function runTeamCardHeroOpen(
 
   setInteractionLocked(true);
   fadeTeamsCards(0, 200, "ease");
-  if (prefetch) {
-    Promise.resolve(prefetch()).catch(() => {
-      // Prefetch is best-effort only; transition should never block on it.
-    });
-  }
+  const prefetchPromise = prefetch
+    ? Promise.resolve(prefetch()).catch(() => {
+        // Prefetch is best-effort only; transition should never fail on it.
+      })
+    : Promise.resolve();
 
   requestAnimationFrame(() => {
     if (!activeClone) return;
@@ -183,7 +165,13 @@ export function runTeamCardHeroOpen(
     }
   });
 
-  window.setTimeout(() => {
+  window.setTimeout(async () => {
+    // Keep the hero smooth, but hold briefly for warm cache so roster data appears
+    // with the transition instead of popping in after route mount.
+    await Promise.race([
+      prefetchPromise,
+      new Promise<void>((resolve) => window.setTimeout(resolve, 450)),
+    ]);
     navigate();
   }, 520);
 }
@@ -228,34 +216,29 @@ export function runTeamCardHeroBack(contentEl: HTMLElement | null, navigateToTea
     contentEl.style.transform = "translateY(6px)";
   }
 
-  // Build a full-frame shell that visually matches the opened league container,
-  // then collapse it back to the exact original team-card rect.
-  const overlay = document.createElement("div");
+  // Clone the current league/roster screen so the data shrinks with the reverse zoom.
+  const overlay = (contentEl?.cloneNode(true) as HTMLElement) || document.createElement("div");
   overlay.classList.add("hero-clone");
   overlay.style.position = "fixed";
   overlay.style.top = `${frameRect.top}px`;
   overlay.style.left = `${frameRect.left}px`;
   overlay.style.width = `${frameRect.width}px`;
   overlay.style.height = `${frameRect.height}px`;
-  overlay.style.borderRadius = HERO_RADIUS;
-  overlay.style.backgroundColor = "#080C10";
-  overlay.style.border = "1px solid rgba(255, 255, 255, 0.15)";
-  overlay.style.boxShadow = "inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 6px 16px rgba(0, 0, 0, 0.25)";
+  overlay.style.margin = "0";
   overlay.style.pointerEvents = "none";
   overlay.style.zIndex = "1200";
   overlay.style.transition = "none";
-  overlay.style.willChange = "top, left, width, height, border-radius, opacity";
+  overlay.style.opacity = "1";
+  overlay.style.willChange = "top, left, width, height, border-radius, opacity, transform";
   document.body.appendChild(overlay);
   activeOverlay = overlay;
 
-  // Let the content retreat first, then run the reverse collapse.
   const CONTENT_EXIT_MS = 160;
   const COLLAPSE_MS = 500;
   const FINAL_FADE_MS = 80;
 
+  // Start reverse collapse only after content retreat begins.
   window.setTimeout(() => {
-    navigateToTeams();
-
     commitNextFrame(() => {
       if (!activeOverlay || !originRect) return;
       activeOverlay.style.transition =
@@ -273,15 +256,14 @@ export function runTeamCardHeroBack(contentEl: HTMLElement | null, navigateToTea
     }, COLLAPSE_MS - FINAL_FADE_MS);
   }, CONTENT_EXIT_MS);
 
-  const tryRestore = (attempt = 0) => {
-    if (restoreTeamsCards()) return;
-    if (attempt < 4) window.setTimeout(() => tryRestore(attempt + 1), 60);
-  };
+  // Navigate after collapse reaches the original card size to avoid Teams-page flicker.
+  window.setTimeout(() => {
+    navigateToTeams();
+  }, CONTENT_EXIT_MS + COLLAPSE_MS);
 
   window.setTimeout(() => {
-    tryRestore();
     activeOverlay?.remove();
     activeOverlay = null;
     setInteractionLocked(false);
-  }, CONTENT_EXIT_MS + COLLAPSE_MS + 40);
+  }, CONTENT_EXIT_MS + COLLAPSE_MS + 100);
 }
