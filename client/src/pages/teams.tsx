@@ -184,19 +184,19 @@ export default function Teams() {
         <button
           type="button"
           onClick={() => setLocation("/create-league")}
-          className="league-card rounded-xl border border-green-400/35 bg-green-500/10 px-4 py-4 text-left text-white backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_6px_16px_rgba(0,0,0,0.25)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-green-500/15 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_9px_20px_rgba(0,0,0,0.32)] active:scale-[0.97]"
+          className="rounded-xl border border-green-400/40 bg-gradient-to-br from-green-500/45 to-green-700/45 px-4 py-4 text-left text-white backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_6px_16px_rgba(0,0,0,0.25)] transition-all duration-200 hover:-translate-y-0.5 hover:from-green-500/55 hover:to-green-700/55 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_9px_20px_rgba(0,0,0,0.32)] active:scale-[0.97]"
         >
           <h3 className="text-lg font-semibold text-white">Create League</h3>
-          <p className="mt-1 text-[10px] uppercase tracking-[0.12em] text-gray-400">Start fresh</p>
+          <p className="mt-1 text-[10px] uppercase tracking-[0.12em] text-gray-100/90">Start fresh</p>
         </button>
 
         <button
           type="button"
           onClick={() => setLocation("/join-public")}
-          className="league-card rounded-xl border border-blue-400/35 bg-blue-500/10 px-4 py-4 text-left text-white backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_6px_16px_rgba(0,0,0,0.25)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-blue-500/15 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_9px_20px_rgba(0,0,0,0.32)] active:scale-[0.97]"
+          className="rounded-xl border border-blue-400/40 bg-gradient-to-br from-blue-500/45 to-blue-700/45 px-4 py-4 text-left text-white backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_6px_16px_rgba(0,0,0,0.25)] transition-all duration-200 hover:-translate-y-0.5 hover:from-blue-500/55 hover:to-blue-700/55 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_9px_20px_rgba(0,0,0,0.32)] active:scale-[0.97]"
         >
           <h3 className="text-lg font-semibold text-white">Join Public</h3>
-          <p className="mt-1 text-[10px] uppercase tracking-[0.12em] text-gray-400">Find a spot</p>
+          <p className="mt-1 text-[10px] uppercase tracking-[0.12em] text-gray-100/90">Find a spot</p>
         </button>
       </div>
     </div>
