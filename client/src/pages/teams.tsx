@@ -2,12 +2,15 @@ import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { TeamCard } from "@/components/teams/team-card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import type { Team, League, DraftPick } from "@shared/schema";
 import { queryClient } from "@/lib/queryClient";
+import { useLocation } from "wouter";
 
 export default function Teams() {
   const { user } = useAuth();
+  const [, setLocation] = useLocation();
   const { data: teams, isLoading } = useQuery<Team[]>({
     queryKey: ["/api/teams/user", user?.id],
     queryFn: async () => {
@@ -131,6 +134,21 @@ export default function Teams() {
 
   return (
     <div className="px-4 py-6">
+      <div className="flex flex-col gap-3 mb-6">
+        <Button
+          onClick={() => setLocation("/create-league")}
+          className="primary-gradient rounded-xl px-6 py-3 text-white font-medium hover:opacity-90 transition-opacity w-full"
+        >
+          Create League
+        </Button>
+        <Button
+          onClick={() => setLocation("/join-public")}
+          className="bg-green-600 hover:bg-green-700 rounded-xl px-6 py-3 text-white font-medium transition-colors w-full"
+        >
+          Join Public
+        </Button>
+      </div>
+
       <div className="space-y-3">
         {showSkeleton ? (
           Array.from({ length: 2 }).map((_, i) => (
