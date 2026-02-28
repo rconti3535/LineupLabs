@@ -17,20 +17,29 @@ export function BottomNavigation() {
     { path: "/", icon: Home, label: "Rank" },
     { path: "/profile", icon: User, label: "Profile" },
   ];
+  const activeIndex = navItems.findIndex(({ path }) => path === location);
 
   return (
     <nav className="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-md sleeper-bg border-t sleeper-border px-3 py-2 z-50">
-      <div className="flex items-center">
-        {navItems.map(({ path, icon: Icon, label }, index) => {
+      <div className="relative flex items-center">
+        {activeIndex >= 0 && (
+          <div
+            className="absolute top-0 bottom-0 nav-item-active rounded-lg transition-transform duration-300 ease-out"
+            style={{
+              width: "25%",
+              transform: `translateX(${activeIndex * 100}%)`,
+            }}
+          />
+        )}
+
+        {navItems.map(({ path, icon: Icon, label }) => {
           const isActive = location === path;
           return (
-            <div key={path} className="flex items-center flex-1">
+            <div key={path} className="flex items-center flex-1 relative z-10">
               <Link href={path} className="flex-1">
                 <button
                   className={`flex flex-col items-center py-2.5 px-3 rounded-lg transition-all duration-200 w-full ${
-                    isActive
-                      ? "nav-item-active"
-                      : "hover:bg-slate-800 hover:bg-opacity-50"
+                    isActive ? "" : "hover:bg-slate-800 hover:bg-opacity-50"
                   }`}
                 >
                   <Icon
@@ -47,9 +56,6 @@ export function BottomNavigation() {
                   </span>
                 </button>
               </Link>
-              {index < navItems.length - 1 && (
-                <div className="w-px h-9 bg-gray-600 mx-1"></div>
-              )}
             </div>
           );
         })}
