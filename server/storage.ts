@@ -1,5 +1,5 @@
 import { 
-  users, leagues, teams, players, activities, draftPicks, playerAdp, waivers, waiverClaims, dailyLineups, leagueMatchups,
+  users, leagues, teams, players, activities, draftPicks, playerAdp, waivers, waiverClaims, dailyLineups, leagueMatchups, weeklyBestBallPoints, weeklyBestBallRotoPoints,
   type User, type InsertUser,
   type League, type InsertLeague,
   type Team, type InsertTeam,
@@ -224,6 +224,8 @@ export class DatabaseStorage implements IStorage {
     }
 
     await db.delete(dailyLineups).where(eq(dailyLineups.leagueId, id));
+    await db.delete(weeklyBestBallPoints).where(eq(weeklyBestBallPoints.leagueId, id));
+    await db.delete(weeklyBestBallRotoPoints).where(eq(weeklyBestBallRotoPoints.leagueId, id));
     await db.delete(leagueMatchups).where(eq(leagueMatchups.leagueId, id));
     await db.delete(draftPicks).where(eq(draftPicks.leagueId, id));
     await db.delete(teams).where(eq(teams.leagueId, id));

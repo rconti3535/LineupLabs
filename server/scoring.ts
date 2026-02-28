@@ -1,5 +1,20 @@
-import type { Player, League, Team, DraftPick } from "@shared/schema";
+import { and, asc, eq, inArray } from "drizzle-orm";
+import { db } from "./db";
+import {
+  draftPicks,
+  leagues,
+  players,
+  teams,
+  type Player,
+  type League,
+  type Team,
+  type DraftPick,
+  weeklyBestBallPoints,
+  weeklyBestBallRotoPoints,
+  weeklyPlayerStatSnapshots,
+} from "@shared/schema";
 import { computeRotoStandings, type TeamStandings } from "./roto-scoring";
+import { addDaysToYmd, getBestBallWeekContext, listCompletedWeekStarts, weekNumberFromAnchor } from "./bestball-week";
 
 export interface PointsStandings {
   teamId: number;
@@ -100,6 +115,67 @@ const ALL_STAT_KEYS = ["statR", "statHR", "statRBI", "statSB", "statH", "stat2B"
   "statBB", "statK", "statTB", "statCS", "statHBP", "statAB", "statPA",
   "statW", "statSV", "statSO", "statL", "statQS", "statHLD", "statCG", "statSHO", "statBSV",
   "statIPOuts", "statER", "statBBp", "statHA"];
+
+const STAT_TO_S26_PLAYER_FIELD: Record<string, keyof Player> = {
+  statR: "s26R",
+  statHR: "s26HR",
+  statRBI: "s26RBI",
+  statSB: "s26SB",
+  statH: "s26H",
+  stat2B: "s262B",
+  stat3B: "s263B",
+  statBB: "s26BB",
+  statK: "s26K",
+  statTB: "s26TB",
+  statCS: "s26CS",
+  statHBP: "s26HBP",
+  statAB: "s26AB",
+  statPA: "s26PA",
+  statW: "s26W",
+  statSV: "s26SV",
+  statSO: "s26SO",
+  statL: "s26L",
+  statQS: "s26QS",
+  statHLD: "s26HLD",
+  statCG: "s26CG",
+  statSHO: "s26SHO",
+  statBSV: "s26BSV",
+  statIPOuts: "s26IPOuts",
+  statER: "s26ER",
+  statBBp: "s26BBp",
+  statHA: "s26HA",
+};
+
+function toNumber(value: unknown): number {
+  if (typeof value === "number") return value;
+  if (typeof value === "string") {
+    const parsed = parseFloat(value);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  }
+  return 0;
+}
+
+function toNumberRecord(value: unknown): Record<string, number> {
+  if (!value || typeof value !== "object") return {};
+  const out: Record<string, number> = {};
+  for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+    out[key] = toNumber(raw);
+  }
+  return out;
+}
+
+function extractS26CumulativeStats(player: Player): Record<string, number> {
+  const cumulative: Record<string, number> = {};
+  for (const statKey of ALL_STAT_KEYS) {
+    const s26Field = STAT_TO_S26_PLAYER_FIELD[statKey];
+    cumulative[statKey] = toNumber((player as Record<string, unknown>)[s26Field as string]);
+  }
+  return cumulative;
+}
+
+function shouldUseWeeklyRotoBestBallSnapshots(league: League): boolean {
+  return league.scoringFormat === "Roto" && league.type === "Best Ball";
+}
 
 function computePlayerFantasyPoints(
   player: Player,
@@ -243,13 +319,88 @@ function computeTeamFantasyPoints(
   return { total, categoryValues };
 }
 
-export function computeSeasonPointsStandings(
+function shouldUseWeeklyBestBallSnapshots(league: League): boolean {
+  return league.scoringFormat === "Season Points" && league.type === "Best Ball";
+}
+
+function sumTeamSeasonPointCategories(
+  league: League,
+  teamPicks: DraftPick[],
+  allPlayers: Map<number, Player>,
+  rosterPositions: string[],
+): { total: number; categoryValues: Record<string, number> } {
+  return computeTeamFantasyPoints(league, teamPicks, allPlayers, rosterPositions);
+}
+
+async function computeSeasonPointsBestBallStandingsFromWeeklySnapshots(
   league: League,
   teams: Team[],
   draftPicks: DraftPick[],
   allPlayers: Map<number, Player>,
   rosterPositions: string[],
-): PointsStandings[] {
+): Promise<PointsStandings[]> {
+  const ctx = getBestBallWeekContext(league, new Date());
+  const snapshots = await db
+    .select()
+    .from(weeklyBestBallPoints)
+    .where(eq(weeklyBestBallPoints.leagueId, league.id))
+    .orderBy(asc(weeklyBestBallPoints.weekStart));
+
+  const byTeam = new Map<number, typeof snapshots>();
+  for (const row of snapshots) {
+    const arr = byTeam.get(row.teamId) ?? [];
+    arr.push(row);
+    byTeam.set(row.teamId, arr);
+  }
+
+  const results: PointsStandings[] = teams.map((team) => {
+    const teamPicks = draftPicks.filter((dp) => dp.teamId === team.id);
+    const currentTotals = sumTeamSeasonPointCategories(league, teamPicks, allPlayers, rosterPositions);
+    const teamSnapshots = byTeam.get(team.id) ?? [];
+
+    let finalizedTotal = 0;
+    let priorFinalizedCumulative = 0;
+    for (const snap of teamSnapshots) {
+      if (snap.weekStart < ctx.currentWeekStart) {
+        finalizedTotal += Number(snap.weeklyPoints || 0);
+        priorFinalizedCumulative = Math.max(priorFinalizedCumulative, Number(snap.cumulativePoints || 0));
+      }
+    }
+
+    const currentWeekLive = Math.max(0, currentTotals.total - priorFinalizedCumulative);
+    const totalPoints = finalizedTotal + currentWeekLive;
+
+    return {
+      teamId: team.id,
+      teamName: team.name,
+      userId: team.userId,
+      isCpu: team.isCpu,
+      totalPoints,
+      categoryValues: currentTotals.categoryValues,
+    };
+  });
+
+  results.sort((a, b) => b.totalPoints - a.totalPoints);
+  return results;
+}
+
+export async function computeSeasonPointsStandings(
+  league: League,
+  teams: Team[],
+  draftPicks: DraftPick[],
+  allPlayers: Map<number, Player>,
+  rosterPositions: string[],
+): Promise<PointsStandings[]> {
+  if (shouldUseWeeklyBestBallSnapshots(league)) {
+    return computeSeasonPointsBestBallStandingsFromWeeklySnapshots(
+      league,
+      teams,
+      draftPicks,
+      allPlayers,
+      rosterPositions,
+    );
+  }
+
   const results: PointsStandings[] = teams.map(team => {
     const teamPicks = draftPicks.filter(dp => dp.teamId === team.id);
     const { total, categoryValues } = computeTeamFantasyPoints(league, teamPicks, allPlayers, rosterPositions);
@@ -675,7 +826,447 @@ export function computeMatchups(
   return result;
 }
 
-export function computeStandings(
+function getDefaultRosterPositions(league: League): string[] {
+  return league.rosterPositions || ["C", "1B", "2B", "3B", "SS", "OF", "OF", "OF", "UT", "SP", "SP", "RP", "RP", "BN", "BN", "IL"];
+}
+
+async function computeCumulativeTeamPointsForLeague(league: League): Promise<Map<number, number>> {
+  const leagueTeams = await db.select().from(teams).where(eq(teams.leagueId, league.id));
+  const picks = await db.select().from(draftPicks).where(eq(draftPicks.leagueId, league.id));
+  const playerIds = Array.from(new Set(picks.map((p) => p.playerId)));
+  const playerList = playerIds.length > 0 ? await db.select().from(players).where(inArray(players.id, playerIds)) : [];
+  const playerMap = new Map(playerList.map((p) => [p.id, p]));
+  const rosterPositions = getDefaultRosterPositions(league);
+
+  const totals = new Map<number, number>();
+  for (const team of leagueTeams) {
+    const teamPicks = picks.filter((p) => p.teamId === team.id);
+    const { total } = computeTeamFantasyPoints(league, teamPicks, playerMap, rosterPositions);
+    totals.set(team.id, total);
+  }
+  return totals;
+}
+
+async function captureWeeklyPlayerSnapshots(playerIds: number[], weekStart: string): Promise<void> {
+  if (playerIds.length === 0) return;
+
+  const playerList = await db.select().from(players).where(inArray(players.id, playerIds));
+  for (const player of playerList) {
+    const cumulativeStats = extractS26CumulativeStats(player);
+    await db
+      .insert(weeklyPlayerStatSnapshots)
+      .values({
+        playerId: player.id,
+        weekStart,
+        cumulativeStats,
+        capturedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: [weeklyPlayerStatSnapshots.playerId, weeklyPlayerStatSnapshots.weekStart],
+        set: {
+          cumulativeStats,
+          capturedAt: new Date(),
+        },
+      });
+  }
+}
+
+async function buildWeeklyDeltaPlayerMap(playerIds: number[], weekStart: string): Promise<Map<number, Player>> {
+  if (playerIds.length === 0) return new Map();
+
+  const playerList = await db.select().from(players).where(inArray(players.id, playerIds));
+  const priorWeekStart = addDaysToYmd(weekStart, -7);
+
+  const snapshots = await db
+    .select()
+    .from(weeklyPlayerStatSnapshots)
+    .where(
+      and(
+        inArray(weeklyPlayerStatSnapshots.playerId, playerIds),
+        inArray(weeklyPlayerStatSnapshots.weekStart, [weekStart, priorWeekStart]),
+      ),
+    );
+
+  const byPlayerWeek = new Map<string, Record<string, number>>();
+  for (const row of snapshots) {
+    byPlayerWeek.set(`${row.playerId}:${row.weekStart}`, toNumberRecord(row.cumulativeStats));
+  }
+
+  const deltaPlayers = new Map<number, Player>();
+  for (const player of playerList) {
+    const weekCumulative = byPlayerWeek.get(`${player.id}:${weekStart}`) ?? extractS26CumulativeStats(player);
+    const priorCumulative = byPlayerWeek.get(`${player.id}:${priorWeekStart}`) ?? {};
+
+    const weeklyStats: Record<string, number> = {};
+    for (const statKey of ALL_STAT_KEYS) {
+      weeklyStats[statKey] = Math.max(0, toNumber(weekCumulative[statKey]) - toNumber(priorCumulative[statKey]));
+    }
+
+    const deltaPlayer: Player = { ...player };
+    for (const [statKey, s26Field] of Object.entries(STAT_TO_S26_PLAYER_FIELD)) {
+      (deltaPlayer as Record<string, unknown>)[s26Field] = weeklyStats[statKey];
+    }
+    deltaPlayers.set(deltaPlayer.id, deltaPlayer);
+  }
+
+  return deltaPlayers;
+}
+
+async function computeWeeklyRotoBestBallStandingsForLeague(league: League, weekStart: string): Promise<TeamStandings[]> {
+  const leagueTeams = await db.select().from(teams).where(eq(teams.leagueId, league.id));
+  if (leagueTeams.length === 0) return [];
+
+  const picks = await db.select().from(draftPicks).where(eq(draftPicks.leagueId, league.id));
+  const playerIds = Array.from(new Set(picks.map((p) => p.playerId)));
+  if (playerIds.length > 0) {
+    await captureWeeklyPlayerSnapshots(playerIds, weekStart);
+  }
+
+  const weeklyPlayerMap = await buildWeeklyDeltaPlayerMap(playerIds, weekStart);
+  return computeRotoStandings(
+    league,
+    leagueTeams,
+    picks,
+    weeklyPlayerMap,
+    getDefaultRosterPositions(league),
+    "s26",
+  );
+}
+
+async function computeRotoBestBallStandingsFromWeeklySnapshots(
+  league: League,
+  leagueTeams: Team[],
+): Promise<TeamStandings[]> {
+  const snapshots = await db
+    .select()
+    .from(weeklyBestBallRotoPoints)
+    .where(eq(weeklyBestBallRotoPoints.leagueId, league.id))
+    .orderBy(asc(weeklyBestBallRotoPoints.weekStart));
+
+  const byTeam = new Map<number, typeof snapshots>();
+  for (const row of snapshots) {
+    const rows = byTeam.get(row.teamId) ?? [];
+    rows.push(row);
+    byTeam.set(row.teamId, rows);
+  }
+
+  const standings: TeamStandings[] = leagueTeams.map((team) => {
+    const teamRows = byTeam.get(team.id) ?? [];
+    const cumulativeCategoryPoints: Record<string, number> = {};
+    let totalPoints = 0;
+    let latestCategoryValues: Record<string, number> = {};
+
+    for (const row of teamRows) {
+      const rowCategoryPoints = toNumberRecord(row.categoryPoints);
+      const rowCategoryValues = toNumberRecord(row.categoryValues);
+      for (const [key, value] of Object.entries(rowCategoryPoints)) {
+        cumulativeCategoryPoints[key] = (cumulativeCategoryPoints[key] || 0) + value;
+      }
+      totalPoints += toNumber(row.totalPoints);
+      latestCategoryValues = rowCategoryValues;
+    }
+
+    return {
+      teamId: team.id,
+      teamName: team.name,
+      userId: team.userId,
+      isCpu: team.isCpu,
+      categoryValues: latestCategoryValues,
+      categoryPoints: cumulativeCategoryPoints,
+      totalPoints,
+    };
+  });
+
+  standings.sort((a, b) => b.totalPoints - a.totalPoints);
+  return standings;
+}
+
+async function finalizePreviousWeekForLeague(league: League, now: Date = new Date()): Promise<number> {
+  if (!shouldUseWeeklyBestBallSnapshots(league)) return 0;
+
+  const ctx = getBestBallWeekContext(league, now);
+  if (!ctx.previousWeekStart || !ctx.previousWeekEnd) return 0;
+
+  const leagueTeams = await db.select().from(teams).where(eq(teams.leagueId, league.id));
+  if (leagueTeams.length === 0) return 0;
+
+  const existing = await db
+    .select()
+    .from(weeklyBestBallPoints)
+    .where(
+      and(
+        eq(weeklyBestBallPoints.leagueId, league.id),
+        eq(weeklyBestBallPoints.weekStart, ctx.previousWeekStart),
+      ),
+    );
+
+  if (existing.length >= leagueTeams.length) return 0;
+
+  const cumulativeByTeam = await computeCumulativeTeamPointsForLeague(league);
+  const allSnapshots = await db
+    .select()
+    .from(weeklyBestBallPoints)
+    .where(eq(weeklyBestBallPoints.leagueId, league.id))
+    .orderBy(asc(weeklyBestBallPoints.weekStart));
+
+  const priorCumulative = new Map<number, number>();
+  for (const row of allSnapshots) {
+    if (row.weekStart < ctx.previousWeekStart) {
+      priorCumulative.set(row.teamId, Math.max(priorCumulative.get(row.teamId) ?? 0, Number(row.cumulativePoints || 0)));
+    }
+  }
+
+  let writes = 0;
+  for (const team of leagueTeams) {
+    const cumulativePoints = cumulativeByTeam.get(team.id) ?? 0;
+    const prev = priorCumulative.get(team.id) ?? 0;
+    const weeklyPoints = Math.max(0, cumulativePoints - prev);
+    await db
+      .insert(weeklyBestBallPoints)
+      .values({
+        leagueId: league.id,
+        teamId: team.id,
+        weekStart: ctx.previousWeekStart,
+        weekEnd: ctx.previousWeekEnd,
+        weekNumber: ctx.currentWeekNumber - 1,
+        weeklyPoints,
+        cumulativePoints,
+        finalizedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: [weeklyBestBallPoints.leagueId, weeklyBestBallPoints.teamId, weeklyBestBallPoints.weekStart],
+        set: {
+          weekEnd: ctx.previousWeekEnd,
+          weekNumber: ctx.currentWeekNumber - 1,
+          weeklyPoints,
+          cumulativePoints,
+          finalizedAt: new Date(),
+        },
+      });
+    writes++;
+  }
+
+  return writes;
+}
+
+async function finalizePreviousWeekForRotoBestBallLeague(league: League, now: Date = new Date()): Promise<number> {
+  if (!shouldUseWeeklyRotoBestBallSnapshots(league)) return 0;
+
+  const ctx = getBestBallWeekContext(league, now);
+  if (!ctx.previousWeekStart || !ctx.previousWeekEnd) return 0;
+
+  const leagueTeams = await db.select().from(teams).where(eq(teams.leagueId, league.id));
+  if (leagueTeams.length === 0) return 0;
+
+  const existing = await db
+    .select()
+    .from(weeklyBestBallRotoPoints)
+    .where(
+      and(
+        eq(weeklyBestBallRotoPoints.leagueId, league.id),
+        eq(weeklyBestBallRotoPoints.weekStart, ctx.previousWeekStart),
+      ),
+    );
+
+  if (existing.length >= leagueTeams.length) return 0;
+
+  const weeklyStandings = await computeWeeklyRotoBestBallStandingsForLeague(league, ctx.previousWeekStart);
+  let writes = 0;
+  for (const row of weeklyStandings) {
+    await db
+      .insert(weeklyBestBallRotoPoints)
+      .values({
+        leagueId: league.id,
+        teamId: row.teamId,
+        weekStart: ctx.previousWeekStart,
+        weekEnd: ctx.previousWeekEnd,
+        weekNumber: ctx.currentWeekNumber - 1,
+        categoryValues: row.categoryValues,
+        categoryPoints: row.categoryPoints,
+        totalPoints: row.totalPoints,
+        finalizedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: [weeklyBestBallRotoPoints.leagueId, weeklyBestBallRotoPoints.teamId, weeklyBestBallRotoPoints.weekStart],
+        set: {
+          weekEnd: ctx.previousWeekEnd,
+          weekNumber: ctx.currentWeekNumber - 1,
+          categoryValues: row.categoryValues,
+          categoryPoints: row.categoryPoints,
+          totalPoints: row.totalPoints,
+          finalizedAt: new Date(),
+        },
+      });
+    writes++;
+  }
+
+  return writes;
+}
+
+export async function finalizeBestBallWeeklySnapshots(now: Date = new Date()): Promise<number> {
+  const seasonPointsLeagues = await db
+    .select()
+    .from(leagues)
+    .where(
+      and(
+        eq(leagues.scoringFormat, "Season Points"),
+        eq(leagues.type, "Best Ball"),
+      ),
+    );
+
+  const rotoLeagues = await db
+    .select()
+    .from(leagues)
+    .where(
+      and(
+        eq(leagues.scoringFormat, "Roto"),
+        eq(leagues.type, "Best Ball"),
+      ),
+    );
+
+  let totalWrites = 0;
+  for (const league of seasonPointsLeagues) {
+    totalWrites += await finalizePreviousWeekForLeague(league, now);
+  }
+  for (const league of rotoLeagues) {
+    totalWrites += await finalizePreviousWeekForRotoBestBallLeague(league, now);
+  }
+  return totalWrites;
+}
+
+export async function backfillWeeklyBestBallSnapshots(now: Date = new Date()): Promise<{ leagues: number; snapshots: number }> {
+  const seasonPointsLeagues = await db
+    .select()
+    .from(leagues)
+    .where(
+      and(
+        eq(leagues.scoringFormat, "Season Points"),
+        eq(leagues.type, "Best Ball"),
+        eq(leagues.draftStatus, "active"),
+      ),
+    );
+
+  let snapshots = 0;
+  for (const league of seasonPointsLeagues) {
+    const completedWeeks = listCompletedWeekStarts(league, now);
+    if (completedWeeks.length === 0) continue;
+
+    const weekStarts = completedWeeks.sort();
+    const lastCompletedWeek = weekStarts[weekStarts.length - 1];
+    const anchorCtx = getBestBallWeekContext(league, now);
+    const leagueTeams = await db.select().from(teams).where(eq(teams.leagueId, league.id));
+    if (leagueTeams.length === 0) continue;
+
+    const cumulativeByTeam = await computeCumulativeTeamPointsForLeague(league);
+
+    for (const team of leagueTeams) {
+      const cumulativePoints = cumulativeByTeam.get(team.id) ?? 0;
+      for (const weekStart of weekStarts) {
+        const isLast = weekStart === lastCompletedWeek;
+        const weekEnd = addDaysToYmd(weekStart, 6);
+        const weekNumber = weekNumberFromAnchor(anchorCtx.anchorWeekStart, weekStart);
+        await db
+          .insert(weeklyBestBallPoints)
+          .values({
+            leagueId: league.id,
+            teamId: team.id,
+            weekStart,
+            weekEnd,
+            weekNumber,
+            weeklyPoints: isLast ? cumulativePoints : 0,
+            cumulativePoints: isLast ? cumulativePoints : 0,
+            finalizedAt: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: [weeklyBestBallPoints.leagueId, weeklyBestBallPoints.teamId, weeklyBestBallPoints.weekStart],
+            set: {
+              weekEnd,
+              weekNumber,
+              weeklyPoints: isLast ? cumulativePoints : 0,
+              cumulativePoints: isLast ? cumulativePoints : 0,
+              finalizedAt: new Date(),
+            },
+          });
+        snapshots++;
+      }
+    }
+  }
+
+  const rotoLeagues = await db
+    .select()
+    .from(leagues)
+    .where(
+      and(
+        eq(leagues.scoringFormat, "Roto"),
+        eq(leagues.type, "Best Ball"),
+        eq(leagues.draftStatus, "active"),
+      ),
+    );
+
+  for (const league of rotoLeagues) {
+    const completedWeeks = listCompletedWeekStarts(league, now).sort();
+    if (completedWeeks.length === 0) continue;
+
+    const picks = await db.select().from(draftPicks).where(eq(draftPicks.leagueId, league.id));
+    const playerIds = Array.from(new Set(picks.map((p) => p.playerId)));
+    const anchorCtx = getBestBallWeekContext(league, now);
+
+    // Best-effort backfill: only weeks with sufficient snapshots can be computed exactly.
+    for (const weekStart of completedWeeks) {
+      const existingRows = await db
+        .select()
+        .from(weeklyBestBallRotoPoints)
+        .where(
+          and(
+            eq(weeklyBestBallRotoPoints.leagueId, league.id),
+            eq(weeklyBestBallRotoPoints.weekStart, weekStart),
+          ),
+        );
+      if (existingRows.length > 0) continue;
+
+      if (weekStart === completedWeeks[completedWeeks.length - 1] && playerIds.length > 0) {
+        await captureWeeklyPlayerSnapshots(playerIds, weekStart);
+      }
+
+      const weeklyStandings = await computeWeeklyRotoBestBallStandingsForLeague(league, weekStart);
+      if (weeklyStandings.length === 0) continue;
+
+      const weekEnd = addDaysToYmd(weekStart, 6);
+      const weekNumber = weekNumberFromAnchor(anchorCtx.anchorWeekStart, weekStart);
+      for (const row of weeklyStandings) {
+        await db
+          .insert(weeklyBestBallRotoPoints)
+          .values({
+            leagueId: league.id,
+            teamId: row.teamId,
+            weekStart,
+            weekEnd,
+            weekNumber,
+            categoryValues: row.categoryValues,
+            categoryPoints: row.categoryPoints,
+            totalPoints: row.totalPoints,
+            finalizedAt: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: [weeklyBestBallRotoPoints.leagueId, weeklyBestBallRotoPoints.teamId, weeklyBestBallRotoPoints.weekStart],
+            set: {
+              weekEnd,
+              weekNumber,
+              categoryValues: row.categoryValues,
+              categoryPoints: row.categoryPoints,
+              totalPoints: row.totalPoints,
+              finalizedAt: new Date(),
+            },
+          });
+        snapshots++;
+      }
+    }
+  }
+
+  return { leagues: seasonPointsLeagues.length + rotoLeagues.length, snapshots };
+}
+
+export async function computeStandings(
   league: League,
   teams: Team[],
   draftPicks: DraftPick[],
@@ -712,7 +1303,7 @@ export function computeStandings(
     case "Season Points":
       return {
         format: "Season Points",
-        standings: computeSeasonPointsStandings(league, teams, draftPicks, allPlayers, rosterPositions),
+        standings: await computeSeasonPointsStandings(league, teams, draftPicks, allPlayers, rosterPositions),
         hittingCategories: league.hittingCategories || ["R", "HR", "RBI", "SB", "AVG"],
         pitchingCategories: league.pitchingCategories || ["W", "SV", "K", "ERA", "WHIP"],
         numTeams: teams.length,
@@ -721,7 +1312,9 @@ export function computeStandings(
     default:
       return {
         format: "Roto",
-        standings: computeRotoStandings(league, teams, draftPicks, allPlayers, rosterPositions, "s26"),
+        standings: shouldUseWeeklyRotoBestBallSnapshots(league)
+          ? await computeRotoBestBallStandingsFromWeeklySnapshots(league, teams)
+          : computeRotoStandings(league, teams, draftPicks, allPlayers, rosterPositions, "s26"),
         hittingCategories: league.hittingCategories || ["R", "HR", "RBI", "SB", "AVG"],
         pitchingCategories: league.pitchingCategories || ["W", "SV", "K", "ERA", "WHIP"],
         numTeams: teams.length,

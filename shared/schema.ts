@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, uniqueIndex, index, real } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, uniqueIndex, index, real, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -321,12 +321,60 @@ export const leagueMatchups = pgTable("league_matchups", {
   teamBId: integer("team_b_id").references(() => teams.id).notNull(),
 });
 
+export const weeklyBestBallPoints = pgTable("weekly_bestball_points", {
+  id: serial("id").primaryKey(),
+  leagueId: integer("league_id").references(() => leagues.id).notNull(),
+  teamId: integer("team_id").references(() => teams.id).notNull(),
+  weekStart: text("week_start").notNull(), // YYYY-MM-DD (Monday, ET)
+  weekEnd: text("week_end").notNull(), // YYYY-MM-DD (Sunday, ET)
+  weekNumber: integer("week_number").notNull(),
+  weeklyPoints: real("weekly_points").notNull().default(0),
+  cumulativePoints: real("cumulative_points").notNull().default(0),
+  finalizedAt: timestamp("finalized_at").defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex("weekly_bestball_points_unique").on(table.leagueId, table.teamId, table.weekStart),
+  index("weekly_bestball_points_league_week_idx").on(table.leagueId, table.weekStart),
+  index("weekly_bestball_points_team_week_idx").on(table.teamId, table.weekStart),
+]);
+
+export const weeklyBestBallRotoPoints = pgTable("weekly_bestball_roto_points", {
+  id: serial("id").primaryKey(),
+  leagueId: integer("league_id").references(() => leagues.id).notNull(),
+  teamId: integer("team_id").references(() => teams.id).notNull(),
+  weekStart: text("week_start").notNull(), // YYYY-MM-DD (Monday, ET)
+  weekEnd: text("week_end").notNull(), // YYYY-MM-DD (Sunday, ET)
+  weekNumber: integer("week_number").notNull(),
+  categoryValues: jsonb("category_values").$type<Record<string, number>>().notNull().default({}),
+  categoryPoints: jsonb("category_points").$type<Record<string, number>>().notNull().default({}),
+  totalPoints: real("total_points").notNull().default(0),
+  finalizedAt: timestamp("finalized_at").defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex("weekly_bestball_roto_points_unique").on(table.leagueId, table.teamId, table.weekStart),
+  index("weekly_bestball_roto_points_league_week_idx").on(table.leagueId, table.weekStart),
+  index("weekly_bestball_roto_points_team_week_idx").on(table.teamId, table.weekStart),
+]);
+
+export const weeklyPlayerStatSnapshots = pgTable("weekly_player_stat_snapshots", {
+  id: serial("id").primaryKey(),
+  playerId: integer("player_id").references(() => players.id).notNull(),
+  weekStart: text("week_start").notNull(), // YYYY-MM-DD (Monday, ET)
+  cumulativeStats: jsonb("cumulative_stats").$type<Record<string, number>>().notNull().default({}),
+  capturedAt: timestamp("captured_at").defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex("weekly_player_stat_snapshots_unique").on(table.playerId, table.weekStart),
+  index("weekly_player_stat_snapshots_week_idx").on(table.weekStart),
+  index("weekly_player_stat_snapshots_player_idx").on(table.playerId),
+]);
+
 export const insertLeagueMatchupSchema = createInsertSchema(leagueMatchups).omit({
   id: true,
 });
 
 export type LeagueMatchup = typeof leagueMatchups.$inferSelect;
 export type InsertLeagueMatchup = z.infer<typeof insertLeagueMatchupSchema>;
+export type WeeklyBestBallPoints = typeof weeklyBestBallPoints.$inferSelect;
+export type WeeklyBestBallRotoPoints = typeof weeklyBestBallRotoPoints.$inferSelect;
+export type WeeklyPlayerStatSnapshot = typeof weeklyPlayerStatSnapshots.$inferSelect;
 
 export const insertWaiverSchema = createInsertSchema(waivers).omit({
   id: true,

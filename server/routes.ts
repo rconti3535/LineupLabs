@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertLeagueSchema, insertTeamSchema, insertUserSchema, insertDraftPickSchema, players, playerAdp, teams as teamsTable, users, type Player, type InsertLeagueMatchup } from "@shared/schema";
 import { computeRotoStandings } from "./roto-scoring";
-import { computeStandings, computeMatchups } from "./scoring";
+import { computeStandings, computeMatchups, finalizeBestBallWeeklySnapshots } from "./scoring";
 import { getScheduleForDate, getPlayerGameTimes, type PlayerGameTime } from "./mlb-schedule";
 import { addClient, broadcastDraftEvent } from "./draft-events";
 import { db } from "./db";
@@ -559,7 +559,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const playerMap = new Map(playerList.map(p => [p.id, p]));
       const rosterPositions = league.rosterPositions || ["C", "1B", "2B", "3B", "SS", "OF", "OF", "OF", "UT", "SP", "SP", "RP", "RP", "BN", "BN", "IL"];
 
-      const result = computeStandings(league, teams, draftPicks, playerMap, rosterPositions);
+      const result = await computeStandings(league, teams, draftPicks, playerMap, rosterPositions);
       for (const team of result.standings) {
         if (team.userId && !team.isCpu) {
           const user = await storage.getUser(team.userId);
@@ -2789,6 +2789,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
   setInterval(checkScheduledDrafts, 60000);
+
+  async function checkWeeklyBestBallFinalization() {
+    try {
+      const writes = await finalizeBestBallWeeklySnapshots(new Date());
+      if (writes > 0) {
+        console.log(`[Best Ball Weekly] Finalized ${writes} team-week snapshot(s).`);
+      }
+    } catch (error) {
+      console.error("[Best Ball Weekly] Finalization check error:", error);
+    }
+  }
+  setInterval(checkWeeklyBestBallFinalization, 60000);
 
   (async function migrateMinorLeagueTeams() {
     try {
