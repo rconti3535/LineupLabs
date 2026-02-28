@@ -96,7 +96,7 @@ export default function Home() {
               <Users className="w-4 h-4 text-blue-300" />
             </div>
             <div className="text-2xl font-bold text-white">{stats?.allTimeLeagues ?? 0}</div>
-            <div className="text-[10px] text-gray-400/80 font-medium">ALL-TIME</div>
+            <div className="text-[10px] text-gray-400/80 font-medium">LEAGUES</div>
           </div>
           <div className="card-3d bg-yellow-500/10 border border-yellow-500/20 rounded-xl py-3 text-center">
             <div className="flex items-center justify-center gap-1 mb-1">
