@@ -34,11 +34,11 @@ type RankTier = {
 const RANK_TIERS_ASC: RankTier[] = [
   { name: "Intern", leagues: 0, medals: 0, winRate: 0, trophyRate: 0 },
   { name: "Analyst", leagues: 5, medals: 0, winRate: 0, trophyRate: 0 },
-  { name: "Asst. Coordinator", leagues: 10, medals: 3, winRate: 2, trophyRate: 10 },
+  { name: "Assistant Coordinator", leagues: 10, medals: 3, winRate: 2, trophyRate: 10 },
   { name: "Coordinator", leagues: 25, medals: 8, winRate: 3, trophyRate: 12 },
-  { name: "Asst. Director", leagues: 50, medals: 15, winRate: 4, trophyRate: 14 },
+  { name: "Assistant Director", leagues: 50, medals: 15, winRate: 4, trophyRate: 14 },
   { name: "Director", leagues: 100, medals: 30, winRate: 6, trophyRate: 18 },
-  { name: "Asst. GM", leagues: 150, medals: 45, winRate: 8, trophyRate: 24 },
+  { name: "Assistant GM", leagues: 150, medals: 45, winRate: 8, trophyRate: 24 },
   { name: "GM", leagues: 250, medals: 75, winRate: 12, trophyRate: 30 },
 ];
 
@@ -81,23 +81,17 @@ export default function Home() {
 
   return (
     <div className="px-4 py-6 space-y-4">
-      <div className="text-center">
-        <h2 className="text-2xl font-bold text-white">Rank</h2>
-      </div>
-
       <div className="space-y-4">
         <div className="flex items-center justify-center gap-2 mb-4">
           <Trophy className="w-5 h-5 text-blue-400" />
-          <span className="text-sm text-gray-400">GM Tier</span>
           <span className={`text-lg font-bold ${tierColor}`}>{stats?.gmTier || "Intern"}</span>
         </div>
 
-        <div className="card-3d bg-gray-800/60 rounded-xl py-3 text-center mb-4">
-          <div className="text-2xl font-bold text-white">{stats?.allTimeLeagues ?? 0}</div>
-          <div className="text-[10px] text-gray-400 font-medium">ALL-TIME LEAGUES</div>
-        </div>
-
-        <div className="grid grid-cols-3 gap-3 mb-4">
+        <div className="grid grid-cols-4 gap-3 mb-4">
+          <div className="card-3d bg-gray-800/60 rounded-xl py-3 text-center">
+            <div className="text-2xl font-bold text-white">{stats?.allTimeLeagues ?? 0}</div>
+            <div className="text-[10px] text-gray-400/80 font-medium">LEAGUES</div>
+          </div>
           <div className="card-3d bg-yellow-500/10 border border-yellow-500/20 rounded-xl py-3 text-center">
             <div className="flex items-center justify-center gap-1 mb-1">
               <Award className="w-4 h-4 text-yellow-400" />
@@ -188,13 +182,8 @@ export default function Home() {
                       : "border-white/10"
                   } ${isDimmed ? "opacity-40" : "opacity-100"}`}
                 >
-                  <div className="relative flex items-center text-left text-sm text-white font-medium pr-12">
+                  <div className="relative flex items-center text-left text-sm text-white font-medium">
                     {tier.name}
-                    {isCurrent && (
-                      <span className="absolute right-1 top-1 text-[10px] uppercase tracking-[0.1em] text-[#F0B429] font-semibold">
-                        Current
-                      </span>
-                    )}
                   </div>
                   {criterionCell(String(tier.leagues), leaguesMet)}
                   {criterionCell(String(tier.medals), medalsMet)}
