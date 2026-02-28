@@ -57,8 +57,14 @@ function buildVisualShellFromElement(sourceEl: HTMLElement, rect: DOMRect): HTML
   shell.style.transform = "translateZ(0)";
   shell.style.transition = "none";
   shell.style.willChange = "top, left, width, height, border-radius, opacity, background-color";
-  shell.style.background = sourceStyle.background;
-  shell.style.backgroundColor = sourceStyle.backgroundColor;
+  shell.style.backgroundColor =
+    sourceStyle.backgroundColor && sourceStyle.backgroundColor !== "rgba(0, 0, 0, 0)"
+      ? sourceStyle.backgroundColor
+      : "#1a202a";
+  shell.style.backgroundImage = sourceStyle.backgroundImage;
+  shell.style.backgroundSize = sourceStyle.backgroundSize;
+  shell.style.backgroundPosition = sourceStyle.backgroundPosition;
+  shell.style.backgroundRepeat = sourceStyle.backgroundRepeat;
   shell.style.border = sourceStyle.border;
   shell.style.boxShadow = sourceStyle.boxShadow;
   shell.style.backdropFilter = sourceStyle.backdropFilter;
@@ -109,7 +115,6 @@ export function runTeamCardHeroOpen(sourceEl: HTMLElement, navigate: () => void)
   };
 
   const clone = buildVisualShellFromElement(sourceEl, rect);
-  applyFrameClip(clone, frameRect);
   document.body.appendChild(clone);
   activeClone = clone;
 
@@ -191,7 +196,6 @@ export function runTeamCardHeroBack(contentEl: HTMLElement | null, navigateToTea
   overlay.style.zIndex = "1200";
   overlay.style.transition = "none";
   overlay.style.willChange = "top, left, width, height, border-radius, opacity";
-  applyFrameClip(overlay, frameRect);
   document.body.appendChild(overlay);
   activeOverlay = overlay;
 
