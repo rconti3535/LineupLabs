@@ -89,12 +89,12 @@ export default function CreateLeague() {
     <div className="min-h-screen px-4 py-6">
       <div className="mb-6">
         <Button
-          onClick={() => setLocation("/")}
+          onClick={() => setLocation("/teams")}
           variant="ghost"
           className="text-gray-400 hover:text-white mb-4"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Home
+          Back to Teams
         </Button>
         
         <h1 className="text-2xl font-bold text-white mb-2">Create League</h1>
