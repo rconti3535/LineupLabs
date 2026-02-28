@@ -13,16 +13,6 @@ interface ProfileStats {
   gmTier: string;
 }
 
-const GM_TIER_COLORS: Record<string, string> = {
-  "Intern": "text-gray-400",
-  "Rookie": "text-green-400",
-  "Scout": "text-blue-400",
-  "Manager": "text-purple-400",
-  "Director": "text-orange-400",
-  "Executive": "text-red-400",
-  "Hall of Fame": "text-yellow-400",
-};
-
 type RankTier = {
   name: string;
   leagues: number;
@@ -56,7 +46,6 @@ export default function Home() {
     refetchOnMount: "always",
   });
 
-  const tierColor = GM_TIER_COLORS[stats?.gmTier || "Intern"] || "text-gray-400";
   const userLeagues = stats?.allTimeLeagues ?? 0;
   const userMedals = (stats?.gold ?? 0) + (stats?.silver ?? 0) + (stats?.bronze ?? 0);
   const userWinRate = stats?.winRate ?? 0;
@@ -83,14 +72,22 @@ export default function Home() {
   return (
     <div className="px-4 py-6 space-y-4">
       <div className="space-y-4">
-        <div className="card-3d rounded-xl px-4 py-3 bg-[#1E2830]/70 border border-white/10">
-          <p className="text-[10px] uppercase tracking-[0.12em] text-gray-400">Current Level</p>
-          <p className="text-lg font-semibold text-white mt-1">{currentTierName}</p>
+        <div className="card-3d rounded-xl px-4 py-4 bg-gradient-to-r from-[#2a3340]/85 via-[#1E2830]/85 to-[#2a3340]/85 border border-white/20">
+          <p className="text-[10px] uppercase tracking-[0.14em] text-gray-300">Current Level</p>
+          <div className="mt-1 flex items-center justify-between">
+            <p className="text-2xl font-bold text-white tracking-wide">{currentTierName}</p>
+            <div className="text-right">
+              <p className="text-[10px] uppercase tracking-[0.12em] text-gray-400">Progression Rank</p>
+              <p className="text-sm font-semibold text-blue-300">
+                {currentTierIndexAsc + 1} / {RANK_TIERS_ASC.length}
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="flex items-center justify-center gap-2 mb-4">
           <Trophy className="w-5 h-5 text-blue-400" />
-          <span className={`text-lg font-bold ${tierColor}`}>{stats?.gmTier || "Intern"}</span>
+          <span className="text-lg font-bold text-white">{currentTierName}</span>
         </div>
 
         <div className="grid grid-cols-4 gap-3 mb-4">
