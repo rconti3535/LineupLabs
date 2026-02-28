@@ -21,7 +21,7 @@ export function TeamCard({ team, leagueName, isCommissioner, leagueImage, draftL
   return (
     <Card 
       data-hero-card
-      className="fade-up-enter league-card rounded-xl p-4 cursor-pointer border border-white/15 bg-white/[0.03] backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_6px_16px_rgba(0,0,0,0.25)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_9px_20px_rgba(0,0,0,0.32)]"
+      className="league-card rounded-xl p-4 cursor-pointer border border-white/15 bg-white/[0.03] backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_6px_16px_rgba(0,0,0,0.25)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_9px_20px_rgba(0,0,0,0.32)]"
       onClick={(e) =>
         runTeamCardHeroOpen(e.currentTarget as HTMLElement, () => setLocation(`/league/${team.leagueId}`))
       }
