@@ -45,7 +45,7 @@ export default function Home() {
         <h2 className="text-2xl font-bold text-white">Rank</h2>
       </div>
 
-      <div className="gradient-card rounded-xl p-5 border border-white/10">
+      <div className="space-y-4">
         <div className="flex items-center justify-center gap-2 mb-4">
           <Trophy className="w-5 h-5 text-blue-400" />
           <span className="text-sm text-gray-400">GM Tier</span>
