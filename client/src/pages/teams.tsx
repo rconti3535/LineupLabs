@@ -171,7 +171,7 @@ export default function Teams() {
         <button
           type="button"
           onClick={() => setLocation("/create-league")}
-          className="rounded-xl border border-white/15 bg-white/[0.03] px-4 py-4 text-left text-white transition-transform active:scale-[0.97]"
+          className="rounded-xl border border-green-400/40 bg-green-600/25 px-4 py-4 text-left text-white transition-transform hover:bg-green-600/35 active:scale-[0.97]"
         >
           <h3 className="text-lg font-semibold text-white">Create League</h3>
           <p className="mt-1 text-[10px] uppercase tracking-[0.12em] text-gray-400">Start fresh</p>
@@ -180,7 +180,7 @@ export default function Teams() {
         <button
           type="button"
           onClick={() => setLocation("/join-public")}
-          className="rounded-xl border border-white/15 bg-white/[0.03] px-4 py-4 text-left text-white transition-transform active:scale-[0.97]"
+          className="rounded-xl border border-blue-400/40 bg-blue-600/25 px-4 py-4 text-left text-white transition-transform hover:bg-blue-600/35 active:scale-[0.97]"
         >
           <h3 className="text-lg font-semibold text-white">Join Public</h3>
           <p className="mt-1 text-[10px] uppercase tracking-[0.12em] text-gray-400">Find a spot</p>
