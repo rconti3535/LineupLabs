@@ -2106,21 +2106,25 @@ export default function LeaguePage() {
 
   if (leagueLoading) {
     return (
-      <div className="px-4 py-6">
-        <Skeleton className="h-8 w-48 mb-4" />
-        <Skeleton className="h-10 w-full rounded-lg mb-4" />
-        <Skeleton className="h-60 w-full rounded-xl" />
+      <div className="p-1">
+        <div className="opened-league-shell px-4 py-6">
+          <Skeleton className="h-8 w-48 mb-4" />
+          <Skeleton className="h-10 w-full rounded-lg mb-4" />
+          <Skeleton className="h-60 w-full rounded-xl" />
+        </div>
       </div>
     );
   }
 
   if (!league) {
     return (
-      <div className="px-4 py-6 text-center">
-        <p className="text-gray-400">League not found</p>
-        <Button onClick={() => setLocation("/teams")} variant="ghost" className="mt-4 text-blue-400">
-          Back to Teams
-        </Button>
+      <div className="p-1">
+        <div className="opened-league-shell px-4 py-6 text-center">
+          <p className="text-gray-400">League not found</p>
+          <Button onClick={() => setLocation("/teams")} variant="ghost" className="mt-4 text-blue-400">
+            Back to Teams
+          </Button>
+        </div>
       </div>
     );
   }
@@ -2135,8 +2139,9 @@ export default function LeaguePage() {
   ];
 
   return (
-    <div ref={pageContentRef} className="px-4 pt-4 pb-32">
-      <div className="grid grid-cols-[48px_1fr_48px] items-center mb-4">
+    <div ref={pageContentRef} className="p-1 pb-20">
+      <div className="opened-league-shell px-4 pt-4 pb-32">
+        <div className="grid grid-cols-[48px_1fr_48px] items-center mb-4">
         <div className="flex justify-start">
           <Button
             onClick={() => runTeamCardHeroBack(pageContentRef.current, () => setLocation("/teams"))}
@@ -2186,13 +2191,13 @@ export default function LeaguePage() {
         </div>
       </div>
 
-      <div className="mb-4">
-        {league.description && (
-          <p className="text-gray-400 text-sm text-center">{league.description}</p>
-        )}
-      </div>
+        <div className="mb-4">
+          {league.description && (
+            <p className="text-gray-400 text-sm text-center">{league.description}</p>
+          )}
+        </div>
 
-      <div className="flex border-b border-gray-700 mb-4">
+        <div className="flex border-b border-gray-700 mb-4">
         {tabs.map((tab) => (
           <button
             key={tab.key}
@@ -2206,7 +2211,7 @@ export default function LeaguePage() {
             {tab.label}
           </button>
         ))}
-      </div>
+        </div>
 
       {activeTab === "roster" && !showSettings && (
         <div>
@@ -3828,6 +3833,7 @@ export default function LeaguePage() {
         </Dialog>
         </>
       )}
+      </div>
     </div>
   );
 }
