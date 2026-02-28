@@ -137,7 +137,7 @@ export default function Home() {
             Rank Progression
           </h3>
 
-          <div className="grid grid-cols-[1.6fr_repeat(4,minmax(0,1fr))] gap-2 px-2 py-1 mb-2">
+          <div className="grid grid-cols-[minmax(0,1fr)_repeat(4,56px)] gap-2 px-2 py-1 mb-2">
             <div className="text-[10px] text-gray-500 uppercase tracking-[0.12em]">Tier</div>
             <div className="text-[10px] text-gray-500 uppercase tracking-[0.12em] text-center">Leagues</div>
             <div className="text-[10px] text-gray-500 uppercase tracking-[0.12em] text-center">Medals</div>
@@ -160,7 +160,7 @@ export default function Home() {
 
               const criterionCell = (value: string, met: boolean) => (
                 <div
-                  className={`rounded-lg px-1.5 py-1 text-center border ${
+                  className={`h-[52px] rounded-lg px-1.5 py-1 text-center border flex flex-col items-center justify-between ${
                     met
                       ? "bg-[#0a1f12] border-green-500/50 text-green-400"
                       : "bg-[#121920] border-white/10 text-gray-300"
@@ -182,7 +182,7 @@ export default function Home() {
               return (
                 <div
                   key={tier.name}
-                  className={`relative grid grid-cols-[1.6fr_repeat(4,minmax(0,1fr))] gap-2 items-stretch rounded-xl px-2 py-2 bg-[#1E2830]/70 border ${
+                  className={`relative grid grid-cols-[minmax(0,1fr)_repeat(4,56px)] gap-2 items-stretch rounded-xl px-2 py-2 bg-[#1E2830]/70 border ${
                     isCurrent
                       ? "border-[#F0B429] bg-[#2a2112]/70"
                       : "border-white/10"
