@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 :root {
   --background: 240 10% 3.9%;
   --foreground: 0 0% 98%;
@@ -69,6 +74,10 @@
 }
 
 @layer components {
+  .fade-up-enter {
+    animation: fadeUp 0.4s ease both;
+  }
+
   .gradient-card {
     background: linear-gradient(135deg, hsl(var(--sleeper-card)) 0%, hsl(240 3.7% 15.9%) 100%);
     border: 1px solid hsl(var(--sleeper-border));
