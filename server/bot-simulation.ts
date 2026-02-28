@@ -204,14 +204,20 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-async function getNextLeagueSequence(city: string, scoringFormat: "Roto" | "Season Points"): Promise<number> {
-  const likePattern = `${city} % ${scoringFormat}`;
+async function getNextLeagueSequence(
+  city: string,
+  maxTeams: number,
+  scoringFormat: "Roto" | "Season Points"
+): Promise<number> {
+  const likePattern = `${city} T${maxTeams} ${scoringFormat} %`;
   const rows = await db
     .select({ name: leagues.name })
     .from(leagues)
     .where(sql`${leagues.name} LIKE ${likePattern}`);
 
-  const nameRegex = new RegExp(`^${escapeRegExp(city)}\\s+(\\d+)\\s+${escapeRegExp(scoringFormat)}$`);
+  const nameRegex = new RegExp(
+    `^${escapeRegExp(city)}\\s+T${maxTeams}\\s+${escapeRegExp(scoringFormat)}\\s+(\\d+)$`
+  );
   let maxExisting = 0;
 
   for (const row of rows) {
@@ -315,9 +321,9 @@ async function createBotLeague(): Promise<void> {
     // 10 Roto, 10 Season Points, 12 Roto, 12 Season Points.
     const scoringFormat: "Roto" | "Season Points" = Math.random() < 0.5 ? "Roto" : "Season Points";
     const city = MINOR_LEAGUE_CITIES[Math.floor(Math.random() * MINOR_LEAGUE_CITIES.length)];
-    const nextNum = await getNextLeagueSequence(city, scoringFormat);
     const maxTeams = Math.random() < 0.5 ? 10 : 12;
-    const leagueName = `${city} ${nextNum} ${scoringFormat}`;
+    const nextNum = await getNextLeagueSequence(city, maxTeams, scoringFormat);
+    const leagueName = `${city} T${maxTeams} ${scoringFormat} ${nextNum}`;
 
     const draftDate = new Date(Date.now() + DRAFT_OFFSET_MS).toISOString();
 
