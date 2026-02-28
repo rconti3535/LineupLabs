@@ -96,80 +96,73 @@
     border: 1px solid hsl(var(--sleeper-border));
   }
 
-  .skeuo-glass {
-    background:
-      radial-gradient(130% 90% at 20% 10%, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.04) 34%, rgba(255, 255, 255, 0) 62%),
-      linear-gradient(180deg, rgba(115, 126, 136, 0.96) 0%, rgba(91, 101, 111, 0.92) 45%, rgba(129, 140, 151, 0.94) 100%);
-    border-radius: 9999px;
-    border: 1px solid rgba(230, 240, 248, 0.28);
-    backdrop-filter: blur(8px) saturate(128%);
-    -webkit-backdrop-filter: blur(8px) saturate(128%);
+  .quick-join-card {
+    position: relative;
+    background: linear-gradient(135deg, #2A3340 0%, #181E25 100%);
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    overflow: hidden;
     box-shadow:
-      inset 0 16px 14px -12px rgba(245, 252, 255, 0.92),
-      inset 0 30px 44px -28px rgba(221, 234, 243, 0.42),
-      inset 0 -14px 22px -16px rgba(25, 31, 36, 0.52),
-      inset 0 -2px 4px rgba(255, 255, 255, 0.2),
-      0 16px 28px rgba(12, 18, 24, 0.36),
-      0 4px 8px rgba(9, 13, 18, 0.24),
-      0 1px 2px rgba(0, 0, 0, 0.2);
-    transition: filter 160ms ease, box-shadow 160ms ease, transform 120ms ease;
+      inset 0 1px 0px rgba(255, 255, 255, 0.3),
+      inset 0 -1px 0px rgba(0, 0, 0, 0.5),
+      0 6px 20px rgba(0, 0, 0, 0.45),
+      0 1px 4px rgba(0, 0, 0, 0.3);
+    transition: transform 160ms ease, box-shadow 160ms ease;
   }
 
-  .skeuo-glass:hover {
-    filter: brightness(1.08) saturate(1.04);
-    box-shadow:
-      inset 0 16px 14px -12px rgba(245, 252, 255, 0.96),
-      inset 0 30px 44px -28px rgba(221, 234, 243, 0.5),
-      inset 0 -14px 22px -16px rgba(25, 31, 36, 0.56),
-      inset 0 -2px 4px rgba(255, 255, 255, 0.24),
-      0 18px 34px rgba(12, 18, 24, 0.4),
-      0 5px 10px rgba(9, 13, 18, 0.26),
-      0 1px 2px rgba(0, 0, 0, 0.2);
+  .quick-join-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 60%;
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.13) 0%,
+      rgba(255, 255, 255, 0.05) 40%,
+      rgba(255, 255, 255, 0.00) 100%
+    );
+    border-radius: 18px 18px 0 0;
+    pointer-events: none;
   }
 
-  .skeuo-glass:active {
+  .quick-join-card:hover {
+    transform: translateY(-1px);
     box-shadow:
-      inset 0 6px 8px -7px rgba(245, 252, 255, 0.8),
-      inset 0 12px 28px -20px rgba(221, 234, 243, 0.34),
-      inset 0 -12px 18px -14px rgba(25, 31, 36, 0.56),
-      inset 0 -1px 3px rgba(255, 255, 255, 0.18),
-      0 8px 16px rgba(12, 18, 24, 0.3),
-      0 2px 5px rgba(9, 13, 18, 0.22);
-    transform: translateY(1px);
+      inset 0 1px 0px rgba(255, 255, 255, 0.3),
+      inset 0 -1px 0px rgba(0, 0, 0, 0.5),
+      0 9px 24px rgba(0, 0, 0, 0.52),
+      0 2px 6px rgba(0, 0, 0, 0.35);
   }
 
-  .skeuo-glass-button {
-    background:
-      radial-gradient(110% 100% at 26% 8%, rgba(255, 255, 255, 0.38) 0%, rgba(255, 255, 255, 0.08) 35%, rgba(255, 255, 255, 0) 64%),
-      linear-gradient(180deg, #7A8895 0%, #5C6874 48%, #6F7D8A 100%);
-    border-radius: 9999px;
-    box-shadow:
-      inset 0 16px 16px -13px rgba(243, 251, 255, 0.96),
-      inset 0 22px 26px -22px rgba(218, 231, 239, 0.56),
-      inset 0 -12px 16px -14px rgba(35, 44, 52, 0.5),
-      inset 0 -2px 4px rgba(255, 255, 255, 0.24),
-      0 14px 22px rgba(7, 10, 14, 0.4),
-      0 5px 10px rgba(6, 9, 13, 0.3),
-      0 1px 2px rgba(0, 0, 0, 0.24);
+  .quick-join-button {
+    background: linear-gradient(170deg, #34D768 0%, #16A34A 50%, #0F6B30 100%);
+    border-radius: 10px;
     color: #fff;
-    border: 1px solid rgba(236, 245, 252, 0.34);
-    transition: filter 160ms ease, box-shadow 160ms ease, transform 120ms ease;
-  }
-
-  .skeuo-glass-button:hover {
-    filter: brightness(1.09) saturate(1.06);
-  }
-
-  .skeuo-glass-button:active {
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
     box-shadow:
-      inset 0 6px 8px -7px rgba(243, 251, 255, 0.9),
-      inset 0 10px 18px -16px rgba(218, 231, 239, 0.44),
-      inset 0 -10px 14px -12px rgba(35, 44, 52, 0.58),
-      inset 0 -1px 3px rgba(255, 255, 255, 0.2),
-      0 8px 14px rgba(7, 10, 14, 0.34),
-      0 3px 6px rgba(6, 9, 13, 0.24),
-      0 1px 2px rgba(0, 0, 0, 0.18);
-    transform: translateY(2px);
+      inset 0 1px 0px rgba(255, 255, 255, 0.5),
+      inset 0 -3px 8px rgba(0, 0, 0, 0.4),
+      0 4px 14px rgba(0, 180, 70, 0.35),
+      0 2px 4px rgba(0, 0, 0, 0.5);
+    transition: filter 140ms ease, box-shadow 140ms ease, transform 100ms ease;
+  }
+
+  .quick-join-button:hover {
+    filter: brightness(1.06);
+  }
+
+  .quick-join-button:active {
+    box-shadow:
+      inset 0 1px 0px rgba(255, 255, 255, 0.25),
+      inset 0 -1px 3px rgba(0, 0, 0, 0.25),
+      0 2px 6px rgba(0, 180, 70, 0.25),
+      0 1px 2px rgba(0, 0, 0, 0.35);
+    transform: scale(0.97) translateY(1px);
   }
 }
 
