@@ -1,5 +1,6 @@
 import { FeaturedLeagues } from "@/components/home/featured-leagues";
 import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 import { useLocation } from "wouter";
 
 export default function JoinPublic() {
@@ -15,14 +16,19 @@ export default function JoinPublic() {
 
   return (
     <div className="px-4 py-6">
-      <Button
-        variant="ghost"
-        onClick={handleBack}
-        className="mb-4 px-0 text-gray-300 hover:text-white hover:bg-transparent"
-      >
-        Back
-      </Button>
-      <FeaturedLeagues title="Public Leagues" />
+      <div className="flex items-center gap-2 mb-4">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleBack}
+          className="h-8 w-8 text-gray-300 hover:text-white hover:bg-white/5"
+          aria-label="Back"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <h1 className="text-lg font-semibold text-white">Public League</h1>
+      </div>
+      <FeaturedLeagues title={null} />
     </div>
   );
 }

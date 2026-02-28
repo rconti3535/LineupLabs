@@ -10,7 +10,7 @@ import type { League, Team } from "@shared/schema";
 
 type FeaturedLeaguesProps = {
   limit?: number;
-  title?: string;
+  title?: string | null;
 };
 
 export function FeaturedLeagues({ limit, title = "Quick Join" }: FeaturedLeaguesProps) {
@@ -78,7 +78,7 @@ export function FeaturedLeagues({ limit, title = "Quick Join" }: FeaturedLeagues
 
   return (
     <div id="public-leagues">
-      <h3 className="text-lg font-semibold text-white mb-4">{title}</h3>
+      {title ? <h3 className="text-lg font-semibold text-white mb-4">{title}</h3> : null}
       
       <div className="space-y-2">
         {isLoading ? (
