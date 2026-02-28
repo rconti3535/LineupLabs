@@ -8,7 +8,12 @@ import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 import type { League, Team } from "@shared/schema";
 
-export function FeaturedLeagues() {
+type FeaturedLeaguesProps = {
+  limit?: number;
+  title?: string;
+};
+
+export function FeaturedLeagues({ limit, title = "Quick Join" }: FeaturedLeaguesProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -31,7 +36,7 @@ export function FeaturedLeagues() {
   });
 
   const userLeagueIds = new Set((userTeams || []).map(t => t.leagueId));
-  const leagues = (allPublicLeagues || [])
+  const filteredLeagues = (allPublicLeagues || [])
     .filter(
       league => !userLeagueIds.has(league.id) && (league.currentTeams || 0) < (league.maxTeams || 0) && (!league.draftStatus || league.draftStatus === "pending")
     )
@@ -43,8 +48,8 @@ export function FeaturedLeagues() {
       const aDraft = a.draftDate ? new Date(a.draftDate).getTime() : Number.MAX_SAFE_INTEGER;
       const bDraft = b.draftDate ? new Date(b.draftDate).getTime() : Number.MAX_SAFE_INTEGER;
       return aDraft - bDraft;
-    })
-    .slice(0, 20);
+    });
+  const leagues = typeof limit === "number" ? filteredLeagues.slice(0, limit) : filteredLeagues;
 
   const joinMutation = useMutation({
     mutationFn: async (leagueId: number) => {
@@ -73,7 +78,7 @@ export function FeaturedLeagues() {
 
   return (
     <div id="public-leagues">
-      <h3 className="text-lg font-semibold text-white mb-4">Quick Join</h3>
+      <h3 className="text-lg font-semibold text-white mb-4">{title}</h3>
       
       <div className="space-y-2">
         {isLoading ? (

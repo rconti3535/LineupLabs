@@ -10,6 +10,7 @@ import Teams from "@/pages/teams";
 import Profile from "@/pages/profile";
 import Exposure from "@/pages/messages";
 import CreateLeague from "@/pages/create-league";
+import JoinPublic from "@/pages/join-public";
 import Signup from "@/pages/signup";
 import Login from "@/pages/login";
 import ResetPassword from "@/pages/reset-password";
@@ -42,6 +43,7 @@ function Router() {
           <Route path="/messages" component={Exposure} />
           <Route path="/profile" component={Profile} />
           <Route path="/create-league" component={CreateLeague} />
+          <Route path="/join-public" component={JoinPublic} />
           <Route path="/league/:id/join" component={JoinLeague} />
           <Route path="/league/:id/draft" component={DraftRoom} />
           <Route path="/league/:id" component={LeaguePage} />
