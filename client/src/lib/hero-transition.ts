@@ -113,6 +113,10 @@ export function runTeamCardHeroOpen(sourceEl: HTMLElement, navigate: () => void)
   document.body.appendChild(clone);
   activeClone = clone;
 
+  // Hide the tapped card content immediately so text does not linger during the zoom.
+  sourceEl.style.transition = "opacity 1ms linear";
+  sourceEl.style.opacity = "0";
+
   setInteractionLocked(true);
   fadeTeamsCards(0, 200, "ease");
 
