@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
-import { Trophy, Award, Medal } from "lucide-react";
+import { Trophy, Award, Medal, Users } from "lucide-react";
 
 interface ProfileStats {
   allTimeLeagues: number;
@@ -78,10 +78,16 @@ export default function Home() {
   })();
   const nextTierIndexAsc = Math.min(currentTierIndexAsc + 1, RANK_TIERS_ASC.length - 1);
   const rankRowsDesc = [...RANK_TIERS_ASC].reverse();
+  const currentTierName = RANK_TIERS_ASC[currentTierIndexAsc]?.name || "Intern";
 
   return (
     <div className="px-4 py-6 space-y-4">
       <div className="space-y-4">
+        <div className="card-3d rounded-xl px-4 py-3 bg-[#1E2830]/70 border border-white/10">
+          <p className="text-[10px] uppercase tracking-[0.12em] text-gray-400">Current Level</p>
+          <p className="text-lg font-semibold text-white mt-1">{currentTierName}</p>
+        </div>
+
         <div className="flex items-center justify-center gap-2 mb-4">
           <Trophy className="w-5 h-5 text-blue-400" />
           <span className={`text-lg font-bold ${tierColor}`}>{stats?.gmTier || "Intern"}</span>
@@ -89,8 +95,11 @@ export default function Home() {
 
         <div className="grid grid-cols-4 gap-3 mb-4">
           <div className="card-3d bg-gray-800/60 rounded-xl py-3 text-center">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <Users className="w-4 h-4 text-blue-300" />
+            </div>
             <div className="text-2xl font-bold text-white">{stats?.allTimeLeagues ?? 0}</div>
-            <div className="text-[10px] text-gray-400/80 font-medium">LEAGUES</div>
+            <div className="text-[10px] text-gray-400/80 font-medium">ALL-TIME</div>
           </div>
           <div className="card-3d bg-yellow-500/10 border border-yellow-500/20 rounded-xl py-3 text-center">
             <div className="flex items-center justify-center gap-1 mb-1">
