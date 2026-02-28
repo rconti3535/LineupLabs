@@ -423,16 +423,19 @@ async function getEligibleOpenPublicLeagues(): Promise<Array<{ id: number; maxT:
   const pendingLeagueIds = publicPendingLeagues.map(lg => lg.id);
   const teamCounts = new Map<number, number>();
   if (pendingLeagueIds.length > 0) {
-    const rows = await db.execute(sql`
-      SELECT
-        league_id,
-        COUNT(*) FILTER (WHERE COALESCE(is_cpu, FALSE) = FALSE)::int AS human_and_bot_count
-      FROM teams
-      WHERE league_id = ANY(${pendingLeagueIds})
-      GROUP BY league_id
-    `);
-    for (const row of rows.rows as Array<{ league_id: number; human_and_bot_count: number }>) {
-      teamCounts.set(Number(row.league_id), Number(row.human_and_bot_count));
+    const rows = await db
+      .select({
+        leagueId: teams.leagueId,
+        humanAndBotCount: sql<number>`COUNT(*) FILTER (WHERE COALESCE(${teams.isCpu}, FALSE) = FALSE)`,
+      })
+      .from(teams)
+      .where(inArray(teams.leagueId, pendingLeagueIds))
+      .groupBy(teams.leagueId);
+
+    for (const row of rows) {
+      if (row.leagueId != null) {
+        teamCounts.set(Number(row.leagueId), Number(row.humanAndBotCount || 0));
+      }
     }
   }
 
