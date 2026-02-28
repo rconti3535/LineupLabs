@@ -111,6 +111,16 @@ function restoreTeamsCards() {
 }
 
 export function runTeamCardHeroOpen(sourceEl: HTMLElement, navigate: () => void) {
+  // Defensive cleanup in case a prior transition was interrupted.
+  if (activeOverlay) {
+    activeOverlay.remove();
+    activeOverlay = null;
+  }
+  if (activeClone) {
+    activeClone.remove();
+    activeClone = null;
+  }
+
   const frameRect = getFrameRect();
   if (!frameRect) {
     navigate();
@@ -127,8 +137,16 @@ export function runTeamCardHeroOpen(sourceEl: HTMLElement, navigate: () => void)
   };
 
   const clone = buildVisualShellFromElement(sourceEl, rect);
+  clone.style.top = `${rect.top}px`;
+  clone.style.left = `${rect.left}px`;
+  clone.style.width = `${rect.width}px`;
+  clone.style.height = `${rect.height}px`;
+  clone.style.borderRadius = originRect.borderRadius;
+  clone.style.opacity = "1";
   document.body.appendChild(clone);
   activeClone = clone;
+  // Force the browser to commit the exact start box before animating.
+  clone.getBoundingClientRect();
 
   // Hide the tapped card content immediately so text does not linger during the zoom.
   sourceEl.style.transition = "opacity 1ms linear";
@@ -137,7 +155,7 @@ export function runTeamCardHeroOpen(sourceEl: HTMLElement, navigate: () => void)
   setInteractionLocked(true);
   fadeTeamsCards(0, 200, "ease");
 
-  commitNextFrame(() => {
+  requestAnimationFrame(() => {
     if (!activeClone) return;
     activeClone.style.transition =
       `top 500ms ${OPEN_EASING}, left 500ms ${OPEN_EASING}, width 500ms ${OPEN_EASING}, ` +
@@ -158,7 +176,7 @@ export function runTeamCardHeroOpen(sourceEl: HTMLElement, navigate: () => void)
 
   window.setTimeout(() => {
     navigate();
-  }, 480);
+  }, 520);
 }
 
 export function finalizeTeamCardHeroOpen(contentEl: HTMLElement | null) {
@@ -222,14 +240,18 @@ export function runTeamCardHeroBack(contentEl: HTMLElement | null, navigateToTea
   activeOverlay = overlay;
 
   // Let the content retreat first, then run the reverse collapse.
+  const CONTENT_EXIT_MS = 160;
+  const COLLAPSE_MS = 500;
+  const FINAL_FADE_MS = 80;
+
   window.setTimeout(() => {
     navigateToTeams();
 
     commitNextFrame(() => {
       if (!activeOverlay || !originRect) return;
       activeOverlay.style.transition =
-        `top 500ms ${CLOSE_EASING}, left 500ms ${CLOSE_EASING}, width 500ms ${CLOSE_EASING}, ` +
-        `height 500ms ${CLOSE_EASING}, border-radius 500ms ${CLOSE_EASING}, opacity 80ms linear`;
+        `top ${COLLAPSE_MS}ms ${CLOSE_EASING}, left ${COLLAPSE_MS}ms ${CLOSE_EASING}, width ${COLLAPSE_MS}ms ${CLOSE_EASING}, ` +
+        `height ${COLLAPSE_MS}ms ${CLOSE_EASING}, border-radius ${COLLAPSE_MS}ms ${CLOSE_EASING}, opacity ${FINAL_FADE_MS}ms linear`;
       activeOverlay.style.top = `${originRect.top}px`;
       activeOverlay.style.left = `${originRect.left}px`;
       activeOverlay.style.width = `${originRect.width}px`;
@@ -239,8 +261,8 @@ export function runTeamCardHeroBack(contentEl: HTMLElement | null, navigateToTea
 
     window.setTimeout(() => {
       if (activeOverlay) activeOverlay.style.opacity = "0";
-    }, 420);
-  }, 160);
+    }, COLLAPSE_MS - FINAL_FADE_MS);
+  }, CONTENT_EXIT_MS);
 
   const tryRestore = (attempt = 0) => {
     if (restoreTeamsCards()) return;
@@ -252,5 +274,5 @@ export function runTeamCardHeroBack(contentEl: HTMLElement | null, navigateToTea
     activeOverlay?.remove();
     activeOverlay = null;
     setInteractionLocked(false);
-  }, 660);
+  }, CONTENT_EXIT_MS + COLLAPSE_MS + 40);
 }
