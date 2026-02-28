@@ -110,7 +110,11 @@ function restoreTeamsCards() {
   return true;
 }
 
-export function runTeamCardHeroOpen(sourceEl: HTMLElement, navigate: () => void) {
+export function runTeamCardHeroOpen(
+  sourceEl: HTMLElement,
+  navigate: () => void,
+  prefetch?: () => Promise<void> | void
+) {
   // Defensive cleanup in case a prior transition was interrupted.
   if (activeOverlay) {
     activeOverlay.remove();
@@ -154,6 +158,11 @@ export function runTeamCardHeroOpen(sourceEl: HTMLElement, navigate: () => void)
 
   setInteractionLocked(true);
   fadeTeamsCards(0, 200, "ease");
+  if (prefetch) {
+    Promise.resolve(prefetch()).catch(() => {
+      // Prefetch is best-effort only; transition should never block on it.
+    });
+  }
 
   requestAnimationFrame(() => {
     if (!activeClone) return;
