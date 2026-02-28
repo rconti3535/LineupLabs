@@ -209,61 +209,52 @@ export function runTeamCardHeroBack(contentEl: HTMLElement | null, navigateToTea
 
   setInteractionLocked(true);
 
-  if (contentEl) {
-    contentEl.style.willChange = "transform, opacity";
-    contentEl.style.transition = "opacity 160ms ease-in, transform 160ms ease-in";
-    contentEl.style.opacity = "0";
-    contentEl.style.transform = "translateY(6px)";
+  if (!contentEl) {
+    navigateToTeams();
+    setInteractionLocked(false);
+    return;
   }
 
-  // Clone the current league/roster screen so the data shrinks with the reverse zoom.
-  const overlay = (contentEl?.cloneNode(true) as HTMLElement) || document.createElement("div");
-  overlay.classList.add("hero-clone");
-  overlay.style.position = "fixed";
-  overlay.style.top = `${frameRect.top}px`;
-  overlay.style.left = `${frameRect.left}px`;
-  overlay.style.width = `${frameRect.width}px`;
-  overlay.style.height = `${frameRect.height}px`;
-  overlay.style.margin = "0";
-  overlay.style.pointerEvents = "none";
-  overlay.style.zIndex = "1200";
-  overlay.style.transition = "none";
-  overlay.style.opacity = "1";
-  overlay.style.willChange = "top, left, width, height, border-radius, opacity, transform";
-  document.body.appendChild(overlay);
-  activeOverlay = overlay;
+  // Structural fix: animate the *actual* league surface instead of a clone.
+  // This keeps live league/roster data attached to the shrinking card and
+  // avoids flashes caused by route swap + overlay handoff.
+  const liveRect = contentEl.getBoundingClientRect();
+  contentEl.style.willChange = "top, left, width, height, border-radius, opacity";
+  contentEl.style.position = "fixed";
+  contentEl.style.top = `${liveRect.top}px`;
+  contentEl.style.left = `${liveRect.left}px`;
+  contentEl.style.width = `${liveRect.width}px`;
+  contentEl.style.height = `${liveRect.height}px`;
+  contentEl.style.margin = "0";
+  contentEl.style.zIndex = "1200";
+  contentEl.style.pointerEvents = "none";
+  contentEl.style.transition = "none";
+  contentEl.style.transform = "none";
+  contentEl.style.opacity = "1";
+  contentEl.getBoundingClientRect();
 
-  const CONTENT_EXIT_MS = 160;
   const COLLAPSE_MS = 500;
   const FINAL_FADE_MS = 80;
 
-  // Start reverse collapse only after content retreat begins.
+  commitNextFrame(() => {
+    if (!originRect) return;
+    contentEl.style.transition =
+      `top ${COLLAPSE_MS}ms ${CLOSE_EASING}, left ${COLLAPSE_MS}ms ${CLOSE_EASING}, width ${COLLAPSE_MS}ms ${CLOSE_EASING}, ` +
+      `height ${COLLAPSE_MS}ms ${CLOSE_EASING}, border-radius ${COLLAPSE_MS}ms ${CLOSE_EASING}, opacity ${FINAL_FADE_MS}ms linear`;
+    contentEl.style.top = `${originRect.top}px`;
+    contentEl.style.left = `${originRect.left}px`;
+    contentEl.style.width = `${originRect.width}px`;
+    contentEl.style.height = `${originRect.height}px`;
+    contentEl.style.borderRadius = originRect.borderRadius || HERO_RADIUS;
+  });
+
   window.setTimeout(() => {
-    commitNextFrame(() => {
-      if (!activeOverlay || !originRect) return;
-      activeOverlay.style.transition =
-        `top ${COLLAPSE_MS}ms ${CLOSE_EASING}, left ${COLLAPSE_MS}ms ${CLOSE_EASING}, width ${COLLAPSE_MS}ms ${CLOSE_EASING}, ` +
-        `height ${COLLAPSE_MS}ms ${CLOSE_EASING}, border-radius ${COLLAPSE_MS}ms ${CLOSE_EASING}, opacity ${FINAL_FADE_MS}ms linear`;
-      activeOverlay.style.top = `${originRect.top}px`;
-      activeOverlay.style.left = `${originRect.left}px`;
-      activeOverlay.style.width = `${originRect.width}px`;
-      activeOverlay.style.height = `${originRect.height}px`;
-      activeOverlay.style.borderRadius = originRect.borderRadius || HERO_RADIUS;
-    });
+    contentEl.style.opacity = "0";
+  }, COLLAPSE_MS - FINAL_FADE_MS);
 
-    window.setTimeout(() => {
-      if (activeOverlay) activeOverlay.style.opacity = "0";
-    }, COLLAPSE_MS - FINAL_FADE_MS);
-  }, CONTENT_EXIT_MS);
-
-  // Navigate after collapse reaches the original card size to avoid Teams-page flicker.
+  // Navigate only after reverse collapse fully reaches the original team-card box.
   window.setTimeout(() => {
     navigateToTeams();
-  }, CONTENT_EXIT_MS + COLLAPSE_MS);
-
-  window.setTimeout(() => {
-    activeOverlay?.remove();
-    activeOverlay = null;
     setInteractionLocked(false);
-  }, CONTENT_EXIT_MS + COLLAPSE_MS + 100);
+  }, COLLAPSE_MS + 20);
 }
