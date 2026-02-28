@@ -74,7 +74,7 @@ function AppLayout() {
 
   return (
     <>
-      <div className="min-h-screen flex flex-col max-w-md mx-auto sleeper-bg relative hide-scrollbar">
+      <div id="app-frame" className="min-h-screen flex flex-col max-w-md mx-auto sleeper-bg relative overflow-hidden hide-scrollbar">
         <main className="flex-1 pb-20 hide-scrollbar">
           <Router />
         </main>

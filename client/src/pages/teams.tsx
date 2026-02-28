@@ -182,6 +182,7 @@ export default function Teams() {
 
       <div className="mt-6 pt-4 border-t border-white/10 grid grid-cols-2 gap-[10px]">
         <button
+          data-hero-card
           type="button"
           onClick={() => setLocation("/create-league")}
           className="fade-up-enter rounded-xl border border-green-400/40 bg-gradient-to-br from-green-500/45 to-green-700/45 px-4 py-4 text-left text-white backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_6px_16px_rgba(0,0,0,0.25)] transition-all duration-200 hover:-translate-y-0.5 hover:from-green-500/55 hover:to-green-700/55 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_9px_20px_rgba(0,0,0,0.32)] active:scale-[0.97]"
@@ -191,6 +192,7 @@ export default function Teams() {
         </button>
 
         <button
+          data-hero-card
           type="button"
           onClick={() => setLocation("/join-public")}
           className="fade-up-enter rounded-xl border border-blue-400/40 bg-gradient-to-br from-blue-500/45 to-blue-700/45 px-4 py-4 text-left text-white backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_6px_16px_rgba(0,0,0,0.25)] transition-all duration-200 hover:-translate-y-0.5 hover:from-blue-500/55 hover:to-blue-700/55 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_9px_20px_rgba(0,0,0,0.32)] active:scale-[0.97]"
