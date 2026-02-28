@@ -85,11 +85,6 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="flex items-center justify-center gap-2 mb-4">
-          <Trophy className="w-5 h-5 text-blue-400" />
-          <span className="text-lg font-bold text-white">{currentTierName}</span>
-        </div>
-
         <div className="grid grid-cols-4 gap-3 mb-4">
           <div className="card-3d bg-gray-800/60 rounded-xl py-3 text-center">
             <div className="flex items-center justify-center gap-1 mb-1">
