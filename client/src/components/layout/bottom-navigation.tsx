@@ -12,8 +12,8 @@ export function BottomNavigation() {
   }
 
   const navItems = [
-    { path: "/", icon: Home, label: "Home" },
     { path: "/teams", icon: Users, label: "Teams" },
+    { path: "/", icon: Home, label: "Join" },
     { path: "/messages", icon: TrendingUp, label: "Exposure" },
     { path: "/profile", icon: User, label: "Profile" },
   ];
