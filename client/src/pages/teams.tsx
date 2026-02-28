@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { TeamCard } from "@/components/teams/team-card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import type { Team, League, DraftPick } from "@shared/schema";
 import { queryClient } from "@/lib/queryClient";
@@ -134,21 +133,6 @@ export default function Teams() {
 
   return (
     <div className="px-4 py-6">
-      <div className="flex flex-col gap-3 mb-6">
-        <Button
-          onClick={() => setLocation("/create-league")}
-          className="primary-gradient rounded-xl px-6 py-3 text-white font-medium hover:opacity-90 transition-opacity w-full"
-        >
-          Create League
-        </Button>
-        <Button
-          onClick={() => setLocation("/join-public")}
-          className="bg-green-600 hover:bg-green-700 rounded-xl px-6 py-3 text-white font-medium transition-colors w-full"
-        >
-          Join Public
-        </Button>
-      </div>
-
       <div className="space-y-3">
         {showSkeleton ? (
           Array.from({ length: 2 }).map((_, i) => (
@@ -181,6 +165,34 @@ export default function Teams() {
             <p className="text-sm text-gray-500">Join a league to create your first team</p>
           </div>
         )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-[10px] px-6 mt-6">
+        <button
+          type="button"
+          onClick={() => setLocation("/create-league")}
+          className="team-action-card team-action-create"
+        >
+          <div className="inline-flex items-center justify-center rounded-full px-2.5 py-1 text-xs bg-[#0f0a2a] text-[#a89aee] border border-[#5c4ad04a]">
+            🏆
+          </div>
+          <p className="mt-3 text-[10px] uppercase tracking-[0.12em] text-[#b5a9eb]/70">Start fresh</p>
+          <h3 className="mt-1 text-lg font-semibold text-[#a89aee]">Create League</h3>
+          <span className="absolute bottom-3 right-3 text-[#a89aee]/45 text-lg">→</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setLocation("/join-public")}
+          className="team-action-card team-action-join"
+        >
+          <div className="inline-flex items-center justify-center rounded-full px-2.5 py-1 text-xs bg-[#071a12] text-[#10D87B] border border-[#10D87B40]">
+            🌐
+          </div>
+          <p className="mt-3 text-[10px] uppercase tracking-[0.12em] text-[#9ddfc0]/70">Find a spot</p>
+          <h3 className="mt-1 text-lg font-semibold text-[#10D87B]">Join Public</h3>
+          <span className="absolute bottom-3 right-3 text-[#10D87B]/45 text-lg">→</span>
+        </button>
       </div>
     </div>
   );

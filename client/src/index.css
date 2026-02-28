@@ -171,6 +171,56 @@
       0 1px 2px rgba(0, 0, 0, 0.18);
     transform: translateY(2px);
   }
+
+  .team-action-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: 18px;
+    padding: 18px 16px;
+    min-height: 132px;
+    text-align: left;
+    transition: transform 120ms ease, filter 160ms ease, box-shadow 160ms ease;
+  }
+
+  .team-action-card::before {
+    content: "";
+    position: absolute;
+    top: -18px;
+    right: -18px;
+    width: 120px;
+    height: 120px;
+    pointer-events: none;
+    border-radius: 9999px;
+    opacity: 0.5;
+  }
+
+  .team-action-card:hover {
+    filter: brightness(1.04);
+  }
+
+  .team-action-card:active {
+    transform: scale(0.97);
+  }
+
+  .team-action-create {
+    background: linear-gradient(135deg, #1a1040, #281870);
+    border: 1px solid #4b3ac840;
+    box-shadow: 0 8px 20px rgba(13, 7, 33, 0.35);
+  }
+
+  .team-action-create::before {
+    background: radial-gradient(circle, rgba(128, 97, 255, 0.36) 0%, rgba(128, 97, 255, 0) 70%);
+  }
+
+  .team-action-join {
+    background: linear-gradient(135deg, #0a2418, #0f3321);
+    border: 1px solid #10d87b30;
+    box-shadow: 0 8px 20px rgba(5, 20, 13, 0.35);
+  }
+
+  .team-action-join::before {
+    background: radial-gradient(circle, rgba(16, 216, 123, 0.3) 0%, rgba(16, 216, 123, 0) 70%);
+  }
 }
 
 @layer utilities {
