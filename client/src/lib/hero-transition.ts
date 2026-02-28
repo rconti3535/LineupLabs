@@ -1,5 +1,6 @@
 const OPEN_EASING = "cubic-bezier(0.32, 0.72, 0, 1)";
 const CLOSE_EASING = "cubic-bezier(0.4, 0, 1, 1)";
+const HERO_RADIUS = "18px";
 
 type StoredRect = {
   top: number;
@@ -69,6 +70,17 @@ function buildVisualShellFromElement(sourceEl: HTMLElement, rect: DOMRect): HTML
   shell.style.boxShadow = sourceStyle.boxShadow;
   shell.style.backdropFilter = sourceStyle.backdropFilter;
   shell.style.webkitBackdropFilter = (sourceStyle as CSSStyleDeclaration & { webkitBackdropFilter?: string }).webkitBackdropFilter || "";
+
+  const tint = document.createElement("div");
+  tint.setAttribute("data-hero-tint", "true");
+  tint.style.position = "absolute";
+  tint.style.inset = "0";
+  tint.style.backgroundColor = "#080C10";
+  tint.style.opacity = "0";
+  tint.style.pointerEvents = "none";
+  tint.style.transition = "none";
+  shell.appendChild(tint);
+
   return shell;
 }
 
@@ -111,7 +123,7 @@ export function runTeamCardHeroOpen(sourceEl: HTMLElement, navigate: () => void)
     left: rect.left,
     width: rect.width,
     height: rect.height,
-    borderRadius: window.getComputedStyle(sourceEl).borderRadius || "18px",
+    borderRadius: window.getComputedStyle(sourceEl).borderRadius || HERO_RADIUS,
   };
 
   const clone = buildVisualShellFromElement(sourceEl, rect);
@@ -134,8 +146,14 @@ export function runTeamCardHeroOpen(sourceEl: HTMLElement, navigate: () => void)
     activeClone.style.left = `${frameRect.left}px`;
     activeClone.style.width = `${frameRect.width}px`;
     activeClone.style.height = `${frameRect.height}px`;
-    activeClone.style.borderRadius = "0px";
+    activeClone.style.borderRadius = HERO_RADIUS;
     activeClone.style.backgroundColor = "#080C10";
+
+    const tint = activeClone.querySelector<HTMLElement>("[data-hero-tint='true']");
+    if (tint) {
+      tint.style.transition = `opacity 500ms ${OPEN_EASING}`;
+      tint.style.opacity = "1";
+    }
   });
 
   window.setTimeout(() => {
@@ -190,7 +208,7 @@ export function runTeamCardHeroBack(contentEl: HTMLElement | null, navigateToTea
   overlay.style.left = `${frameRect.left}px`;
   overlay.style.width = `${frameRect.width}px`;
   overlay.style.height = `${frameRect.height}px`;
-  overlay.style.borderRadius = "0px";
+  overlay.style.borderRadius = HERO_RADIUS;
   overlay.style.backgroundColor = "#080C10";
   overlay.style.pointerEvents = "none";
   overlay.style.zIndex = "1200";
