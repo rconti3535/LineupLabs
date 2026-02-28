@@ -73,12 +73,14 @@ export default function Home() {
     <div className="px-4 py-6 space-y-4">
       <div className="space-y-4">
         <div className="card-3d rounded-xl px-4 py-4 bg-gradient-to-r from-[#2a3340]/85 via-[#1E2830]/85 to-[#2a3340]/85 border border-white/20">
-          <p className="text-[10px] uppercase tracking-[0.14em] text-gray-300">Current Level</p>
-          <div className="mt-1 flex items-center justify-between">
-            <p className="text-2xl font-bold text-white tracking-wide">{currentTierName}</p>
+          <div className="grid grid-cols-2 gap-3 items-end">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.14em] text-gray-300">Current Level</p>
+              <p className="mt-1 text-2xl font-bold text-white tracking-wide leading-tight">{currentTierName}</p>
+            </div>
             <div className="text-right">
               <p className="text-[10px] uppercase tracking-[0.12em] text-gray-400">Progression Rank</p>
-              <p className="text-sm font-semibold text-blue-300">
+              <p className="mt-1 text-2xl font-bold text-blue-300 leading-tight">
                 {currentTierIndexAsc + 1} / {RANK_TIERS_ASC.length}
               </p>
             </div>
