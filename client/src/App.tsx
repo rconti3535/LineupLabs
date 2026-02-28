@@ -63,6 +63,7 @@ function Router() {
 function AppLayout() {
   const [location] = useLocation();
   const isDraftRoom = /^\/league\/\d+\/draft$/.test(location);
+  const isLeaguePage = /^\/league\/\d+$/.test(location);
 
   if (isDraftRoom) {
     return (
@@ -75,10 +76,10 @@ function AppLayout() {
   return (
     <>
       <div id="app-frame" className="min-h-screen flex flex-col max-w-md mx-auto sleeper-bg relative overflow-hidden hide-scrollbar">
-        <main className="flex-1 pb-20 hide-scrollbar">
+        <main className={`flex-1 hide-scrollbar ${isLeaguePage ? "pb-0" : "pb-20"}`}>
           <Router />
         </main>
-        <BottomNavigation />
+        {!isLeaguePage && <BottomNavigation />}
       </div>
     </>
   );

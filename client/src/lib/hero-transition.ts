@@ -1,6 +1,6 @@
 const OPEN_EASING = "cubic-bezier(0.32, 0.72, 0, 1)";
 const CLOSE_EASING = "cubic-bezier(0.4, 0, 1, 1)";
-const HERO_RADIUS = "18px";
+const HERO_RADIUS = "0.75rem";
 
 type StoredRect = {
   top: number;
