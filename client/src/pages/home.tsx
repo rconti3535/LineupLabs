@@ -125,7 +125,7 @@ export default function Home() {
           </div>
           <div className="card-3d bg-gray-800/60 rounded-xl py-3 text-center">
             <div className="text-xl font-bold text-white">{(stats?.trophyRate ?? 0).toFixed(1)}%</div>
-            <div className="text-[10px] text-gray-400 font-medium">TROPHY RATE</div>
+            <div className="text-[10px] text-gray-400 font-medium">MEDAL RATE</div>
           </div>
         </div>
 
@@ -139,7 +139,7 @@ export default function Home() {
             <div className="text-[10px] text-gray-500 uppercase tracking-[0.12em] text-center">Leagues</div>
             <div className="text-[10px] text-gray-500 uppercase tracking-[0.12em] text-center">Medals</div>
             <div className="text-[10px] text-gray-500 uppercase tracking-[0.12em] text-center">Win Rate</div>
-            <div className="text-[10px] text-gray-500 uppercase tracking-[0.12em] text-center">Trophy Rate</div>
+            <div className="text-[10px] text-gray-500 uppercase tracking-[0.12em] text-center">Medal Rate</div>
           </div>
 
           <div className="space-y-2">
