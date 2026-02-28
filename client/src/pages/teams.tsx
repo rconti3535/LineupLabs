@@ -160,7 +160,7 @@ export default function Teams() {
             </div>
           ))
         ) : teams && teams.length > 0 ? (
-          teams.map((team, index) => (
+          teams.map((team) => (
             <TeamCard
               key={team.id}
               team={team}
@@ -170,7 +170,6 @@ export default function Teams() {
               leagueImage={leagueMap.get(team.leagueId!)?.leagueImage}
               draftLive={leagueMap.get(team.leagueId!)?.draftStatus === "active"}
               userTurn={!!team.leagueId && !!liveTurnMap && liveTurnMap[team.leagueId] === team.id}
-              animationDelay={`${0.15 + (index * 0.05)}s`}
             />
           ))
         ) : (
@@ -186,7 +185,6 @@ export default function Teams() {
           type="button"
           onClick={() => setLocation("/create-league")}
           className="fade-up-enter rounded-xl border border-green-400/40 bg-gradient-to-br from-green-500/45 to-green-700/45 px-4 py-4 text-left text-white backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_6px_16px_rgba(0,0,0,0.25)] transition-all duration-200 hover:-translate-y-0.5 hover:from-green-500/55 hover:to-green-700/55 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_9px_20px_rgba(0,0,0,0.32)] active:scale-[0.97]"
-          style={{ animationDelay: "0.05s" }}
         >
           <h3 className="text-lg font-semibold text-white">Create League</h3>
           <p className="mt-1 text-[10px] uppercase tracking-[0.12em] text-gray-100/90">Start fresh</p>
@@ -196,7 +194,6 @@ export default function Teams() {
           type="button"
           onClick={() => setLocation("/join-public")}
           className="fade-up-enter rounded-xl border border-blue-400/40 bg-gradient-to-br from-blue-500/45 to-blue-700/45 px-4 py-4 text-left text-white backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_6px_16px_rgba(0,0,0,0.25)] transition-all duration-200 hover:-translate-y-0.5 hover:from-blue-500/55 hover:to-blue-700/55 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_9px_20px_rgba(0,0,0,0.32)] active:scale-[0.97]"
-          style={{ animationDelay: "0.10s" }}
         >
           <h3 className="text-lg font-semibold text-white">Join Public</h3>
           <p className="mt-1 text-[10px] uppercase tracking-[0.12em] text-gray-100/90">Find a spot</p>

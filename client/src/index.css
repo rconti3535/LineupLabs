@@ -75,7 +75,7 @@
 
 @layer components {
   .fade-up-enter {
-    animation: fadeUp 0.4s ease both;
+    animation: fadeUp 0.55s ease both;
   }
 
   .gradient-card {
