@@ -36,6 +36,36 @@ function applyFrameClip(el: HTMLElement, frameRect: DOMRect) {
   el.style.clipPath = `inset(${top}px ${right}px ${bottom}px ${left}px round 0px)`;
 }
 
+function commitNextFrame(cb: () => void) {
+  requestAnimationFrame(() => requestAnimationFrame(cb));
+}
+
+function buildVisualShellFromElement(sourceEl: HTMLElement, rect: DOMRect): HTMLElement {
+  const sourceStyle = window.getComputedStyle(sourceEl);
+  const shell = document.createElement("div");
+  shell.classList.add("hero-clone");
+  shell.style.position = "fixed";
+  shell.style.top = `${rect.top}px`;
+  shell.style.left = `${rect.left}px`;
+  shell.style.width = `${rect.width}px`;
+  shell.style.height = `${rect.height}px`;
+  shell.style.margin = "0";
+  shell.style.borderRadius = sourceStyle.borderRadius || "18px";
+  shell.style.pointerEvents = "none";
+  shell.style.zIndex = "1200";
+  shell.style.overflow = "hidden";
+  shell.style.transform = "translateZ(0)";
+  shell.style.transition = "none";
+  shell.style.willChange = "top, left, width, height, border-radius, opacity, background-color";
+  shell.style.background = sourceStyle.background;
+  shell.style.backgroundColor = sourceStyle.backgroundColor;
+  shell.style.border = sourceStyle.border;
+  shell.style.boxShadow = sourceStyle.boxShadow;
+  shell.style.backdropFilter = sourceStyle.backdropFilter;
+  shell.style.webkitBackdropFilter = (sourceStyle as CSSStyleDeclaration & { webkitBackdropFilter?: string }).webkitBackdropFilter || "";
+  return shell;
+}
+
 function fadeTeamsCards(targetOpacity: number, durationMs: number, easing: string) {
   const cards = Array.from(document.querySelectorAll<HTMLElement>("[data-hero-card]"));
   cards.forEach((card) => {
@@ -70,32 +100,15 @@ export function runTeamCardHeroOpen(sourceEl: HTMLElement, navigate: () => void)
   }
 
   const rect = sourceEl.getBoundingClientRect();
-  const sourceStyle = window.getComputedStyle(sourceEl);
   originRect = {
     top: rect.top,
     left: rect.left,
     width: rect.width,
     height: rect.height,
-    borderRadius: sourceStyle.borderRadius || "18px",
+    borderRadius: window.getComputedStyle(sourceEl).borderRadius || "18px",
   };
 
-  const clone = sourceEl.cloneNode(true) as HTMLElement;
-  clone.classList.remove("fade-up-enter");
-  clone.classList.add("hero-clone");
-  clone.style.position = "fixed";
-  clone.style.top = `${rect.top}px`;
-  clone.style.left = `${rect.left}px`;
-  clone.style.width = `${rect.width}px`;
-  clone.style.height = `${rect.height}px`;
-  clone.style.margin = "0";
-  clone.style.borderRadius = originRect.borderRadius;
-  clone.style.pointerEvents = "none";
-  clone.style.zIndex = "1200";
-  clone.style.overflow = "hidden";
-  clone.style.transform = "none";
-  clone.style.transition = "none";
-  clone.style.backgroundColor = sourceStyle.backgroundColor;
-  clone.style.willChange = "top, left, width, height, border-radius, opacity, background-color";
+  const clone = buildVisualShellFromElement(sourceEl, rect);
   applyFrameClip(clone, frameRect);
   document.body.appendChild(clone);
   activeClone = clone;
@@ -103,7 +116,7 @@ export function runTeamCardHeroOpen(sourceEl: HTMLElement, navigate: () => void)
   setInteractionLocked(true);
   fadeTeamsCards(0, 200, "ease");
 
-  requestAnimationFrame(() => {
+  commitNextFrame(() => {
     if (!activeClone) return;
     activeClone.style.transition =
       `top 500ms ${OPEN_EASING}, left 500ms ${OPEN_EASING}, width 500ms ${OPEN_EASING}, ` +
@@ -130,7 +143,7 @@ export function finalizeTeamCardHeroOpen(contentEl: HTMLElement | null) {
     contentEl.style.transform = "translateY(8px)";
     contentEl.style.transition = "none";
 
-    requestAnimationFrame(() => {
+  commitNextFrame(() => {
       if (!contentEl) return;
       contentEl.style.transition = "opacity 220ms ease-out, transform 220ms ease-out";
       contentEl.style.opacity = "1";
@@ -182,7 +195,7 @@ export function runTeamCardHeroBack(contentEl: HTMLElement | null, navigateToTea
     navigateToTeams();
   }, 20);
 
-  requestAnimationFrame(() => {
+  commitNextFrame(() => {
     if (!activeOverlay || !originRect) return;
     activeOverlay.style.transition =
       `top 420ms ${CLOSE_EASING}, left 420ms ${CLOSE_EASING}, width 420ms ${CLOSE_EASING}, ` +
