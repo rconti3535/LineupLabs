@@ -2,9 +2,7 @@ import { useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Trophy } from "lucide-react";
-import type { Team, DraftPick, Player } from "@shared/schema";
-import { runTeamCardHeroOpen } from "@/lib/hero-transition";
-import { queryClient } from "@/lib/queryClient";
+import type { Team } from "@shared/schema";
 
 interface TeamCardProps {
   team: Team;
@@ -19,71 +17,11 @@ interface TeamCardProps {
 export function TeamCard({ team, leagueName, isCommissioner, leagueImage, draftLive, userTurn }: TeamCardProps) {
   const [, setLocation] = useLocation();
 
-  const prefetchLeagueData = async () => {
-    const leagueId = team.leagueId;
-    if (!leagueId) return;
-
-    await Promise.allSettled([
-      queryClient.prefetchQuery({
-        queryKey: ["/api/leagues", leagueId],
-        queryFn: async () => {
-          const res = await fetch(`/api/leagues/${leagueId}`);
-          if (!res.ok) throw new Error("Failed to prefetch league");
-          return res.json();
-        },
-      }),
-      queryClient.prefetchQuery({
-        queryKey: ["/api/teams/league", leagueId],
-        queryFn: async () => {
-          const res = await fetch(`/api/teams/league/${leagueId}`);
-          if (!res.ok) throw new Error("Failed to prefetch teams");
-          return res.json();
-        },
-      }),
-    ]);
-
-    const draftPicks = await queryClient.fetchQuery<DraftPick[]>({
-      queryKey: ["/api/leagues", leagueId, "draft-picks"],
-      queryFn: async () => {
-        const res = await fetch(`/api/leagues/${leagueId}/draft-picks`);
-        if (!res.ok) throw new Error("Failed to prefetch draft picks");
-        return res.json();
-      },
-    }).catch(() => [] as DraftPick[]);
-
-    const myPickPlayerIds = draftPicks
-      .filter((pick) => pick.teamId === team.id)
-      .map((pick) => pick.playerId)
-      .sort((a, b) => a - b);
-
-    if (myPickPlayerIds.length === 0) return;
-    const myPickIdsKey = myPickPlayerIds.join(",");
-
-    await queryClient.prefetchQuery<Player[]>({
-      queryKey: ["/api/players/roster", leagueId, team.id, myPickIdsKey],
-      queryFn: async () => {
-        const res = await fetch("/api/players/by-ids", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ids: myPickPlayerIds }),
-        });
-        if (!res.ok) throw new Error("Failed to prefetch roster players");
-        return res.json();
-      },
-    }).catch(() => []);
-  };
-
   return (
     <Card 
       data-hero-card
       className="league-card rounded-xl p-4 cursor-pointer border border-white/15 bg-white/[0.03] backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_6px_16px_rgba(0,0,0,0.25)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_9px_20px_rgba(0,0,0,0.32)]"
-      onClick={(e) =>
-        runTeamCardHeroOpen(
-          e.currentTarget as HTMLElement,
-          () => setLocation(`/league/${team.leagueId}`),
-          prefetchLeagueData
-        )
-      }
+      onClick={() => setLocation(`/league/${team.leagueId}`)}
     >
       <div className="flex items-center space-x-3">
         {leagueImage ? (

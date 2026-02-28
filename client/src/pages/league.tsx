@@ -14,7 +14,6 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { League, Team, DraftPick, Player } from "@shared/schema";
 import { assignPlayersToRosterWithPicks, getSwapTargets, type RosterEntry } from "@/lib/roster-utils";
-import { finalizeTeamCardHeroOpen, runTeamCardHeroBack } from "@/lib/hero-transition";
 
 type Tab = "roster" | "matchup" | "players" | "standings";
 
@@ -1405,7 +1404,6 @@ export default function LeaguePage() {
     const now = new Date();
     return now.toISOString().split("T")[0];
   });
-  const pageContentRef = useRef<HTMLDivElement | null>(null);
 
   const getMonday = (dateStr: string) => {
     const d = new Date(dateStr + "T12:00:00");
@@ -1451,10 +1449,6 @@ export default function LeaguePage() {
     staleTime: 0,
     refetchOnMount: "always",
   });
-
-  useEffect(() => {
-    finalizeTeamCardHeroOpen(pageContentRef.current);
-  }, []);
 
   useEffect(() => {
     if (!leagueId) return;
@@ -2135,11 +2129,11 @@ export default function LeaguePage() {
   ];
 
   return (
-    <div ref={pageContentRef} className="opened-league-shell px-4 pt-4 pb-32 min-h-screen">
+    <div className="opened-league-shell px-4 pt-4 pb-32 min-h-screen">
         <div className="grid grid-cols-[48px_1fr_48px] items-center mb-4">
         <div className="flex justify-start">
           <Button
-            onClick={() => runTeamCardHeroBack(pageContentRef.current, () => setLocation("/teams"))}
+            onClick={() => setLocation("/teams")}
             variant="ghost"
             size="icon"
             className="text-gray-400 hover:text-white shrink-0 -ml-2 h-10 w-10"
