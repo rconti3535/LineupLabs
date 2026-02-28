@@ -19,7 +19,7 @@ export function TeamCard({ team, leagueName, isCommissioner, leagueImage, draftL
 
   return (
     <Card 
-      className="gradient-card rounded-xl p-4 hover-lift cursor-pointer border-0"
+      className="league-card rounded-xl p-4 cursor-pointer border border-white/15 bg-white/[0.03] backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_6px_16px_rgba(0,0,0,0.25)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_9px_20px_rgba(0,0,0,0.32)]"
       onClick={() => setLocation(`/league/${team.leagueId}`)}
     >
       <div className="flex items-center space-x-3">

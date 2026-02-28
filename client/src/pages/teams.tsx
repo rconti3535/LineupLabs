@@ -149,7 +149,7 @@ export default function Teams() {
       <div className="space-y-3">
         {showSkeleton ? (
           Array.from({ length: 2 }).map((_, i) => (
-            <div key={i} className="gradient-card rounded-xl p-4">
+            <div key={i} className="league-card rounded-xl p-4 border border-white/15 bg-white/[0.03] backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_6px_16px_rgba(0,0,0,0.25)]">
               <div className="flex items-center space-x-3">
                 <Skeleton className="w-10 h-10 rounded-lg" />
                 <div className="flex-1">
@@ -173,7 +173,7 @@ export default function Teams() {
             />
           ))
         ) : (
-          <div className="gradient-card rounded-xl p-8 text-center">
+          <div className="league-card rounded-xl p-8 text-center border border-white/15 bg-white/[0.03] backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_6px_16px_rgba(0,0,0,0.25)]">
             <p className="text-gray-400 mb-4">You don't have any teams yet</p>
             <p className="text-sm text-gray-500">Join a league to create your first team</p>
           </div>
@@ -184,7 +184,7 @@ export default function Teams() {
         <button
           type="button"
           onClick={() => setLocation("/create-league")}
-          className="rounded-xl border border-green-400/40 bg-green-600/25 px-4 py-4 text-left text-white transition-transform hover:bg-green-600/35 active:scale-[0.97]"
+          className="league-card rounded-xl border border-green-400/35 bg-green-500/10 px-4 py-4 text-left text-white backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_6px_16px_rgba(0,0,0,0.25)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-green-500/15 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_9px_20px_rgba(0,0,0,0.32)] active:scale-[0.97]"
         >
           <h3 className="text-lg font-semibold text-white">Create League</h3>
           <p className="mt-1 text-[10px] uppercase tracking-[0.12em] text-gray-400">Start fresh</p>
@@ -193,7 +193,7 @@ export default function Teams() {
         <button
           type="button"
           onClick={() => setLocation("/join-public")}
-          className="rounded-xl border border-blue-400/40 bg-blue-600/25 px-4 py-4 text-left text-white transition-transform hover:bg-blue-600/35 active:scale-[0.97]"
+          className="league-card rounded-xl border border-blue-400/35 bg-blue-500/10 px-4 py-4 text-left text-white backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_6px_16px_rgba(0,0,0,0.25)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-blue-500/15 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_9px_20px_rgba(0,0,0,0.32)] active:scale-[0.97]"
         >
           <h3 className="text-lg font-semibold text-white">Join Public</h3>
           <p className="mt-1 text-[10px] uppercase tracking-[0.12em] text-gray-400">Find a spot</p>
