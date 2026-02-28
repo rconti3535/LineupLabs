@@ -95,7 +95,7 @@ export default function Profile() {
   if (isLoading) {
     return (
       <div className="px-4 py-6">
-        <div className="gradient-card rounded-xl p-6 mb-6">
+        <div className="gradient-card card-3d rounded-xl p-6 mb-6">
           <div className="flex items-center space-x-4 mb-4">
             <Skeleton className="w-16 h-16 rounded-full" />
             <div>
@@ -119,7 +119,7 @@ export default function Profile() {
   if (!user) {
     return (
       <div className="px-4 py-6">
-        <div className="gradient-card rounded-xl p-8 text-center">
+        <div className="gradient-card card-3d rounded-xl p-8 text-center">
           <p className="text-gray-400">User not found</p>
         </div>
       </div>
@@ -128,7 +128,7 @@ export default function Profile() {
 
   return (
     <div className="px-4 py-6 space-y-6">
-      <Card className="gradient-card rounded-xl p-6 border-0">
+      <Card className="gradient-card card-3d rounded-xl p-6 border-0">
         <div className="flex items-center space-x-4 mb-6">
           <div className="w-16 h-16 rounded-full overflow-hidden shrink-0">
             {user.avatar ? (
@@ -164,7 +164,7 @@ export default function Profile() {
         </Button>
       </Card>
 
-      <Card className="gradient-card rounded-xl p-6 border border-red-900/30">
+      <Card className="gradient-card card-3d rounded-xl p-6 border border-red-900/30">
         <div className="flex items-center gap-2 mb-3">
           <AlertTriangle className="w-5 h-5 text-red-500" />
           <h2 className="text-lg font-semibold text-red-500">Danger Zone</h2>

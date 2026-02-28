@@ -52,27 +52,27 @@ export default function Home() {
           <span className={`text-lg font-bold ${tierColor}`}>{stats?.gmTier || "Intern"}</span>
         </div>
 
-        <div className="bg-gray-800/60 rounded-xl py-3 text-center mb-4">
+        <div className="card-3d bg-gray-800/60 rounded-xl py-3 text-center mb-4">
           <div className="text-2xl font-bold text-white">{stats?.allTimeLeagues ?? 0}</div>
           <div className="text-[10px] text-gray-400 font-medium">ALL-TIME LEAGUES</div>
         </div>
 
         <div className="grid grid-cols-3 gap-3 mb-4">
-          <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl py-3 text-center">
+          <div className="card-3d bg-yellow-500/10 border border-yellow-500/20 rounded-xl py-3 text-center">
             <div className="flex items-center justify-center gap-1 mb-1">
               <Award className="w-4 h-4 text-yellow-400" />
             </div>
             <div className="text-2xl font-bold text-yellow-400">{stats?.gold ?? 0}</div>
             <div className="text-[10px] text-yellow-400/70 font-medium">GOLD</div>
           </div>
-          <div className="bg-gray-400/10 border border-gray-400/20 rounded-xl py-3 text-center">
+          <div className="card-3d bg-gray-400/10 border border-gray-400/20 rounded-xl py-3 text-center">
             <div className="flex items-center justify-center gap-1 mb-1">
               <Medal className="w-4 h-4 text-gray-300" />
             </div>
             <div className="text-2xl font-bold text-gray-300">{stats?.silver ?? 0}</div>
             <div className="text-[10px] text-gray-400/70 font-medium">SILVER</div>
           </div>
-          <div className="bg-orange-600/10 border border-orange-600/20 rounded-xl py-3 text-center">
+          <div className="card-3d bg-orange-600/10 border border-orange-600/20 rounded-xl py-3 text-center">
             <div className="flex items-center justify-center gap-1 mb-1">
               <Medal className="w-4 h-4 text-orange-400" />
             </div>
@@ -82,11 +82,11 @@ export default function Home() {
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <div className="bg-gray-800/60 rounded-xl py-3 text-center">
+          <div className="card-3d bg-gray-800/60 rounded-xl py-3 text-center">
             <div className="text-xl font-bold text-white">{(stats?.winRate ?? 0).toFixed(1)}%</div>
             <div className="text-[10px] text-gray-400 font-medium">WIN RATE</div>
           </div>
-          <div className="bg-gray-800/60 rounded-xl py-3 text-center">
+          <div className="card-3d bg-gray-800/60 rounded-xl py-3 text-center">
             <div className="text-xl font-bold text-white">{(stats?.trophyRate ?? 0).toFixed(1)}%</div>
             <div className="text-[10px] text-gray-400 font-medium">TROPHY RATE</div>
           </div>
