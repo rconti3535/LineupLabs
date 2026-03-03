@@ -286,6 +286,12 @@
       linear-gradient(180deg, rgba(8, 12, 18, 0.92) 0%, rgba(4, 6, 10, 0.98) 100%);
   }
 
+  .galactic-bg-fixed {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+  }
+
   .galactic-layer {
     position: absolute;
     inset: -12%;

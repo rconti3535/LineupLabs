@@ -70,27 +70,26 @@ function AppLayout() {
     window.scrollTo({ top: 0, behavior: "auto" });
   }, [location]);
 
-  if (isDraftRoom) {
-    return (
-      <div className="max-w-md mx-auto sleeper-bg relative">
-        <Router />
-      </div>
-    );
-  }
-
   return (
     <>
-      <div id="app-frame" className="min-h-screen flex flex-col max-w-md mx-auto sleeper-bg relative overflow-hidden hide-scrollbar">
-        <div className="galactic-bg" aria-hidden="true">
-          <div className="galactic-layer galactic-layer-stars" />
-          <div className="galactic-layer galactic-layer-nebula" />
-          <div className="galactic-layer galactic-layer-wave" />
-        </div>
-        <main className={`relative z-10 flex-1 hide-scrollbar ${isLeaguePage ? "pb-0" : "pb-20"}`}>
-          <Router />
-        </main>
-        {!isLeaguePage && <BottomNavigation />}
+      <div className="galactic-bg galactic-bg-fixed" aria-hidden="true">
+        <div className="galactic-layer galactic-layer-stars" />
+        <div className="galactic-layer galactic-layer-nebula" />
+        <div className="galactic-layer galactic-layer-wave" />
       </div>
+
+      {isDraftRoom ? (
+        <div className="max-w-md mx-auto relative z-10">
+          <Router />
+        </div>
+      ) : (
+        <div id="app-frame" className="min-h-screen flex flex-col max-w-md mx-auto relative z-10 overflow-hidden hide-scrollbar">
+          <main className={`relative z-10 flex-1 hide-scrollbar ${isLeaguePage ? "pb-0" : "pb-20"}`}>
+            <Router />
+          </main>
+          {!isLeaguePage && <BottomNavigation />}
+        </div>
+      )}
     </>
   );
 }

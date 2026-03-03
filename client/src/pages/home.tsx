@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Trophy, Award, Medal, Users } from "lucide-react";
 
@@ -34,6 +35,16 @@ const RANK_TIERS_ASC: RankTier[] = [
 
 export default function Home() {
   const { user } = useAuth();
+  const [isCalculatingStats, setIsCalculatingStats] = useState(false);
+  const [animatedStats, setAnimatedStats] = useState({
+    leagues: 0,
+    gold: 0,
+    silver: 0,
+    bronze: 0,
+    winRate: 0,
+    trophyRate: 0,
+  });
+
   const { data: stats } = useQuery<ProfileStats>({
     queryKey: ["/api/users", user?.id, "profile-stats"],
     queryFn: async () => {
@@ -50,6 +61,54 @@ export default function Home() {
   const userMedals = (stats?.gold ?? 0) + (stats?.silver ?? 0) + (stats?.bronze ?? 0);
   const userWinRate = stats?.winRate ?? 0;
   const userTrophyRate = stats?.trophyRate ?? 0;
+
+  useEffect(() => {
+    if (!stats) return;
+
+    const target = {
+      leagues: stats.allTimeLeagues ?? 0,
+      gold: stats.gold ?? 0,
+      silver: stats.silver ?? 0,
+      bronze: stats.bronze ?? 0,
+      winRate: stats.winRate ?? 0,
+      trophyRate: stats.trophyRate ?? 0,
+    };
+
+    setIsCalculatingStats(true);
+
+    let frame = 0;
+    const totalFrames = 12;
+    const timer = setInterval(() => {
+      frame += 1;
+      const p = Math.min(1, frame / totalFrames);
+      const noiseScale = 1 - p;
+      const withNoise = (value: number, spread: number) => Math.max(0, value + ((Math.random() * 2 - 1) * spread * noiseScale));
+
+      setAnimatedStats({
+        leagues: Math.round(withNoise(target.leagues * p, 8)),
+        gold: Math.round(withNoise(target.gold * p, 4)),
+        silver: Math.round(withNoise(target.silver * p, 4)),
+        bronze: Math.round(withNoise(target.bronze * p, 4)),
+        winRate: Number(withNoise(target.winRate * p, 3).toFixed(1)),
+        trophyRate: Number(withNoise(target.trophyRate * p, 3).toFixed(1)),
+      });
+
+      if (frame >= totalFrames) {
+        clearInterval(timer);
+        setAnimatedStats({
+          leagues: target.leagues,
+          gold: target.gold,
+          silver: target.silver,
+          bronze: target.bronze,
+          winRate: Number(target.winRate.toFixed(1)),
+          trophyRate: Number(target.trophyRate.toFixed(1)),
+        });
+        setIsCalculatingStats(false);
+      }
+    }, 60);
+
+    return () => clearInterval(timer);
+  }, [stats]);
 
   const meetsTier = (tier: RankTier) =>
     userLeagues >= tier.leagues &&
@@ -97,43 +156,43 @@ export default function Home() {
         </div>
 
         <div className="grid grid-cols-4 gap-2.5 mb-3">
-          <div className="card-3d bg-gray-800/60 rounded-xl py-2.5 text-center">
+          <div className={`card-3d bg-gray-800/60 rounded-xl py-2.5 text-center ${isCalculatingStats ? "animate-pulse" : ""}`}>
             <div className="flex items-center justify-center gap-1 mb-1">
               <Users className="w-4 h-4 text-blue-300" />
             </div>
-            <div className="text-xl font-bold text-white">{stats?.allTimeLeagues ?? 0}</div>
+            <div className="text-xl font-bold text-white">{animatedStats.leagues}</div>
             <div className="text-[10px] text-gray-400/80 font-medium">LEAGUES</div>
           </div>
-          <div className="card-3d bg-yellow-500/10 border border-yellow-500/20 rounded-xl py-2.5 text-center">
+          <div className={`card-3d bg-yellow-500/10 border border-yellow-500/20 rounded-xl py-2.5 text-center ${isCalculatingStats ? "animate-pulse" : ""}`}>
             <div className="flex items-center justify-center gap-1 mb-1">
               <Award className="w-4 h-4 text-yellow-400" />
             </div>
-            <div className="text-xl font-bold text-yellow-400">{stats?.gold ?? 0}</div>
+            <div className="text-xl font-bold text-yellow-400">{animatedStats.gold}</div>
             <div className="text-[10px] text-yellow-400/70 font-medium">GOLD</div>
           </div>
-          <div className="card-3d bg-gray-400/10 border border-gray-400/20 rounded-xl py-2.5 text-center">
+          <div className={`card-3d bg-gray-400/10 border border-gray-400/20 rounded-xl py-2.5 text-center ${isCalculatingStats ? "animate-pulse" : ""}`}>
             <div className="flex items-center justify-center gap-1 mb-1">
               <Medal className="w-4 h-4 text-gray-300" />
             </div>
-            <div className="text-xl font-bold text-gray-300">{stats?.silver ?? 0}</div>
+            <div className="text-xl font-bold text-gray-300">{animatedStats.silver}</div>
             <div className="text-[10px] text-gray-400/70 font-medium">SILVER</div>
           </div>
-          <div className="card-3d bg-orange-600/10 border border-orange-600/20 rounded-xl py-2.5 text-center">
+          <div className={`card-3d bg-orange-600/10 border border-orange-600/20 rounded-xl py-2.5 text-center ${isCalculatingStats ? "animate-pulse" : ""}`}>
             <div className="flex items-center justify-center gap-1 mb-1">
               <Medal className="w-4 h-4 text-orange-400" />
             </div>
-            <div className="text-xl font-bold text-orange-400">{stats?.bronze ?? 0}</div>
+            <div className="text-xl font-bold text-orange-400">{animatedStats.bronze}</div>
             <div className="text-[10px] text-orange-500/70 font-medium">BRONZE</div>
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-2.5">
-          <div className="card-3d bg-gray-800/60 rounded-xl py-2.5 text-center">
-            <div className="text-lg font-bold text-white">{(stats?.winRate ?? 0).toFixed(1)}%</div>
+          <div className={`card-3d bg-gray-800/60 rounded-xl py-2.5 text-center ${isCalculatingStats ? "animate-pulse" : ""}`}>
+            <div className="text-lg font-bold text-white">{animatedStats.winRate.toFixed(1)}%</div>
             <div className="text-[10px] text-gray-400 font-medium">WIN RATE</div>
           </div>
-          <div className="card-3d bg-gray-800/60 rounded-xl py-2.5 text-center">
-            <div className="text-lg font-bold text-white">{(stats?.trophyRate ?? 0).toFixed(1)}%</div>
+          <div className={`card-3d bg-gray-800/60 rounded-xl py-2.5 text-center ${isCalculatingStats ? "animate-pulse" : ""}`}>
+            <div className="text-lg font-bold text-white">{animatedStats.trophyRate.toFixed(1)}%</div>
             <div className="text-[10px] text-gray-400 font-medium">MEDAL RATE</div>
           </div>
         </div>
