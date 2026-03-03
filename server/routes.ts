@@ -1359,6 +1359,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/teams/:id/name", async (req, res) => {
+    try {
+      const teamId = parseInt(req.params.id, 10);
+      const { userId, name } = req.body as { userId?: number; name?: string };
+      if (!teamId || !userId || typeof name !== "string") {
+        return res.status(400).json({ message: "teamId, userId, and name are required" });
+      }
+
+      const trimmedName = name.trim();
+      if (!trimmedName) {
+        return res.status(400).json({ message: "Team name cannot be empty" });
+      }
+      if (trimmedName.length > 32) {
+        return res.status(400).json({ message: "Team name must be 32 characters or fewer" });
+      }
+
+      const existingTeam = await storage.getTeam(teamId);
+      if (!existingTeam) {
+        return res.status(404).json({ message: "Team not found" });
+      }
+      if (existingTeam.isCpu) {
+        return res.status(400).json({ message: "CPU teams cannot be renamed" });
+      }
+      if (existingTeam.userId !== userId) {
+        return res.status(403).json({ message: "You can only rename your own team" });
+      }
+
+      const updated = await storage.updateTeam(teamId, { name: trimmedName } as any);
+      if (!updated) {
+        return res.status(500).json({ message: "Failed to update team name" });
+      }
+      if (updated.leagueId) {
+        broadcastDraftEvent(updated.leagueId, "teams-update");
+      }
+
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update team name" });
+    }
+  });
+
   app.post("/api/leagues/:id/join", async (req, res) => {
     try {
       const leagueId = parseInt(req.params.id);

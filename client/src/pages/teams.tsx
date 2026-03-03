@@ -60,6 +60,7 @@ export default function Teams() {
     type: string | null;
     maxTeams: number | null;
     scoringFormat: string | null;
+    draftDate: string | null;
   }>();
   leagues?.forEach((l) => leagueMap.set(l.id, {
     name: l.name,
@@ -70,6 +71,7 @@ export default function Teams() {
     type: l.type,
     maxTeams: l.maxTeams,
     scoringFormat: l.scoringFormat,
+    draftDate: l.draftDate,
   }));
 
   const liveLeagueIds = (leagues || [])
@@ -224,6 +226,7 @@ export default function Teams() {
               leagueType={leagueMap.get(team.leagueId!)?.type}
               maxTeams={leagueMap.get(team.leagueId!)?.maxTeams}
               scoringFormat={leagueMap.get(team.leagueId!)?.scoringFormat}
+              draftDate={leagueMap.get(team.leagueId!)?.draftDate}
               draftLive={leagueMap.get(team.leagueId!)?.draftStatus === "active"}
               userTurn={!!team.leagueId && !!liveTurnMap && liveTurnMap[team.leagueId] === team.id}
             />

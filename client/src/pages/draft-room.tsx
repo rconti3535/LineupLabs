@@ -157,6 +157,7 @@ export default function DraftRoom() {
   const [teamPanelDragY, setTeamPanelDragY] = useState(0);
   const [isTeamPanelDragging, setIsTeamPanelDragging] = useState(false);
   const teamDragRef = useRef<{ startY: number; currentY: number } | null>(null);
+  const [teamViewTeamId, setTeamViewTeamId] = useState<number | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [positionFilter, setPositionFilter] = useState("ALL");
@@ -313,6 +314,17 @@ export default function DraftRoom() {
   const actualTeams = teams ? teams.filter(Boolean).length : 0;
   const numTeams = isDraftActive || isDraftPaused || isDraftCompleted ? actualTeams || configuredTeams : configuredTeams;
   const myTeam = teams?.find((t): t is Team => !!t && t.userId === user?.id);
+  const teamViewOptions = useMemo(() => (teams || []).filter((t): t is Team => !!t), [teams]);
+  const viewedTeam = teamViewOptions.find((t) => t.id === teamViewTeamId) || myTeam || teamViewOptions[0];
+
+  useEffect(() => {
+    if (!teamViewOptions.length) {
+      setTeamViewTeamId(null);
+      return;
+    }
+    if (teamViewTeamId && teamViewOptions.some((t) => t.id === teamViewTeamId)) return;
+    setTeamViewTeamId(myTeam?.id ?? teamViewOptions[0].id);
+  }, [teamViewOptions, teamViewTeamId, myTeam?.id]);
 
   const nextOverall = draftPicks.length + 1;
   const currentRound = Math.ceil(nextOverall / numTeams);
@@ -521,6 +533,9 @@ export default function DraftRoom() {
   const myPicks = draftPicks.filter(p => myTeam && p.teamId === myTeam.id);
   const myDraftedPlayers = myPicks.map(p => playerMap.get(p.playerId)).filter(Boolean) as Player[];
   const rosterAssignment = assignPlayersToRoster(rosterPositions, myDraftedPlayers);
+  const viewedTeamPicks = draftPicks.filter(p => viewedTeam && p.teamId === viewedTeam.id);
+  const viewedDraftedPlayers = viewedTeamPicks.map(p => playerMap.get(p.playerId)).filter(Boolean) as Player[];
+  const viewedRosterAssignment = assignPlayersToRoster(rosterPositions, viewedDraftedPlayers);
 
   const canDraftPosition = (playerPos: string): boolean => {
     if (!rosterPositions.length) return true;
@@ -1654,10 +1669,26 @@ export default function DraftRoom() {
             <div className="flex items-center justify-center pt-2 pb-1">
               <div className="w-10 h-1 rounded-full bg-gray-600" />
             </div>
-            <h3 className="text-white font-semibold text-sm px-4 pb-2">My Team</h3>
+            <div className="px-4 pb-2 space-y-1.5">
+              <h3 className="text-white font-semibold text-sm">My Team</h3>
+              {teamViewOptions.length > 0 && viewedTeam && (
+                <Select value={String(viewedTeam.id)} onValueChange={(v) => setTeamViewTeamId(parseInt(v, 10))}>
+                  <SelectTrigger className="h-8 w-full bg-gray-800 border-gray-700 text-gray-200 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-900 border-gray-700">
+                    {teamViewOptions.map((team) => (
+                      <SelectItem key={team.id} value={String(team.id)} className="text-gray-200 focus:bg-gray-800 focus:text-white">
+                        {team.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
           </div>
           <div ref={teamScrollContainerRef} className="flex-1 overflow-auto hide-scrollbar px-3 pb-16">
-            {myTeam ? (() => {
+            {viewedTeam ? (() => {
               const isBestBallDraft = league?.type === "Best Ball";
               const STAT_COL = "w-[42px] text-center text-[11px] shrink-0";
 
@@ -1675,7 +1706,7 @@ export default function DraftRoom() {
                 return (
                   <div className="space-y-4">
                     {BB_SECTIONS.map(section => {
-                      const players = myDraftedPlayers.filter(p => section.positions.includes(p.position));
+                      const players = viewedDraftedPlayers.filter(p => section.positions.includes(p.position));
                       return (
                         <div key={section.label}>
                           <p className="text-gray-400 text-[11px] uppercase font-bold tracking-wider mb-2">
@@ -1754,7 +1785,7 @@ export default function DraftRoom() {
                           </thead>
                           <tbody>
                             {posSlots.map(slot => {
-                              const p = rosterAssignment[slot.index] || null;
+                              const p = viewedRosterAssignment[slot.index] || null;
                               return (
                                 <tr key={slot.index} className="border-b border-gray-800/50">
                                   <td className="py-1.5 pl-1">
@@ -1800,7 +1831,7 @@ export default function DraftRoom() {
                           </thead>
                           <tbody>
                             {pitchSlots.map(slot => {
-                              const p = rosterAssignment[slot.index] || null;
+                              const p = viewedRosterAssignment[slot.index] || null;
                               return (
                                 <tr key={slot.index} className="border-b border-gray-800/50">
                                   <td className="py-1.5 pl-1">
@@ -1834,7 +1865,7 @@ export default function DraftRoom() {
                       <p className="text-gray-400 text-[11px] uppercase font-bold tracking-wider mb-2">Bench / IL</p>
                       <div className="space-y-1">
                         {benchSlots.map(slot => {
-                          const p = rosterAssignment[slot.index] || null;
+                          const p = viewedRosterAssignment[slot.index] || null;
                           return (
                             <div key={slot.index} className="flex items-center gap-2 py-1.5">
                               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-700 text-gray-300 shrink-0">{slot.pos}</span>

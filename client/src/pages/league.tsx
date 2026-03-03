@@ -327,7 +327,7 @@ function TransactionsList({ leagueId }: { leagueId: number }) {
   );
 }
 
-function StandingsTab({ leagueId, league, teamsLoading, teams, user }: { leagueId: number; league: League; teamsLoading: boolean; teams: Team[] | undefined; user: { id: number } | null }) {
+function StandingsTab({ leagueId, league, teamsLoading, teams, user, onSelectTeam }: { leagueId: number; league: League; teamsLoading: boolean; teams: Team[] | undefined; user: { id: number } | null; onSelectTeam?: (teamId: number) => void }) {
   const [standingsSubTab, setStandingsSubTab] = useState<"standings" | "transactions">("standings");
   const { data: standingsData, isLoading } = useQuery<StandingsData>({
     queryKey: ["/api/leagues", leagueId, "standings"],
@@ -394,9 +394,16 @@ function StandingsTab({ leagueId, league, teamsLoading, teams, user }: { leagueI
         <span className={`text-xs font-bold w-5 text-center shrink-0 ${rankClass(idx)}`}>{idx + 1}</span>
         <div className="min-w-0">
           <div className="flex items-center gap-1.5 overflow-hidden">
-            <p className="text-white text-xs font-medium truncate">{team.teamName}</p>
+            <button
+              type="button"
+              onClick={() => onSelectTeam?.(team.teamId)}
+              className={`text-xs font-medium truncate transition-colors ${onSelectTeam ? "text-white hover:text-blue-300" : "text-white"}`}
+              title={onSelectTeam ? "View roster" : undefined}
+            >
+              {team.teamName}
+            </button>
             {team.userId === league.createdBy && (
-              <Badge className="text-[8px] h-3 px-1 bg-yellow-600 text-white border-0 shrink-0">Commish</Badge>
+              <Badge className="text-[8px] h-3 px-1 bg-yellow-600 text-white border-0 shrink-0">C</Badge>
             )}
           </div>
           {team.isCpu && <span className="text-[9px] text-gray-500">CPU</span>}
@@ -1406,6 +1413,9 @@ export default function LeaguePage() {
     const now = new Date();
     return now.toISOString().split("T")[0];
   });
+  const [isEditingTeamName, setIsEditingTeamName] = useState(false);
+  const [teamNameDraft, setTeamNameDraft] = useState("");
+  const [viewedTeamId, setViewedTeamId] = useState<number | null>(null);
 
   const getMonday = (dateStr: string) => {
     const d = new Date(dateStr + "T12:00:00");
@@ -1551,9 +1561,31 @@ export default function LeaguePage() {
   }, [leagueId]);
 
   const myTeam = teams?.find((t) => t.userId === user?.id);
+  const viewedTeam = teams?.find((t) => t.id === viewedTeamId) || myTeam;
+  const canManageViewedTeam = !!(viewedTeam && myTeam && viewedTeam.id === myTeam.id);
   const isCommissioner = league?.createdBy === user?.id;
   const humanTeamCount = teams?.filter(t => !t.isCpu).length || 0;
   const maxTeamCount = league?.maxTeams || league?.numberOfTeams || 12;
+
+  useEffect(() => {
+    if (myTeam && viewedTeamId === null) {
+      setViewedTeamId(myTeam.id);
+    }
+  }, [myTeam, viewedTeamId]);
+
+  useEffect(() => {
+    if (!isEditingTeamName) {
+      setTeamNameDraft(myTeam?.name || "");
+    }
+  }, [myTeam?.name, isEditingTeamName]);
+
+  useEffect(() => {
+    setSelectedSwapIndex(null);
+    setSwapTargets([]);
+    if (!canManageViewedTeam) {
+      setIsEditingTeamName(false);
+    }
+  }, [viewedTeamId, canManageViewedTeam]);
 
   useEffect(() => {
     const shouldTick = !!league?.draftDate && league?.draftStatus === "pending";
@@ -1667,24 +1699,24 @@ export default function LeaguePage() {
     return { isMyTurn: false, picksUntilTurn: null as number | null };
   }, [league, teams, myTeam, draftPicks]);
 
-  const myPicks = draftPicks.filter(p => myTeam && p.teamId === myTeam.id);
+  const viewedTeamPicks = draftPicks.filter(p => viewedTeam && p.teamId === viewedTeam.id);
 
-  const myPickPlayerIds = myPicks.map(p => p.playerId).sort((a, b) => a - b);
-  const myPickIdsKey = myPickPlayerIds.join(",");
+  const viewedPickPlayerIds = viewedTeamPicks.map(p => p.playerId).sort((a, b) => a - b);
+  const viewedPickIdsKey = viewedPickPlayerIds.join(",");
 
-  const { data: myRosteredPlayers = [] } = useQuery<Player[]>({
-    queryKey: ["/api/players/roster", leagueId, myTeam?.id, myPickIdsKey],
+  const { data: viewedRosteredPlayers = [] } = useQuery<Player[]>({
+    queryKey: ["/api/players/roster", leagueId, viewedTeam?.id, viewedPickIdsKey],
     queryFn: async () => {
-      if (myPickPlayerIds.length === 0) return [];
+      if (viewedPickPlayerIds.length === 0) return [];
       const res = await fetch("/api/players/by-ids", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: myPickPlayerIds }),
+        body: JSON.stringify({ ids: viewedPickPlayerIds }),
       });
       if (!res.ok) throw new Error("Failed to fetch roster players");
       return res.json();
     },
-    enabled: myPickPlayerIds.length > 0,
+    enabled: viewedPickPlayerIds.length > 0,
   });
 
   const { data: myClaimsData } = useQuery<any[]>({
@@ -1708,38 +1740,38 @@ export default function LeaguePage() {
   });
 
   const { data: dailyLineupData, isLoading: dailyLineupLoading } = useQuery<any[]>({
-    queryKey: ["/api/leagues", leagueId, "daily-lineup", dailyDate, myTeam?.id],
+    queryKey: ["/api/leagues", leagueId, "daily-lineup", dailyDate, viewedTeam?.id],
     queryFn: async () => {
-      if (!myTeam?.id) return [];
-      const res = await fetch(`/api/leagues/${leagueId}/daily-lineup?teamId=${myTeam.id}&date=${dailyDate}`);
+      if (!viewedTeam?.id) return [];
+      const res = await fetch(`/api/leagues/${leagueId}/daily-lineup?teamId=${viewedTeam.id}&date=${dailyDate}`);
       if (!res.ok) return [];
       return res.json();
     },
-    enabled: rosterStatView === "daily" && !!myTeam?.id && leagueId !== null,
+    enabled: rosterStatView === "daily" && !!viewedTeam?.id && leagueId !== null,
   });
 
   const { data: gameTimesData } = useQuery<{ playerId: number; gameTime: string | null; opponent: string | null; isHome: boolean; status: string | null; isLocked: boolean }[]>({
-    queryKey: ["/api/leagues", leagueId, "game-times", myTeam?.id, dailyDate],
+    queryKey: ["/api/leagues", leagueId, "game-times", viewedTeam?.id, dailyDate],
     queryFn: async () => {
-      if (!myTeam?.id) return [];
-      const res = await fetch(`/api/leagues/${leagueId}/game-times?teamId=${myTeam.id}&date=${dailyDate}`);
+      if (!viewedTeam?.id) return [];
+      const res = await fetch(`/api/leagues/${leagueId}/game-times?teamId=${viewedTeam.id}&date=${dailyDate}`);
       if (!res.ok) return [];
       return res.json();
     },
-    enabled: rosterStatView === "daily" && !!myTeam?.id && leagueId !== null,
+    enabled: rosterStatView === "daily" && !!viewedTeam?.id && leagueId !== null,
   });
 
   const saveDailyLineupMut = useMutation({
     mutationFn: async (data: { slotA: number; slotB: number }) => {
       await apiRequest("POST", `/api/leagues/${leagueId}/daily-lineup/swap`, {
-        teamId: myTeam?.id,
+        teamId: viewedTeam?.id,
         date: dailyDate,
         slotIndexA: data.slotA,
         slotIndexB: data.slotB,
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "daily-lineup", dailyDate, myTeam?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "daily-lineup", dailyDate, viewedTeam?.id] });
       setSelectedSwapIndex(null);
       setSwapTargets([]);
     },
@@ -1753,7 +1785,7 @@ export default function LeaguePage() {
 
   const dailyRosterEntries = (() => {
     if (rosterStatView !== "daily" || !dailyLineupData || dailyLineupData.length === 0) return null;
-    const playerMap = new Map(myRosteredPlayers.map(p => [p.id, p]));
+    const playerMap = new Map(viewedRosteredPlayers.map(p => [p.id, p]));
     return rosterSlots.map((slotPos, idx) => {
       const lineupEntry = dailyLineupData.find((d: any) => d.slotIndex === idx);
       const player = lineupEntry ? playerMap.get(lineupEntry.playerId) : undefined;
@@ -1767,7 +1799,7 @@ export default function LeaguePage() {
   })();
 
   const bestBallRosterEntries = (() => {
-    if (league?.type !== "Best Ball" || !myRosteredPlayers.length) return null;
+    if (league?.type !== "Best Ball" || !viewedRosteredPlayers.length) return null;
     const scoringSlots = league?.rosterPositions || [];
     const INF_POS = ["1B", "2B", "3B", "SS"];
     const BB_GROUPS = [
@@ -1784,7 +1816,7 @@ export default function LeaguePage() {
 
     for (const group of BB_GROUPS) {
       const slotsForGroup = scoringSlots.filter(s => s === group.slotKey).length;
-      const playersForGroup = myRosteredPlayers.filter(p => group.positions.includes(p.position));
+      const playersForGroup = viewedRosteredPlayers.filter(p => group.positions.includes(p.position));
 
       for (let s = 0; s < slotsForGroup; s++) {
         const player = playersForGroup.find(p => !usedPlayerIds.has(p.id)) || null;
@@ -1799,7 +1831,7 @@ export default function LeaguePage() {
       }
     }
 
-    const unassigned = myRosteredPlayers.filter(p => !usedPlayerIds.has(p.id));
+    const unassigned = viewedRosteredPlayers.filter(p => !usedPlayerIds.has(p.id));
     for (const player of unassigned) {
       const pos = ["SP", "RP"].includes(player.position) ? player.position : "OF";
       entries.push({ player, pickId: null, slotIndex: idx++, slotPos: pos });
@@ -1808,9 +1840,9 @@ export default function LeaguePage() {
     return entries;
   })();
 
-  const rosterEntries = bestBallRosterEntries || dailyRosterEntries || assignPlayersToRosterWithPicks(rosterSlots, myRosteredPlayers, myPicks);
+  const rosterEntries = bestBallRosterEntries || dailyRosterEntries || assignPlayersToRosterWithPicks(rosterSlots, viewedRosteredPlayers, viewedTeamPicks);
 
-  const needsInit = league?.draftStatus === "completed" && myPicks.length > 0 && !myPicks.some(p => p.rosterSlot !== null && p.rosterSlot !== undefined);
+  const needsInit = canManageViewedTeam && league?.draftStatus === "completed" && viewedTeamPicks.length > 0 && !viewedTeamPicks.some(p => p.rosterSlot !== null && p.rosterSlot !== undefined);
 
   useEffect(() => {
     if (needsInit && !initRosterMutation.isPending) {
@@ -1834,6 +1866,7 @@ export default function LeaguePage() {
   const isPastDate = dailyDate < new Date().toISOString().split("T")[0];
 
   const handleSwapSelect = (index: number) => {
+    if (!canManageViewedTeam) return;
     if (league?.type === "Best Ball") return;
     if (rosterStatView === "daily") {
       if (isPastDate) {
@@ -1943,6 +1976,25 @@ export default function LeaguePage() {
     },
     onError: (error: Error) => {
       toast({ title: "Failed to remove user", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const renameTeamMutation = useMutation({
+    mutationFn: async (name: string) => {
+      if (!myTeam?.id) throw new Error("Team not found");
+      await apiRequest("PATCH", `/api/teams/${myTeam.id}/name`, {
+        userId: user?.id,
+        name,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/teams/league", leagueId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/teams/user", user?.id] });
+      setIsEditingTeamName(false);
+      toast({ title: "Team name updated" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to update team name", description: error.message, variant: "destructive" });
     },
   });
 
@@ -2361,7 +2413,7 @@ export default function LeaguePage() {
             </Card>
           ) : null}
 
-          {!isBestBall && myClaimsData && myClaimsData.length > 0 && (
+          {!isBestBall && canManageViewedTeam && myClaimsData && myClaimsData.length > 0 && (
             <div className="mb-4">
               <Select>
                 <SelectTrigger className="w-full bg-yellow-950/20 border-yellow-900/30 text-yellow-400 hover:bg-yellow-950/30 transition-colors h-10 px-4 rounded-xl">
@@ -2431,7 +2483,7 @@ export default function LeaguePage() {
             </Card>
           )}
 
-          {myTeam ? (() => {
+          {viewedTeam ? (() => {
             const isPitcherSlot = (s: string) => s === "SP" || s === "RP" || s === "P";
             const isPitcherPlayer = (p: Player) => ["SP", "RP", "P"].includes(p.position);
 
@@ -2463,15 +2515,74 @@ export default function LeaguePage() {
               <div className="overflow-hidden">
                 <div className="flex items-center justify-between mb-3 px-1">
                   <div className="flex items-center gap-2">
-                    <h3 className="text-white font-semibold">{myTeam.name}</h3>
-                    {user?.id === league.createdBy && (
+                    {canManageViewedTeam && isEditingTeamName ? (
+                      <div className="flex items-center gap-1.5">
+                        <Input
+                          value={teamNameDraft}
+                          onChange={(e) => setTeamNameDraft(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              const trimmed = teamNameDraft.trim();
+                              if (!trimmed) return;
+                              renameTeamMutation.mutate(trimmed);
+                            } else if (e.key === "Escape") {
+                              setIsEditingTeamName(false);
+                              setTeamNameDraft(myTeam?.name || "");
+                            }
+                          }}
+                          maxLength={32}
+                          className="h-7 w-[170px] bg-gray-800/80 border-gray-700 text-xs text-white"
+                          disabled={renameTeamMutation.isPending}
+                          autoFocus
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-2 text-[10px] text-green-300 hover:text-green-200"
+                          disabled={renameTeamMutation.isPending || !teamNameDraft.trim()}
+                          onClick={() => renameTeamMutation.mutate(teamNameDraft.trim())}
+                        >
+                          Save
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-2 text-[10px] text-gray-400 hover:text-gray-200"
+                          disabled={renameTeamMutation.isPending}
+                          onClick={() => {
+                            setIsEditingTeamName(false);
+                            setTeamNameDraft(myTeam?.name || "");
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
+                        <h3 className="text-white font-semibold">{viewedTeam.name}</h3>
+                        {canManageViewedTeam && (
+                          <button
+                            type="button"
+                            className="text-gray-400 hover:text-white transition-colors"
+                            aria-label="Edit team name"
+                            title="Edit team name"
+                            onClick={() => setIsEditingTeamName(true)}
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </>
+                    )}
+                    {viewedTeam.userId === league.createdBy && (
                       <Badge className="text-[10px] px-1.5 py-0 shrink-0 bg-yellow-600 text-white border-0">
-                        Commish
+                        C
                       </Badge>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    {!isBestBall && selectedSwapIndex !== null && (
+                    {!isBestBall && canManageViewedTeam && selectedSwapIndex !== null && (
                       <Button
                         onClick={() => { setSelectedSwapIndex(null); setSwapTargets([]); }}
                         variant="ghost"
@@ -2496,6 +2607,24 @@ export default function LeaguePage() {
                     </Select>
                   </div>
                 </div>
+                {!canManageViewedTeam && myTeam && (
+                  <div className="mb-2 px-1 flex items-center justify-between gap-2">
+                    <p className="text-[11px] text-blue-300">Viewing {viewedTeam.name}</p>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-[10px] text-gray-300 hover:text-white"
+                      onClick={() => {
+                        setViewedTeamId(myTeam.id);
+                        setSelectedSwapIndex(null);
+                        setSwapTargets([]);
+                      }}
+                    >
+                      Back to My Team
+                    </Button>
+                  </div>
+                )}
                 {!isBestBall && selectedSwapIndex !== null && (
                   <p className="text-blue-400 text-xs mb-3 px-1">Tap a highlighted slot to swap players</p>
                 )}
@@ -2934,7 +3063,22 @@ export default function LeaguePage() {
 
       {activeTab === "players" && !showSettings && <PlayersTab leagueId={leagueId!} league={league!} user={user} />}
 
-      {activeTab === "standings" && !showSettings && <div className="pb-24"><StandingsTab leagueId={leagueId!} league={league!} teamsLoading={teamsLoading} teams={teams} user={user} /></div>}
+      {activeTab === "standings" && !showSettings && (
+        <div className="pb-24">
+          <StandingsTab
+            leagueId={leagueId!}
+            league={league!}
+            teamsLoading={teamsLoading}
+            teams={teams}
+            user={user}
+            onSelectTeam={(teamId) => {
+              setViewedTeamId(teamId);
+              setShowSettings(false);
+              setActiveTab("roster");
+            }}
+          />
+        </div>
+      )}
 
       {showSettings && (
         <>

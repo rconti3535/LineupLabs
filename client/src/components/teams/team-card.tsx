@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +14,7 @@ interface TeamCardProps {
   leagueType?: string | null;
   maxTeams?: number | null;
   scoringFormat?: string | null;
+  draftDate?: string | null;
   draftLive?: boolean;
   userTurn?: boolean;
 }
@@ -25,14 +27,38 @@ export function TeamCard({
   leagueType,
   maxTeams,
   scoringFormat,
+  draftDate,
   draftLive,
   userTurn,
 }: TeamCardProps) {
   const [, setLocation] = useLocation();
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const typeLabel = leagueType === "Best Ball" ? "Bestball" : (leagueType || "Redraft");
   const teamsLabel = `${maxTeams || 12}-Team`;
   const scoringLabel = scoringFormat || "Roto";
   const leagueFormatLabel = `${typeLabel} ${teamsLabel} ${scoringLabel}`;
+
+  useEffect(() => {
+    if (!draftDate || draftLive) return;
+    const timer = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [draftDate, draftLive]);
+
+  const countdownLabel = (() => {
+    if (!draftDate || draftLive) return null;
+    const target = new Date(draftDate).getTime();
+    if (!Number.isFinite(target)) return null;
+    const diff = target - nowMs;
+    if (diff <= 0) return "Draft: Starting Soon";
+    const totalSeconds = Math.floor(diff / 1000);
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    if (days > 0) return `Draft in ${days}d ${hours}h`;
+    if (hours > 0) return `Draft in ${hours}h ${minutes}m`;
+    return `Draft in ${minutes}m ${String(seconds).padStart(2, "0")}s`;
+  })();
 
   return (
     <Card 
@@ -62,6 +88,9 @@ export function TeamCard({
               </Badge>
             )}
           </div>
+          {!draftLive && countdownLabel && (
+            <p className="text-[10px] text-blue-300 mt-0.5 truncate">{countdownLabel}</p>
+          )}
         </div>
         {draftLive && (
           <div className="flex items-center gap-2 ml-auto shrink-0">
