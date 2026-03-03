@@ -19,9 +19,13 @@ export default function Profile() {
   const [editOpen, setEditOpen] = useState(false);
   const [editUsername, setEditUsername] = useState("");
   const [editAvatar, setEditAvatar] = useState<string | null>(null);
+  const [avatarSource, setAvatarSource] = useState<string | null>(null);
+  const [avatarZoom, setAvatarZoom] = useState(1);
+  const [avatarOffset, setAvatarOffset] = useState({ x: 0, y: 0 });
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dragRef = useRef<{ startX: number; startY: number; startOffsetX: number; startOffsetY: number } | null>(null);
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: { username?: string; avatar?: string | null }) => {
@@ -64,6 +68,9 @@ export default function Profile() {
   const openEditDialog = () => {
     setEditUsername(user?.username || "");
     setEditAvatar(user?.avatar || null);
+    setAvatarSource(user?.avatar || null);
+    setAvatarZoom(1);
+    setAvatarOffset({ x: 0, y: 0 });
     setEditOpen(true);
   };
 
@@ -76,15 +83,64 @@ export default function Profile() {
     }
     const reader = new FileReader();
     reader.onload = () => {
-      setEditAvatar(reader.result as string);
+      const src = reader.result as string;
+      setEditAvatar(src);
+      setAvatarSource(src);
+      setAvatarZoom(1);
+      setAvatarOffset({ x: 0, y: 0 });
     };
     reader.readAsDataURL(file);
   };
 
-  const handleSaveProfile = () => {
+  const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+  const renderAvatarCrop = async (source: string, zoom: number, offset: { x: number; y: number }) => {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = source;
+    });
+
+    const size = 320;
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return source;
+
+    ctx.clearRect(0, 0, size, size);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.clip();
+
+    const baseScale = Math.max(size / image.width, size / image.height);
+    const scale = baseScale * zoom;
+    const drawWidth = image.width * scale;
+    const drawHeight = image.height * scale;
+    const x = (size - drawWidth) / 2 + offset.x;
+    const y = (size - drawHeight) / 2 + offset.y;
+    ctx.drawImage(image, x, y, drawWidth, drawHeight);
+    ctx.restore();
+
+    return canvas.toDataURL("image/png");
+  };
+
+  const handleSaveProfile = async () => {
     const data: { username?: string; avatar?: string | null } = {};
     if (editUsername && editUsername !== user?.username) data.username = editUsername.trim();
-    if (editAvatar !== (user?.avatar || null)) data.avatar = editAvatar;
+    let nextAvatar = editAvatar;
+    if (avatarSource) {
+      try {
+        nextAvatar = await renderAvatarCrop(avatarSource, avatarZoom, avatarOffset);
+      } catch {
+        nextAvatar = editAvatar;
+      }
+    }
+    if (nextAvatar !== (user?.avatar || null)) data.avatar = nextAvatar;
     if (Object.keys(data).length === 0) {
       setEditOpen(false);
       return;
@@ -229,9 +285,62 @@ export default function Profile() {
           <div className="space-y-5 py-2">
             <div className="flex flex-col items-center gap-3">
               <div className="relative">
-                <div className="w-20 h-20 rounded-full overflow-hidden">
-                  {editAvatar ? (
-                    <img src={editAvatar} alt="Preview" className="w-full h-full object-cover" />
+                <div
+                  className="w-24 h-24 rounded-full overflow-hidden bg-gray-800 cursor-grab active:cursor-grabbing"
+                  onMouseDown={(e) => {
+                    if (!avatarSource) return;
+                    dragRef.current = {
+                      startX: e.clientX,
+                      startY: e.clientY,
+                      startOffsetX: avatarOffset.x,
+                      startOffsetY: avatarOffset.y,
+                    };
+                  }}
+                  onMouseMove={(e) => {
+                    if (!dragRef.current) return;
+                    const dx = e.clientX - dragRef.current.startX;
+                    const dy = e.clientY - dragRef.current.startY;
+                    setAvatarOffset({
+                      x: clamp(dragRef.current.startOffsetX + dx, -180, 180),
+                      y: clamp(dragRef.current.startOffsetY + dy, -180, 180),
+                    });
+                  }}
+                  onMouseUp={() => { dragRef.current = null; }}
+                  onMouseLeave={() => { dragRef.current = null; }}
+                  onTouchStart={(e) => {
+                    if (!avatarSource) return;
+                    const touch = e.touches[0];
+                    dragRef.current = {
+                      startX: touch.clientX,
+                      startY: touch.clientY,
+                      startOffsetX: avatarOffset.x,
+                      startOffsetY: avatarOffset.y,
+                    };
+                  }}
+                  onTouchMove={(e) => {
+                    if (!dragRef.current) return;
+                    const touch = e.touches[0];
+                    const dx = touch.clientX - dragRef.current.startX;
+                    const dy = touch.clientY - dragRef.current.startY;
+                    setAvatarOffset({
+                      x: clamp(dragRef.current.startOffsetX + dx, -180, 180),
+                      y: clamp(dragRef.current.startOffsetY + dy, -180, 180),
+                    });
+                  }}
+                  onTouchEnd={() => { dragRef.current = null; }}
+                >
+                  {avatarSource ? (
+                    <img
+                      src={avatarSource}
+                      alt="Preview"
+                      className="w-full h-full select-none"
+                      draggable={false}
+                      style={{
+                        objectFit: "cover",
+                        transform: `translate(${avatarOffset.x}px, ${avatarOffset.y}px) scale(${avatarZoom})`,
+                        transformOrigin: "center center",
+                      }}
+                    />
                   ) : (
                     <div className="w-full h-full primary-gradient flex items-center justify-center">
                       <User className="w-10 h-10 text-white" />
@@ -252,7 +361,52 @@ export default function Profile() {
                   className="hidden"
                 />
               </div>
-              {editAvatar && (
+              {avatarSource && (
+                <div className="w-full space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => setAvatarZoom((z) => clamp(z - 0.1, 1, 3))}
+                      className="h-7 w-7 px-0 text-gray-300"
+                    >
+                      -
+                    </Button>
+                    <Input
+                      type="range"
+                      min={1}
+                      max={3}
+                      step={0.01}
+                      value={avatarZoom}
+                      onChange={(e) => setAvatarZoom(parseFloat(e.target.value))}
+                      className="h-7"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => setAvatarZoom((z) => clamp(z + 0.1, 1, 3))}
+                      className="h-7 w-7 px-0 text-gray-300"
+                    >
+                      +
+                    </Button>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-gray-500">Drag to position, use slider to zoom</span>
+                    <button
+                      onClick={() => {
+                        setEditAvatar(null);
+                        setAvatarSource(null);
+                        setAvatarZoom(1);
+                        setAvatarOffset({ x: 0, y: 0 });
+                      }}
+                      className="text-xs text-red-400 hover:text-red-300"
+                    >
+                      Remove photo
+                    </button>
+                  </div>
+                </div>
+              )}
+              {!avatarSource && editAvatar && (
                 <button onClick={() => setEditAvatar(null)} className="text-xs text-red-400 hover:text-red-300">
                   Remove photo
                 </button>

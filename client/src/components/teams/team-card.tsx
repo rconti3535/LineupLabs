@@ -53,12 +53,12 @@ export function TeamCard({
           </div>
         )}
         <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-semibold text-white truncate">{leagueName || `League #${team.leagueId}`}</h3>
+          <h3 className="text-[15px] font-semibold text-white truncate">{leagueName || `League #${team.leagueId}`}</h3>
           <div className="flex items-center gap-1.5">
             <p className="text-gray-400 text-xs truncate">{leagueFormatLabel}</p>
             {leagueName && isCommissioner && (
               <Badge className="text-[10px] px-1.5 py-0 shrink-0 bg-yellow-600 text-white">
-                Commish
+                C
               </Badge>
             )}
           </div>

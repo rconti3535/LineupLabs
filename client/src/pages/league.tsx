@@ -1396,6 +1396,8 @@ export default function LeaguePage() {
   const [editPitchingCategories, setEditPitchingCategories] = useState<string[]>([]);
   const [editPointValues, setEditPointValues] = useState<Record<string, number>>({});
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showLeagueSwitcher, setShowLeagueSwitcher] = useState(false);
+  const leagueSwitcherRef = useRef<HTMLDivElement | null>(null);
   const [selectedSwapIndex, setSelectedSwapIndex] = useState<number | null>(null);
   const [swapTargets, setSwapTargets] = useState<number[]>([]);
   const [rosterStatView, setRosterStatView] = useState<"2025stats" | "2026stats" | "2026proj" | "daily">("daily");
@@ -1449,6 +1451,69 @@ export default function LeaguePage() {
     staleTime: 0,
     refetchOnMount: "always",
   });
+
+  const { data: userTeams = [] } = useQuery<Team[]>({
+    queryKey: ["/api/teams/user", user?.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/teams/user/${user?.id}`);
+      if (!res.ok) throw new Error("Failed to fetch user teams");
+      return res.json();
+    },
+    enabled: !!user?.id,
+    staleTime: 0,
+  });
+
+  const userLeagueIds = useMemo(
+    () => userTeams.map((t) => t.leagueId).filter((id): id is number => typeof id === "number"),
+    [userTeams]
+  );
+
+  const { data: userLeagues = [] } = useQuery<League[]>({
+    queryKey: ["/api/leagues/user-switcher", ...userLeagueIds],
+    queryFn: async () => {
+      const results = await Promise.all(
+        userLeagueIds.map((id) =>
+          fetch(`/api/leagues/${id}`).then((r) => (r.ok ? r.json() : null))
+        )
+      );
+      return results.filter(Boolean);
+    },
+    enabled: userLeagueIds.length > 0,
+    staleTime: 0,
+  });
+
+  const orderedUserLeagueOptions = useMemo(() => {
+    const leagueMap = new Map<number, League>();
+    userLeagues.forEach((l) => leagueMap.set(l.id, l));
+
+    const seen = new Set<number>();
+    const ordered: League[] = [];
+    for (const t of userTeams) {
+      if (typeof t.leagueId !== "number") continue;
+      if (seen.has(t.leagueId)) continue;
+      const l = leagueMap.get(t.leagueId);
+      if (!l) continue;
+      seen.add(t.leagueId);
+      ordered.push(l);
+    }
+    return ordered;
+  }, [userLeagues, userTeams]);
+
+  useEffect(() => {
+    setShowLeagueSwitcher(false);
+  }, [leagueId]);
+
+  useEffect(() => {
+    if (!showLeagueSwitcher) return;
+    const onDocClick = (event: MouseEvent) => {
+      if (!leagueSwitcherRef.current) return;
+      if (!leagueSwitcherRef.current.contains(event.target as Node)) {
+        setShowLeagueSwitcher(false);
+      }
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [showLeagueSwitcher]);
 
   useEffect(() => {
     if (!leagueId) return;
@@ -2142,13 +2207,43 @@ export default function LeaguePage() {
           </Button>
         </div>
 
-        <div className="flex justify-center min-w-0">
-          <div className="bg-white/5 border border-white/10 px-4 py-1.5 rounded-full shadow-inner backdrop-blur-sm max-w-full">
+        <div className="flex justify-center min-w-0 relative" ref={leagueSwitcherRef}>
+          <button
+            onClick={() => setShowLeagueSwitcher((prev) => !prev)}
+            className="bg-white/5 border border-white/10 px-4 py-1.5 rounded-full shadow-inner backdrop-blur-sm max-w-full flex items-center gap-1.5 hover:bg-white/10 transition-colors"
+          >
             <h1 className="text-sm font-bold text-white truncate tracking-wide uppercase">{league.name}</h1>
+            <ChevronDown className={`w-4 h-4 text-gray-300 transition-transform ${showLeagueSwitcher ? "rotate-180" : ""}`} />
+          </button>
+          {showLeagueSwitcher && orderedUserLeagueOptions.length > 0 && (
+            <div className="absolute top-[calc(100%+8px)] left-1/2 -translate-x-1/2 w-[260px] max-w-[90vw] z-50 rounded-xl border border-white/10 bg-gray-900/95 backdrop-blur-md shadow-xl overflow-hidden">
+              <div className="max-h-64 overflow-auto hide-scrollbar py-1">
+                {orderedUserLeagueOptions.map((l) => {
+                  const isCurrent = l.id === leagueId;
+                  return (
+                    <button
+                      key={l.id}
+                      onClick={() => {
+                        setShowLeagueSwitcher(false);
+                        if (l.id !== leagueId) setLocation(`/league/${l.id}`);
+                      }}
+                      className={`w-full text-left px-3 py-2 text-sm transition-colors ${
+                        isCurrent
+                          ? "bg-blue-600/20 text-blue-300 border-l-2 border-blue-400"
+                          : "text-gray-200 hover:bg-white/5"
+                      }`}
+                    >
+                      <span className="truncate block">{l.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-1.5 shrink-0">
+        <div className="flex items-center justify-end gap-2.5 shrink-0">
           {isCommissioner && (
             <Button
               onClick={() => {

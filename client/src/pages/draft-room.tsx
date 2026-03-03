@@ -147,6 +147,7 @@ export default function DraftRoom() {
   const [selectedCellOverall, setSelectedCellOverall] = useState<number | null>(null);
   const [showTeamWarning, setShowTeamWarning] = useState(false);
   const [playerPanelDragY, setPlayerPanelDragY] = useState(0);
+  const [isPlayerPanelDragging, setIsPlayerPanelDragging] = useState(false);
   const playerDragRef = useRef<{ startY: number; currentY: number } | null>(null);
   const [queuePanelDragY, setQueuePanelDragY] = useState(0);
   const queueDragRef = useRef<{ startY: number; currentY: number } | null>(null);
@@ -986,7 +987,9 @@ export default function DraftRoom() {
 
       {(activeTab === "players" || commissionerAssignMode) && (
         <div
-          className="absolute bottom-10 left-0 right-0 bg-gray-900 border-t border-gray-700 rounded-t-2xl flex flex-col z-10 transition-transform duration-200 ease-out"
+          className={`absolute bottom-10 left-0 right-0 bg-gray-900 border-t border-gray-700 rounded-t-2xl flex flex-col z-10 ${
+            isPlayerPanelDragging ? "" : "transition-transform duration-200 ease-out"
+          }`}
           style={{
             height: "75vh",
             transform: `translateY(${playerPanelDragY}px)`,
@@ -998,6 +1001,7 @@ export default function DraftRoom() {
             onTouchStart={(e) => {
               const touch = e.touches[0];
               playerDragRef.current = { startY: touch.clientY, currentY: touch.clientY };
+              setIsPlayerPanelDragging(true);
               setPlayerPanelDragY(0);
             }}
             onTouchMove={(e) => {
@@ -1005,12 +1009,15 @@ export default function DraftRoom() {
               const touch = e.touches[0];
               playerDragRef.current.currentY = touch.clientY;
               const dy = touch.clientY - playerDragRef.current.startY;
-              if (dy > 0) setPlayerPanelDragY(dy);
+              const isPlayersListAtTop = (scrollContainerRef.current?.scrollTop ?? 0) <= 0;
+              if (dy > 2 && isPlayersListAtTop) setPlayerPanelDragY(dy);
+              else setPlayerPanelDragY(0);
             }}
             onTouchEnd={() => {
               if (!playerDragRef.current) return;
               const dy = playerDragRef.current.currentY - playerDragRef.current.startY;
               playerDragRef.current = null;
+              setIsPlayerPanelDragging(false);
               if (dy > 80) {
                 setActiveTab("board");
                 setCommissionerAssignMode(false);
@@ -1020,17 +1027,21 @@ export default function DraftRoom() {
             }}
             onMouseDown={(e) => {
               playerDragRef.current = { startY: e.clientY, currentY: e.clientY };
+              setIsPlayerPanelDragging(true);
               setPlayerPanelDragY(0);
               const onMove = (ev: MouseEvent) => {
                 if (!playerDragRef.current) return;
                 playerDragRef.current.currentY = ev.clientY;
                 const dy = ev.clientY - playerDragRef.current.startY;
-                if (dy > 0) setPlayerPanelDragY(dy);
+                const isPlayersListAtTop = (scrollContainerRef.current?.scrollTop ?? 0) <= 0;
+                if (dy > 2 && isPlayersListAtTop) setPlayerPanelDragY(dy);
+                else setPlayerPanelDragY(0);
               };
               const onUp = () => {
                 if (playerDragRef.current) {
                   const dy = playerDragRef.current.currentY - playerDragRef.current.startY;
                   playerDragRef.current = null;
+                  setIsPlayerPanelDragging(false);
                   if (dy > 80) {
                     setActiveTab("board");
                     setCommissionerAssignMode(false);
