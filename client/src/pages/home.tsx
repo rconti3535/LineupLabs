@@ -74,24 +74,24 @@ export default function Home() {
     };
 
     const start = {
-      leagues: 0,
-      gold: 0,
-      silver: 0,
-      bronze: 0,
-      winRate: 0,
-      trophyRate: 0,
+      leagues: 1000,
+      gold: 1000,
+      silver: 1000,
+      bronze: 1000,
+      winRate: 100,
+      trophyRate: 100,
     };
 
-    const durationMs = 1000;
+    const durationMs = 800;
     let rafId = 0;
     const startTs = performance.now();
 
-    const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+    const easeOutQuart = (t: number) => 1 - Math.pow(1 - t, 4);
 
     const tick = (now: number) => {
       const elapsed = now - startTs;
       const progress = Math.min(1, elapsed / durationMs);
-      const eased = easeOutCubic(progress);
+      const eased = easeOutQuart(progress);
 
       setAnimatedStats({
         leagues: Math.round(start.leagues + (target.leagues - start.leagues) * eased),

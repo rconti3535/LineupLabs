@@ -1,5 +1,5 @@
 import { useLocation } from "wouter";
-import { Home, User, TrendingUp, CreditCard } from "lucide-react";
+import { Home, User, TrendingUp, Crown } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -20,7 +20,7 @@ export function BottomNavigation() {
   const navItems = [
     { path: "/teams", icon: Home, label: "Teams" },
     { path: "/messages", icon: TrendingUp, label: "Exposure" },
-    { path: "/", icon: CreditCard, label: "Card" },
+    { path: "/", icon: Crown, label: "Card" },
     { path: "/profile", icon: User, label: "Profile" },
   ];
 
