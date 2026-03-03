@@ -1052,7 +1052,7 @@ export default function DraftRoom() {
           <div
             ref={scrollContainerRef}
             onScroll={handlePlayersScroll}
-            className="flex-1 overflow-auto hide-scrollbar px-1 pb-3"
+            className="flex-1 overflow-auto hide-scrollbar px-1 pb-16"
           >
             {playersLoading ? (
               Array.from({ length: 8 }).map((_, i) => (
@@ -1615,15 +1615,15 @@ export default function DraftRoom() {
             <button
               key={item.key}
               onClick={() => { setActiveTab(item.key); setCommissionerAssignMode(false); setSelectedCellOverall(null); }}
-              className={`flex-1 py-3 text-center text-xs font-semibold transition-colors relative ${
+              className={`flex-1 py-3.5 text-center text-sm font-semibold transition-colors relative ${
                 activeTab === item.key
                   ? "text-blue-400 border-t-2 border-blue-400"
                   : "text-gray-500 hover:text-gray-300"
               }`}
             >
-              <div className="flex flex-col items-center gap-1">
+              <div className="flex flex-col items-center gap-1.5">
                 <div className="relative">
-                  <item.icon className="w-4 h-4" />
+                  <item.icon className="w-[18px] h-[18px]" />
                   {item.key === "queue" && orderedQueuePlayers.length > 0 && (
                     <span className="absolute -top-1.5 -right-2.5 bg-blue-500 text-white text-[8px] font-bold rounded-full w-3.5 h-3.5 flex items-center justify-center">
                       {orderedQueuePlayers.length}

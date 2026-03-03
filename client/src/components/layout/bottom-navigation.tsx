@@ -17,7 +17,12 @@ export function BottomNavigation() {
     { path: "/", icon: Home, label: "Rank" },
     { path: "/profile", icon: User, label: "Profile" },
   ];
-  const activeIndex = navItems.findIndex(({ path }) => path === location);
+
+  const activePath = (
+    location === "/create-league" || location === "/join-public"
+  ) ? "/teams" : location;
+
+  const activeIndex = navItems.findIndex(({ path }) => path === activePath);
 
   return (
     <nav className="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-md sleeper-bg border-t sleeper-border px-3 py-2 z-50">
@@ -33,7 +38,7 @@ export function BottomNavigation() {
         )}
 
         {navItems.map(({ path, icon: Icon, label }) => {
-          const isActive = location === path;
+          const isActive = activePath === path;
           return (
             <div key={path} className="flex items-center flex-1 relative z-10">
               <Link href={path} className="flex-1">
