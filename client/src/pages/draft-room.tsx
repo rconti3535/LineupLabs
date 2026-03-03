@@ -606,6 +606,7 @@ export default function DraftRoom() {
     { key: "queue", label: "Queue", icon: ClipboardList },
     { key: "team", label: "My Team", icon: Users2 },
   ];
+  const activeDraftNavIndex = draftNavItems.findIndex((item) => item.key === activeTab);
 
   const positionColor = (pos: string) => {
     const colors: Record<string, string> = {
@@ -1611,13 +1612,22 @@ export default function DraftRoom() {
 
       <nav className="shrink-0 border-t border-gray-800 sleeper-bg relative z-20">
         <div className="flex w-full">
+          {activeDraftNavIndex >= 0 && (
+            <div
+              className="absolute top-0 h-0.5 bg-blue-400 transition-transform duration-300 ease-out"
+              style={{
+                width: `${100 / draftNavItems.length}%`,
+                transform: `translateX(${activeDraftNavIndex * 100}%)`,
+              }}
+            />
+          )}
           {draftNavItems.map((item) => (
             <button
               key={item.key}
               onClick={() => { setActiveTab(item.key); setCommissionerAssignMode(false); setSelectedCellOverall(null); }}
               className={`flex-1 py-3.5 text-center text-sm font-semibold transition-colors relative ${
                 activeTab === item.key
-                  ? "text-blue-400 border-t-2 border-blue-400"
+                  ? "text-blue-400"
                   : "text-gray-500 hover:text-gray-300"
               }`}
             >
