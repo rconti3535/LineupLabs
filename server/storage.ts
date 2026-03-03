@@ -216,6 +216,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteLeague(id: number): Promise<void> {
+    const leagueTeams = await db.select({ id: teams.id }).from(teams).where(eq(teams.leagueId, id));
+    const teamIds = leagueTeams.map(t => t.id);
+
+    if (teamIds.length > 0) {
+      // Defensive cleanup: claims may still reference these teams even if waiver linkage is inconsistent.
+      await db.delete(waiverClaims).where(inArray(waiverClaims.teamId, teamIds));
+      await db.delete(leagueTransactions).where(
+        or(
+          inArray(leagueTransactions.teamId, teamIds),
+          inArray(leagueTransactions.teamBId, teamIds),
+        )!,
+      );
+    }
+
     const leagueWaivers = await db.select().from(waivers).where(eq(waivers.leagueId, id));
     if (leagueWaivers.length > 0) {
       const waiverIds = leagueWaivers.map(w => w.id);

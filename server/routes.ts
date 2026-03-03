@@ -694,7 +694,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deleteLeague(id);
       res.json({ message: "League deleted" });
     } catch (error) {
-      res.status(500).json({ message: "Failed to delete league" });
+      console.error("[League Delete] failed:", error);
+      const detail = error instanceof Error ? error.message : "Unknown delete failure";
+      res.status(500).json({ message: "Failed to delete league", detail });
     }
   });
 
