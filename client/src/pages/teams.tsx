@@ -7,6 +7,11 @@ import type { Team, League, DraftPick } from "@shared/schema";
 import { queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 
+type NewsFeedResponse = {
+  source: string;
+  items: { title: string; link: string; pubDate: string | null }[];
+};
+
 export default function Teams() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
@@ -149,6 +154,28 @@ export default function Teams() {
 
   const showSkeleton = isLoading || (teams && teams.length > 0 && leagueIds.length > 0 && leaguesLoading);
 
+  const { data: rotowireNews, isLoading: rotowireLoading } = useQuery<NewsFeedResponse>({
+    queryKey: ["/api/news", "rotowire"],
+    queryFn: async () => {
+      const res = await fetch("/api/news/rotowire");
+      if (!res.ok) throw new Error("Failed to fetch Rotowire news");
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 10 * 60 * 1000,
+  });
+
+  const { data: espnNews, isLoading: espnLoading } = useQuery<NewsFeedResponse>({
+    queryKey: ["/api/news", "espn"],
+    queryFn: async () => {
+      const res = await fetch("/api/news/espn");
+      if (!res.ok) throw new Error("Failed to fetch ESPN news");
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 10 * 60 * 1000,
+  });
+
   return (
     <div className="px-4 py-6">
       <div className="mb-5 flex items-center justify-between">
@@ -223,6 +250,68 @@ export default function Teams() {
               <h3 className="text-lg font-semibold text-white">Join Public</h3>
               <p className="mt-1 text-[10px] uppercase tracking-[0.12em] text-gray-100/90">Find a spot</p>
             </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-6 space-y-4">
+        <div className="league-card rounded-xl p-4 border border-white/15 bg-white/[0.03] backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_6px_16px_rgba(0,0,0,0.25)]">
+          <h3 className="text-white font-semibold mb-3">Rotowire News</h3>
+          <div className="space-y-2">
+            {rotowireLoading ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-10 rounded-lg bg-gray-800/70" />
+              ))
+            ) : (rotowireNews?.items || []).length > 0 ? (
+              rotowireNews!.items.map((item, idx) => (
+                <a
+                  key={`${item.link}-${idx}`}
+                  href={item.link}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block rounded-lg px-3 py-2 border border-white/10 bg-white/[0.02] hover:bg-white/[0.06] transition-colors"
+                >
+                  <p className="text-sm text-white line-clamp-2">{item.title}</p>
+                  {item.pubDate && (
+                    <p className="text-[11px] text-gray-500 mt-1">
+                      {new Date(item.pubDate).toLocaleString()}
+                    </p>
+                  )}
+                </a>
+              ))
+            ) : (
+              <p className="text-sm text-gray-500">No Rotowire news available right now.</p>
+            )}
+          </div>
+        </div>
+
+        <div className="league-card rounded-xl p-4 border border-white/15 bg-white/[0.03] backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_6px_16px_rgba(0,0,0,0.25)]">
+          <h3 className="text-white font-semibold mb-3">ESPN News</h3>
+          <div className="space-y-2">
+            {espnLoading ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-10 rounded-lg bg-gray-800/70" />
+              ))
+            ) : (espnNews?.items || []).length > 0 ? (
+              espnNews!.items.map((item, idx) => (
+                <a
+                  key={`${item.link}-${idx}`}
+                  href={item.link}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block rounded-lg px-3 py-2 border border-white/10 bg-white/[0.02] hover:bg-white/[0.06] transition-colors"
+                >
+                  <p className="text-sm text-white line-clamp-2">{item.title}</p>
+                  {item.pubDate && (
+                    <p className="text-[11px] text-gray-500 mt-1">
+                      {new Date(item.pubDate).toLocaleString()}
+                    </p>
+                  )}
+                </a>
+              ))
+            ) : (
+              <p className="text-sm text-gray-500">No ESPN news available right now.</p>
+            )}
           </div>
         </div>
       </div>

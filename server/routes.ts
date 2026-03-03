@@ -11,6 +11,39 @@ import { eq, ne, and, sql, inArray } from "drizzle-orm";
 
 const INF_POSITIONS = ["1B", "2B", "3B", "SS"];
 
+type NewsItem = {
+  title: string;
+  link: string;
+  pubDate: string | null;
+};
+
+function decodeXmlEntities(input: string): string {
+  return input
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, "\"")
+    .replace(/&#39;/g, "'");
+}
+
+function extractTagValue(xml: string, tag: string): string {
+  const match = xml.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, "i"));
+  if (!match) return "";
+  return decodeXmlEntities(match[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1").trim());
+}
+
+function parseRssItems(xml: string, limit = 10): NewsItem[] {
+  const items = xml.match(/<item\b[\s\S]*?<\/item>/gi) || [];
+  return items
+    .map((itemXml) => ({
+      title: extractTagValue(itemXml, "title"),
+      link: extractTagValue(itemXml, "link"),
+      pubDate: extractTagValue(itemXml, "pubDate") || null,
+    }))
+    .filter((item) => item.title && item.link)
+    .slice(0, limit);
+}
+
 function stripBotFlag<T extends Record<string, unknown>>(user: T): Omit<T, "isBot"> {
   const { isBot, ...rest } = user as any;
   return rest;
@@ -209,6 +242,39 @@ function withLeagueDraftLock<T>(leagueId: number, fn: () => Promise<T>): Promise
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  app.get("/api/news/:source", async (req, res) => {
+    try {
+      const source = String(req.params.source || "").toLowerCase();
+      const sourceUrlMap: Record<string, string> = {
+        rotowire: "https://www.rotowire.com/rss/news.php?sport=MLB",
+        espn: "https://www.espn.com/espn/rss/mlb/news",
+      };
+
+      const url = sourceUrlMap[source];
+      if (!url) {
+        return res.status(400).json({ message: "Unknown news source" });
+      }
+
+      const response = await fetch(url, {
+        headers: {
+          "User-Agent": "LineupLabs/1.0 (+https://lineuplabs.app)",
+          "Accept": "application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.8",
+        },
+      });
+
+      if (!response.ok) {
+        return res.status(502).json({ message: `Failed to fetch ${source} feed` });
+      }
+
+      const xml = await response.text();
+      const items = parseRssItems(xml, 8);
+      return res.json({ source, items });
+    } catch (error) {
+      console.error("News feed fetch error:", error);
+      return res.status(500).json({ message: "Failed to load news feed" });
+    }
+  });
+
   // Get public leagues
   app.get("/api/leagues/public", async (req, res) => {
     try {
