@@ -15,7 +15,48 @@ type NewsItem = {
   title: string;
   link: string;
   pubDate: string | null;
+  teamAbbreviation: string | null;
+  teamLogoUrl: string | null;
 };
+
+type MlbTeamMeta = {
+  abbr: string;
+  espnAbbr: string;
+  aliases: string[];
+};
+
+const MLB_TEAM_METADATA: MlbTeamMeta[] = [
+  { abbr: "ARI", espnAbbr: "ari", aliases: ["arizona", "diamondbacks", "d-backs", "dbacks", "ari"] },
+  { abbr: "ATL", espnAbbr: "atl", aliases: ["atlanta", "braves", "atl"] },
+  { abbr: "BAL", espnAbbr: "bal", aliases: ["baltimore", "orioles", "bal"] },
+  { abbr: "BOS", espnAbbr: "bos", aliases: ["boston", "red sox", "bos"] },
+  { abbr: "CHC", espnAbbr: "chc", aliases: ["chicago cubs", "cubs", "chc"] },
+  { abbr: "CIN", espnAbbr: "cin", aliases: ["cincinnati", "reds", "cin"] },
+  { abbr: "CLE", espnAbbr: "cle", aliases: ["cleveland", "guardians", "cle"] },
+  { abbr: "COL", espnAbbr: "col", aliases: ["colorado", "rockies", "col"] },
+  { abbr: "CWS", espnAbbr: "cws", aliases: ["chicago white sox", "white sox", "cws"] },
+  { abbr: "DET", espnAbbr: "det", aliases: ["detroit", "tigers", "det"] },
+  { abbr: "HOU", espnAbbr: "hou", aliases: ["houston", "astros", "hou"] },
+  { abbr: "KCR", espnAbbr: "kc", aliases: ["kansas city", "royals", "kcr", "kc"] },
+  { abbr: "LAA", espnAbbr: "laa", aliases: ["los angeles angels", "la angels", "angels", "laa"] },
+  { abbr: "LAD", espnAbbr: "lad", aliases: ["los angeles dodgers", "la dodgers", "dodgers", "lad"] },
+  { abbr: "MIA", espnAbbr: "mia", aliases: ["miami", "marlins", "mia"] },
+  { abbr: "MIL", espnAbbr: "mil", aliases: ["milwaukee", "brewers", "mil"] },
+  { abbr: "MIN", espnAbbr: "min", aliases: ["minnesota", "twins", "min"] },
+  { abbr: "NYM", espnAbbr: "nym", aliases: ["new york mets", "ny mets", "mets", "nym"] },
+  { abbr: "NYY", espnAbbr: "nyy", aliases: ["new york yankees", "ny yankees", "yankees", "nyy"] },
+  { abbr: "OAK", espnAbbr: "ath", aliases: ["oakland", "athletics", "a's", "as", "oak", "ath"] },
+  { abbr: "PHI", espnAbbr: "phi", aliases: ["philadelphia", "phillies", "phi"] },
+  { abbr: "PIT", espnAbbr: "pit", aliases: ["pittsburgh", "pirates", "pit"] },
+  { abbr: "SDP", espnAbbr: "sd", aliases: ["san diego", "padres", "sdp", "sd"] },
+  { abbr: "SEA", espnAbbr: "sea", aliases: ["seattle", "mariners", "sea"] },
+  { abbr: "SFG", espnAbbr: "sf", aliases: ["san francisco", "giants", "sfg", "sf"] },
+  { abbr: "STL", espnAbbr: "stl", aliases: ["st louis", "st. louis", "cardinals", "stl"] },
+  { abbr: "TBR", espnAbbr: "tb", aliases: ["tampa bay", "rays", "tbr", "tb"] },
+  { abbr: "TEX", espnAbbr: "tex", aliases: ["texas", "rangers", "tex"] },
+  { abbr: "TOR", espnAbbr: "tor", aliases: ["toronto", "blue jays", "tor"] },
+  { abbr: "WSN", espnAbbr: "wsh", aliases: ["washington", "nationals", "wsn", "wsh"] },
+];
 
 function decodeXmlEntities(input: string): string {
   return input
@@ -32,14 +73,43 @@ function extractTagValue(xml: string, tag: string): string {
   return decodeXmlEntities(match[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1").trim());
 }
 
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function inferMlbTeamFromText(text: string): { abbr: string; logoUrl: string } | null {
+  const lowered = text.toLowerCase();
+  for (const team of MLB_TEAM_METADATA) {
+    for (const alias of team.aliases) {
+      const regex = new RegExp(`(^|[^a-z0-9])${escapeRegex(alias.toLowerCase())}([^a-z0-9]|$)`, "i");
+      if (regex.test(lowered)) {
+        return {
+          abbr: team.abbr,
+          logoUrl: `https://a.espncdn.com/i/teamlogos/mlb/500/${team.espnAbbr}.png`,
+        };
+      }
+    }
+  }
+  return null;
+}
+
 function parseRssItems(xml: string, limit = 10): NewsItem[] {
   const items = xml.match(/<item\b[\s\S]*?<\/item>/gi) || [];
   return items
-    .map((itemXml) => ({
-      title: extractTagValue(itemXml, "title"),
-      link: extractTagValue(itemXml, "link"),
-      pubDate: extractTagValue(itemXml, "pubDate") || null,
-    }))
+    .map((itemXml) => {
+      const title = extractTagValue(itemXml, "title");
+      const link = extractTagValue(itemXml, "link");
+      const pubDate = extractTagValue(itemXml, "pubDate") || null;
+      const description = extractTagValue(itemXml, "description");
+      const inferredTeam = inferMlbTeamFromText(`${title} ${description}`);
+      return {
+        title,
+        link,
+        pubDate,
+        teamAbbreviation: inferredTeam?.abbr || null,
+        teamLogoUrl: inferredTeam?.logoUrl || null,
+      };
+    })
     .filter((item) => item.title && item.link)
     .slice(0, limit);
 }

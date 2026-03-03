@@ -9,7 +9,13 @@ import { useLocation } from "wouter";
 
 type NewsFeedResponse = {
   source: string;
-  items: { title: string; link: string; pubDate: string | null }[];
+  items: {
+    title: string;
+    link: string;
+    pubDate: string | null;
+    teamAbbreviation: string | null;
+    teamLogoUrl: string | null;
+  }[];
 };
 
 export default function Teams() {
@@ -177,7 +183,7 @@ export default function Teams() {
   });
 
   return (
-    <div className="px-4 py-6">
+    <div className="px-2 py-6">
       <div className="mb-5 flex items-center justify-between">
         <h1 className="text-xl font-semibold text-white">My Leagues</h1>
         <div className="h-9 w-9 rounded-full overflow-hidden border border-white/15 bg-white/5 flex items-center justify-center">
@@ -271,12 +277,27 @@ export default function Teams() {
                   rel="noreferrer"
                   className="block rounded-lg px-3 py-2 border border-white/10 bg-white/[0.02] hover:bg-white/[0.06] transition-colors"
                 >
-                  <p className="text-sm text-white line-clamp-2">{item.title}</p>
-                  {item.pubDate && (
-                    <p className="text-[11px] text-gray-500 mt-1">
-                      {new Date(item.pubDate).toLocaleString()}
-                    </p>
-                  )}
+                  <div className="flex items-start gap-2.5">
+                    <div className="w-7 h-7 shrink-0 mt-0.5 rounded-full bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center">
+                      {item.teamLogoUrl ? (
+                        <img
+                          src={item.teamLogoUrl}
+                          alt={item.teamAbbreviation || "MLB"}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-[10px] text-gray-400">MLB</span>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm text-white line-clamp-2">{item.title}</p>
+                      {item.pubDate && (
+                        <p className="text-[11px] text-gray-500 mt-1">
+                          {new Date(item.pubDate).toLocaleString()}
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 </a>
               ))
             ) : (
@@ -301,12 +322,27 @@ export default function Teams() {
                   rel="noreferrer"
                   className="block rounded-lg px-3 py-2 border border-white/10 bg-white/[0.02] hover:bg-white/[0.06] transition-colors"
                 >
-                  <p className="text-sm text-white line-clamp-2">{item.title}</p>
-                  {item.pubDate && (
-                    <p className="text-[11px] text-gray-500 mt-1">
-                      {new Date(item.pubDate).toLocaleString()}
-                    </p>
-                  )}
+                  <div className="flex items-start gap-2.5">
+                    <div className="w-7 h-7 shrink-0 mt-0.5 rounded-full bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center">
+                      {item.teamLogoUrl ? (
+                        <img
+                          src={item.teamLogoUrl}
+                          alt={item.teamAbbreviation || "MLB"}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-[10px] text-gray-400">MLB</span>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm text-white line-clamp-2">{item.title}</p>
+                      {item.pubDate && (
+                        <p className="text-[11px] text-gray-500 mt-1">
+                          {new Date(item.pubDate).toLocaleString()}
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 </a>
               ))
             ) : (
