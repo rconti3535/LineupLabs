@@ -2195,7 +2195,7 @@ export default function LeaguePage() {
 
   return (
     <div className="opened-league-shell px-4 pt-4 pb-32 min-h-screen">
-        <div className="grid grid-cols-[48px_1fr_48px] items-center mb-4">
+      <div className="grid grid-cols-[48px_1fr_48px] items-center mb-4">
         <div className="flex justify-start">
           <Button
             onClick={() => setLocation("/teams")}
@@ -2240,7 +2240,6 @@ export default function LeaguePage() {
               </div>
             </div>
           )}
-          </div>
         </div>
 
         <div className="flex items-center justify-end gap-2.5 shrink-0">
