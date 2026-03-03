@@ -2227,10 +2227,10 @@ export default function LeaguePage() {
                         setShowLeagueSwitcher(false);
                         if (l.id !== leagueId) setLocation(`/league/${l.id}`);
                       }}
-                      className={`w-full text-left px-3 py-2 text-sm transition-colors ${
+                      className={`w-[calc(100%-8px)] mx-1 my-0.5 text-left px-3 py-2 text-sm rounded-lg border transition-colors ${
                         isCurrent
-                          ? "bg-blue-600/20 text-blue-300 border-l-2 border-blue-400"
-                          : "text-gray-200 hover:bg-white/5"
+                          ? "bg-blue-500/18 text-blue-200 border-blue-400/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+                          : "text-gray-200 border-transparent hover:bg-white/5 hover:border-white/10"
                       }`}
                     >
                       <span className="truncate block">{l.name}</span>

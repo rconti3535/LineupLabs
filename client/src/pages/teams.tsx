@@ -276,7 +276,7 @@ export default function Teams() {
                   href={item.link}
                   target="_blank"
                   rel="noreferrer"
-                  className="block rounded-lg px-3 py-2 border border-white/10 bg-white/[0.02] hover:bg-white/[0.06] transition-colors"
+                  className="block rounded-xl border border-green-400/40 bg-gradient-to-br from-green-500/45 to-green-700/45 px-3 py-2 text-left text-white backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_6px_16px_rgba(0,0,0,0.25)] transition-all duration-200 hover:-translate-y-0.5 hover:from-green-500/55 hover:to-green-700/55 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_9px_20px_rgba(0,0,0,0.32)] active:scale-[0.97]"
                 >
                   <div className="flex items-start gap-2.5">
                     <div className="w-7 h-7 shrink-0 mt-0.5 flex items-center justify-center">
@@ -293,9 +293,11 @@ export default function Teams() {
                     <div className="min-w-0">
                       <p className="text-sm text-white leading-5">
                         {item.title}{" "}
-                        <span className="text-[11px] text-gray-500 whitespace-nowrap">
-                          {item.author ? `By "${item.author}"` : 'By "Unknown"'}
-                        </span>
+                        {item.author && (
+                          <span className="text-[11px] text-gray-500 whitespace-nowrap">
+                            {`By ${item.author}`}
+                          </span>
+                        )}
                       </p>
                     </div>
                   </div>
@@ -321,7 +323,7 @@ export default function Teams() {
                   href={item.link}
                   target="_blank"
                   rel="noreferrer"
-                  className="block rounded-lg px-3 py-2 border border-white/10 bg-white/[0.02] hover:bg-white/[0.06] transition-colors"
+                  className="block rounded-xl border border-green-400/40 bg-gradient-to-br from-green-500/45 to-green-700/45 px-3 py-2 text-left text-white backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_6px_16px_rgba(0,0,0,0.25)] transition-all duration-200 hover:-translate-y-0.5 hover:from-green-500/55 hover:to-green-700/55 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_9px_20px_rgba(0,0,0,0.32)] active:scale-[0.97]"
                 >
                   <div className="flex items-start gap-2.5">
                     <div className="w-7 h-7 shrink-0 mt-0.5 flex items-center justify-center">
@@ -338,9 +340,11 @@ export default function Teams() {
                     <div className="min-w-0">
                       <p className="text-sm text-white leading-5">
                         {item.title}{" "}
-                        <span className="text-[11px] text-gray-500 whitespace-nowrap">
-                          {item.author ? `By "${item.author}"` : 'By "Unknown"'}
-                        </span>
+                        {item.author && (
+                          <span className="text-[11px] text-gray-500 whitespace-nowrap">
+                            {`By ${item.author}`}
+                          </span>
+                        )}
                       </p>
                     </div>
                   </div>

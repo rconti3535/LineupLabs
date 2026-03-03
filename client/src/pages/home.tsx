@@ -73,6 +73,23 @@ export default function Home() {
     <div className="px-4 py-6 space-y-4">
       <div className="space-y-4">
         <div className="card-3d rounded-xl px-4 py-4 bg-gradient-to-r from-[#2a3340]/85 via-[#1E2830]/85 to-[#2a3340]/85 border border-white/20">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-[0.12em] text-gray-400">User Card</p>
+              <p className="text-sm font-semibold text-white truncate">
+                {user?.username || "User"}
+              </p>
+            </div>
+            <div className="h-10 w-10 rounded-full overflow-hidden border border-white/20 bg-white/5 shrink-0 flex items-center justify-center">
+              {user?.avatar ? (
+                <img src={user.avatar} alt="Profile" className="h-full w-full object-cover" />
+              ) : (
+                <span className="text-sm font-semibold text-gray-300">
+                  {user?.username?.[0]?.toUpperCase?.() || "U"}
+                </span>
+              )}
+            </div>
+          </div>
           <div className="grid grid-cols-2 gap-3 items-end">
             <div>
               <p className="text-[10px] uppercase tracking-[0.14em] text-gray-300">Current Level</p>
