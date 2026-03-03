@@ -2244,7 +2244,7 @@ export default function LeaguePage() {
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-2.5 shrink-0">
+        <div className="flex items-center justify-end gap-4 shrink-0">
           {isCommissioner && (
             <Button
               onClick={() => {
