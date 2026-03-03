@@ -1274,49 +1274,61 @@ export async function computeStandings(
   rosterPositions: string[],
 ) {
   const format = league.scoringFormat || "Roto";
+  const defaultHittingCategories = league.hittingCategories || ["R", "HR", "RBI", "SB", "AVG"];
+  const defaultPitchingCategories = league.pitchingCategories || ["W", "SV", "K", "ERA", "WHIP"];
 
   switch (format) {
     case "H2H Points":
       return {
         format: "H2H Points",
         standings: computeH2HPointsStandings(league, teams, draftPicks, allPlayers, rosterPositions),
-        hittingCategories: league.hittingCategories || ["R", "HR", "RBI", "SB", "AVG"],
-        pitchingCategories: league.pitchingCategories || ["W", "SV", "K", "ERA", "WHIP"],
+        hittingCategories: defaultHittingCategories,
+        pitchingCategories: defaultPitchingCategories,
         numTeams: teams.length,
       };
     case "H2H Each Category":
       return {
         format: "H2H Each Category",
         standings: computeH2HEachCategoryStandings(league, teams, draftPicks, allPlayers, rosterPositions),
-        hittingCategories: league.hittingCategories || ["R", "HR", "RBI", "SB", "AVG"],
-        pitchingCategories: league.pitchingCategories || ["W", "SV", "K", "ERA", "WHIP"],
+        hittingCategories: defaultHittingCategories,
+        pitchingCategories: defaultPitchingCategories,
         numTeams: teams.length,
       };
     case "H2H Most Categories":
       return {
         format: "H2H Most Categories",
         standings: computeH2HMostCategoriesStandings(league, teams, draftPicks, allPlayers, rosterPositions),
-        hittingCategories: league.hittingCategories || ["R", "HR", "RBI", "SB", "AVG"],
-        pitchingCategories: league.pitchingCategories || ["W", "SV", "K", "ERA", "WHIP"],
+        hittingCategories: defaultHittingCategories,
+        pitchingCategories: defaultPitchingCategories,
         numTeams: teams.length,
       };
     case "Season Points":
       return {
         format: "Season Points",
         standings: await computeSeasonPointsStandings(league, teams, draftPicks, allPlayers, rosterPositions),
-        hittingCategories: league.hittingCategories || ["R", "HR", "RBI", "SB", "AVG"],
-        pitchingCategories: league.pitchingCategories || ["W", "SV", "K", "ERA", "WHIP"],
+        hittingCategories: defaultHittingCategories,
+        pitchingCategories: defaultPitchingCategories,
         numTeams: teams.length,
       };
     case "Roto":
     default:
+      let rotoStandings: TeamStandings[];
+      if (shouldUseWeeklyRotoBestBallSnapshots(league)) {
+        try {
+          rotoStandings = await computeRotoBestBallStandingsFromWeeklySnapshots(league, teams);
+        } catch (error) {
+          // Graceful fallback so standings still load if weekly snapshot tables are unavailable.
+          console.warn("[Standings] Weekly roto best-ball snapshots unavailable; falling back to live roto scoring.", error);
+          rotoStandings = computeRotoStandings(league, teams, draftPicks, allPlayers, rosterPositions, "s26");
+        }
+      } else {
+        rotoStandings = computeRotoStandings(league, teams, draftPicks, allPlayers, rosterPositions, "s26");
+      }
       return {
         format: "Roto",
-        standings: shouldUseWeeklyRotoBestBallSnapshots(league)
-          ? await computeRotoBestBallStandingsFromWeeklySnapshots(league, teams)
-          : computeRotoStandings(league, teams, draftPicks, allPlayers, rosterPositions, "s26"),
-        hittingCategories: league.hittingCategories || ["R", "HR", "RBI", "SB", "AVG"],
-        pitchingCategories: league.pitchingCategories || ["W", "SV", "K", "ERA", "WHIP"],
+        standings: rotoStandings,
+        hittingCategories: defaultHittingCategories,
+        pitchingCategories: defaultPitchingCategories,
         numTeams: teams.length,
       };
   }

@@ -727,7 +727,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const playerMap = new Map(playerList.map(p => [p.id, p]));
       const rosterPositions = league.rosterPositions || ["C", "1B", "2B", "3B", "SS", "OF", "OF", "OF", "UT", "SP", "SP", "RP", "RP", "BN", "BN", "IL"];
 
-      const result = await computeStandings(league, teams, draftPicks, playerMap, rosterPositions);
+      let result: {
+        format: string;
+        standings: Array<Record<string, any>>;
+        hittingCategories: string[];
+        pitchingCategories: string[];
+        numTeams: number;
+      };
+      try {
+        result = await computeStandings(league, teams, draftPicks, playerMap, rosterPositions) as any;
+      } catch (standingsError) {
+        console.error("[Standings] computeStandings failed, returning fallback standings:", standingsError);
+        const fallbackStandings = [...teams]
+          .sort((a, b) => (b.points ?? 0) - (a.points ?? 0) || (b.wins ?? 0) - (a.wins ?? 0))
+          .map((team) => ({
+            teamId: team.id,
+            teamName: team.name,
+            userId: team.userId,
+            isCpu: team.isCpu,
+            totalPoints: Number(team.points ?? 0),
+            wins: Number(team.wins ?? 0),
+            losses: Number(team.losses ?? 0),
+            ties: 0,
+            pointsFor: Number(team.points ?? 0),
+            pointsAgainst: 0,
+            categoryWins: Number(team.wins ?? 0),
+            categoryLosses: Number(team.losses ?? 0),
+            categoryTies: 0,
+            categoryValues: {},
+            categoryPoints: {},
+          }));
+
+        result = {
+          format: league.scoringFormat || "Roto",
+          standings: fallbackStandings,
+          hittingCategories: league.hittingCategories || ["R", "HR", "RBI", "SB", "AVG"],
+          pitchingCategories: league.pitchingCategories || ["W", "SV", "K", "ERA", "WHIP"],
+          numTeams: teams.length,
+        };
+      }
       for (const team of result.standings) {
         if (team.userId && !team.isCpu) {
           const user = await storage.getUser(team.userId);
@@ -738,6 +776,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.json(result);
     } catch (error) {
+      console.error("[Standings] route failed:", error);
       res.status(500).json({ message: "Failed to compute standings" });
     }
   });
