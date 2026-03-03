@@ -14,6 +14,7 @@ type NewsFeedResponse = {
     link: string;
     pubDate: string | null;
     author: string | null;
+    imageUrl: string | null;
     teamAbbreviation: string | null;
     teamLogoUrl: string | null;
   }[];
@@ -276,7 +277,7 @@ export default function Teams() {
                   href={item.link}
                   target="_blank"
                   rel="noreferrer"
-                  className="block rounded-xl border border-green-400/40 bg-gradient-to-br from-green-500/45 to-green-700/45 px-3 py-2 text-left text-white backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_6px_16px_rgba(0,0,0,0.25)] transition-all duration-200 hover:-translate-y-0.5 hover:from-green-500/55 hover:to-green-700/55 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_9px_20px_rgba(0,0,0,0.32)] active:scale-[0.97]"
+                  className="block rounded-xl border border-white/20 bg-gradient-to-br from-[#4b5563]/50 to-[#6b7280]/35 px-3 py-2 text-left text-white backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_6px_16px_rgba(0,0,0,0.25)] transition-all duration-200 hover:-translate-y-0.5 hover:from-[#6b7280]/55 hover:to-[#9ca3af]/35 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_9px_20px_rgba(0,0,0,0.32)] active:scale-[0.97]"
                 >
                   <div className="flex items-start gap-2.5">
                     <div className="w-7 h-7 shrink-0 mt-0.5 flex items-center justify-center">
@@ -300,6 +301,13 @@ export default function Teams() {
                         )}
                       </p>
                     </div>
+                    {item.imageUrl && (
+                      <img
+                        src={item.imageUrl}
+                        alt="Article"
+                        className="w-14 h-14 shrink-0 rounded-md object-cover border border-white/15"
+                      />
+                    )}
                   </div>
                 </a>
               ))
@@ -323,7 +331,7 @@ export default function Teams() {
                   href={item.link}
                   target="_blank"
                   rel="noreferrer"
-                  className="block rounded-xl border border-green-400/40 bg-gradient-to-br from-green-500/45 to-green-700/45 px-3 py-2 text-left text-white backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_6px_16px_rgba(0,0,0,0.25)] transition-all duration-200 hover:-translate-y-0.5 hover:from-green-500/55 hover:to-green-700/55 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_9px_20px_rgba(0,0,0,0.32)] active:scale-[0.97]"
+                  className="block rounded-xl border border-white/20 bg-gradient-to-br from-[#4b5563]/50 to-[#6b7280]/35 px-3 py-2 text-left text-white backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_6px_16px_rgba(0,0,0,0.25)] transition-all duration-200 hover:-translate-y-0.5 hover:from-[#6b7280]/55 hover:to-[#9ca3af]/35 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_9px_20px_rgba(0,0,0,0.32)] active:scale-[0.97]"
                 >
                   <div className="flex items-start gap-2.5">
                     <div className="w-7 h-7 shrink-0 mt-0.5 flex items-center justify-center">
@@ -347,6 +355,13 @@ export default function Teams() {
                         )}
                       </p>
                     </div>
+                    {item.imageUrl && (
+                      <img
+                        src={item.imageUrl}
+                        alt="Article"
+                        className="w-14 h-14 shrink-0 rounded-md object-cover border border-white/15"
+                      />
+                    )}
                   </div>
                 </a>
               ))

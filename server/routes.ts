@@ -16,6 +16,7 @@ type NewsItem = {
   link: string;
   pubDate: string | null;
   author: string | null;
+  imageUrl: string | null;
   teamAbbreviation: string | null;
   teamLogoUrl: string | null;
 };
@@ -94,6 +95,30 @@ function inferMlbTeamFromText(text: string): { abbr: string; logoUrl: string } |
   return null;
 }
 
+function extractImageUrlFromItemXml(itemXml: string): string | null {
+  const mediaContentMatch = itemXml.match(/<media:content\b[^>]*\burl="([^"]+)"[^>]*>/i);
+  if (mediaContentMatch?.[1]) return decodeXmlEntities(mediaContentMatch[1]);
+
+  const mediaThumbnailMatch = itemXml.match(/<media:thumbnail\b[^>]*\burl="([^"]+)"[^>]*>/i);
+  if (mediaThumbnailMatch?.[1]) return decodeXmlEntities(mediaThumbnailMatch[1]);
+
+  const enclosureTagMatch = itemXml.match(/<enclosure\b([^>]*)>/i);
+  if (enclosureTagMatch?.[1]) {
+    const attrs = enclosureTagMatch[1];
+    const typeMatch = attrs.match(/\btype="([^"]+)"/i);
+    const urlMatch = attrs.match(/\burl="([^"]+)"/i);
+    const url = urlMatch?.[1] ? decodeXmlEntities(urlMatch[1]) : null;
+    const type = (typeMatch?.[1] || "").toLowerCase();
+    if (url && (type.startsWith("image/") || /\.(png|jpe?g|webp|gif)$/i.test(url))) return url;
+  }
+
+  const description = extractTagValue(itemXml, "description");
+  const descriptionImgMatch = description.match(/<img\b[^>]*\bsrc="([^"]+)"[^>]*>/i);
+  if (descriptionImgMatch?.[1]) return decodeXmlEntities(descriptionImgMatch[1]);
+
+  return null;
+}
+
 function parseRssItems(xml: string, limit = 10): NewsItem[] {
   const items = xml.match(/<item\b[\s\S]*?<\/item>/gi) || [];
   return items
@@ -108,6 +133,7 @@ function parseRssItems(xml: string, limit = 10): NewsItem[] {
         link,
         pubDate,
         author: extractTagValue(itemXml, "author") || extractTagValue(itemXml, "dc:creator") || null,
+        imageUrl: extractImageUrlFromItemXml(itemXml),
         teamAbbreviation: inferredTeam?.abbr || null,
         teamLogoUrl: inferredTeam?.logoUrl || null,
       };
