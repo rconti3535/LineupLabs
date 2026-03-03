@@ -47,11 +47,13 @@ function Router() {
           <Route path="/join-public" component={JoinPublic} />
           <Route path="/league/:id/join" component={JoinLeague} />
           <Route path="/league/:id/draft" component={DraftRoom} />
+          <Route path="/league/:id/roster/:teamId" component={LeaguePage} />
           <Route path="/league/:id" component={LeaguePage} />
         </>
       ) : (
         <>
           <Route path="/league/:id/join">{(params) => <Redirect to={`/login?redirect=/league/${params.id}/join`} />}</Route>
+          <Route path="/league/:id/roster/:teamId">{(params) => <Redirect to={`/login?redirect=/league/${params.id}/roster/${params.teamId}`} />}</Route>
           <Route path="/league/:id">{(params) => <Redirect to={`/login?redirect=/league/${params.id}`} />}</Route>
           <Route path="/" component={Landing} />
         </>
@@ -64,7 +66,7 @@ function Router() {
 function AppLayout() {
   const [location] = useLocation();
   const isDraftRoom = /^\/league\/\d+\/draft$/.test(location);
-  const isLeaguePage = /^\/league\/\d+$/.test(location);
+  const isLeaguePage = /^\/league\/\d+(\/roster\/\d+)?(\?.*)?$/.test(location);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });

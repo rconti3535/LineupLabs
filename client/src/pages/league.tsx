@@ -1375,9 +1375,12 @@ function PlayerName({ playerId }: { playerId: number }) {
 
 export default function LeaguePage() {
   const [, params] = useRoute("/league/:id");
-  const [, setLocation] = useLocation();
+  const [, rosterParams] = useRoute("/league/:id/roster/:teamId");
+  const [location, setLocation] = useLocation();
   const { user } = useAuth();
-  const leagueId = params?.id ? parseInt(params.id) : null;
+  const leagueId = rosterParams?.id ? parseInt(rosterParams.id) : (params?.id ? parseInt(params.id) : null);
+  const externalRosterTeamId = rosterParams?.teamId ? parseInt(rosterParams.teamId) : null;
+  const isExternalRosterView = externalRosterTeamId !== null && !Number.isNaN(externalRosterTeamId);
   const [activeTab, setActiveTab] = useState<Tab>("roster");
   const [showSettings, setShowSettings] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -1574,6 +1577,15 @@ export default function LeaguePage() {
   }, [myTeam, viewedTeamId]);
 
   useEffect(() => {
+    if (!isExternalRosterView) return;
+    if (externalRosterTeamId && viewedTeamId !== externalRosterTeamId) {
+      setViewedTeamId(externalRosterTeamId);
+      setShowSettings(false);
+      setActiveTab("roster");
+    }
+  }, [isExternalRosterView, externalRosterTeamId, viewedTeamId]);
+
+  useEffect(() => {
     if (!isEditingTeamName) {
       setTeamNameDraft(myTeam?.name || "");
     }
@@ -1586,6 +1598,13 @@ export default function LeaguePage() {
       setIsEditingTeamName(false);
     }
   }, [viewedTeamId, canManageViewedTeam]);
+
+  useEffect(() => {
+    if (location.includes("tab=standings")) {
+      setActiveTab("standings");
+      setShowSettings(false);
+    }
+  }, [location]);
 
   useEffect(() => {
     const shouldTick = !!league?.draftDate && league?.draftStatus === "pending";
@@ -2297,7 +2316,17 @@ export default function LeaguePage() {
         </div>
 
         <div className="flex items-center justify-end gap-4 shrink-0">
-          {isCommissioner && (
+          {isExternalRosterView && (
+            <Button
+              onClick={() => setLocation(`/league/${leagueId}?tab=standings`)}
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 rounded-full text-gray-400 hover:text-white"
+            >
+              <ArrowLeft className="w-[22px] h-[22px]" />
+            </Button>
+          )}
+          {isCommissioner && !isExternalRosterView && (
             <Button
               onClick={() => {
                 const url = `${window.location.origin}/league/${leagueId}/join`;
@@ -2314,17 +2343,19 @@ export default function LeaguePage() {
               <Share className="w-[22px] h-[22px]" />
             </Button>
           )}
-          <Button
-            onClick={() => {
-              setShowSettings(!showSettings);
-              if (!showSettings) setActiveTab("roster");
-            }}
-            variant="ghost"
-            size="icon"
-            className={`h-10 w-10 rounded-full ${showSettings ? "text-blue-400 bg-white/10" : "text-gray-400 hover:text-white"}`}
-          >
-            <Settings className="w-[22px] h-[22px]" />
-          </Button>
+          {!isExternalRosterView && (
+            <Button
+              onClick={() => {
+                setShowSettings(!showSettings);
+                if (!showSettings) setActiveTab("roster");
+              }}
+              variant="ghost"
+              size="icon"
+              className={`h-10 w-10 rounded-full ${showSettings ? "text-blue-400 bg-white/10" : "text-gray-400 hover:text-white"}`}
+            >
+              <Settings className="w-[22px] h-[22px]" />
+            </Button>
+          )}
         </div>
       </div>
 
@@ -2334,25 +2365,100 @@ export default function LeaguePage() {
           )}
         </div>
 
-        <div className="flex border-b border-gray-700 mb-4">
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => { setActiveTab(tab.key); setShowSettings(false); }}
-            className={`flex-1 py-2.5 text-sm font-medium text-center transition-colors ${
-              activeTab === tab.key && !showSettings
-                ? "text-blue-400 border-b-2 border-blue-400"
-                : "text-gray-400 hover:text-gray-300"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-        </div>
+        {activeTab === "roster" && !showSettings && myTeam && !isExternalRosterView && (
+          <div className="mb-3 px-1">
+            {isEditingTeamName ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  value={teamNameDraft}
+                  onChange={(e) => setTeamNameDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      const trimmed = teamNameDraft.trim();
+                      if (!trimmed) return;
+                      renameTeamMutation.mutate(trimmed);
+                    } else if (e.key === "Escape") {
+                      setIsEditingTeamName(false);
+                      setTeamNameDraft(myTeam.name || "");
+                    }
+                  }}
+                  maxLength={32}
+                  className="h-8 w-[210px] bg-gray-800/80 border-gray-700 text-sm text-white"
+                  disabled={renameTeamMutation.isPending}
+                  autoFocus
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 px-2.5 text-[11px] text-green-300 hover:text-green-200"
+                  disabled={renameTeamMutation.isPending || !teamNameDraft.trim()}
+                  onClick={() => renameTeamMutation.mutate(teamNameDraft.trim())}
+                >
+                  Save
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 px-2.5 text-[11px] text-gray-400 hover:text-gray-200"
+                  disabled={renameTeamMutation.isPending}
+                  onClick={() => {
+                    setIsEditingTeamName(false);
+                    setTeamNameDraft(myTeam.name || "");
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  className="text-gray-300 hover:text-white transition-colors"
+                  aria-label="Edit team name"
+                  title="Edit team name"
+                  onClick={() => setIsEditingTeamName(true)}
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+                <h3 className="text-white font-semibold text-base">{myTeam.name}</h3>
+                {myTeam.userId === league.createdBy && (
+                  <Badge className="text-[11px] h-5 px-2 py-0 shrink-0 bg-yellow-600 text-white border-0">
+                    C
+                  </Badge>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
-      {activeTab === "roster" && !showSettings && (
+        {!isExternalRosterView && (
+          <div className="flex border-b border-gray-700 mb-4">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => { setActiveTab(tab.key); setShowSettings(false); }}
+              className={`flex-1 py-2.5 text-sm font-medium text-center transition-colors ${
+                activeTab === tab.key && !showSettings
+                  ? "text-blue-400 border-b-2 border-blue-400"
+                  : "text-gray-400 hover:text-gray-300"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+          </div>
+        )}
+
+      {(isExternalRosterView || (activeTab === "roster" && !showSettings)) && (
         <div>
-          {league.draftStatus !== "completed" ? (
+          {isExternalRosterView && viewedTeam && (
+            <div className="mb-3 px-1">
+              <p className="text-xs text-blue-300">Viewing roster: <span className="text-white font-semibold">{viewedTeam.name}</span></p>
+            </div>
+          )}
+          {!isExternalRosterView && league.draftStatus !== "completed" ? (
             <Card className={`gradient-card rounded-xl p-4 border-0 mb-4 ${["active", "paused"].includes(league.draftStatus || "") ? "border border-green-500/30" : ""}`}>
               <div className="flex items-center gap-3">
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${["active", "paused"].includes(league.draftStatus || "") ? "bg-green-600/20" : "bg-blue-600/20"}`}>
@@ -2413,7 +2519,7 @@ export default function LeaguePage() {
             </Card>
           ) : null}
 
-          {!isBestBall && canManageViewedTeam && myClaimsData && myClaimsData.length > 0 && (
+          {!isExternalRosterView && !isBestBall && canManageViewedTeam && myClaimsData && myClaimsData.length > 0 && (
             <div className="mb-4">
               <Select>
                 <SelectTrigger className="w-full bg-yellow-950/20 border-yellow-900/30 text-yellow-400 hover:bg-yellow-950/30 transition-colors h-10 px-4 rounded-xl">
@@ -2469,7 +2575,7 @@ export default function LeaguePage() {
             </div>
           )}
 
-          {isBestBall && (
+          {!isExternalRosterView && isBestBall && (
             <Card className="gradient-card rounded-xl p-4 border-0 mb-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-yellow-600/20 flex items-center justify-center shrink-0">
@@ -2513,74 +2619,7 @@ export default function LeaguePage() {
 
             return (
               <div className="overflow-hidden">
-                <div className="flex items-center justify-between mb-3 px-1">
-                  <div className="flex items-center gap-2">
-                    {canManageViewedTeam && isEditingTeamName ? (
-                      <div className="flex items-center gap-1.5">
-                        <Input
-                          value={teamNameDraft}
-                          onChange={(e) => setTeamNameDraft(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              const trimmed = teamNameDraft.trim();
-                              if (!trimmed) return;
-                              renameTeamMutation.mutate(trimmed);
-                            } else if (e.key === "Escape") {
-                              setIsEditingTeamName(false);
-                              setTeamNameDraft(myTeam?.name || "");
-                            }
-                          }}
-                          maxLength={32}
-                          className="h-7 w-[170px] bg-gray-800/80 border-gray-700 text-xs text-white"
-                          disabled={renameTeamMutation.isPending}
-                          autoFocus
-                        />
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 px-2 text-[10px] text-green-300 hover:text-green-200"
-                          disabled={renameTeamMutation.isPending || !teamNameDraft.trim()}
-                          onClick={() => renameTeamMutation.mutate(teamNameDraft.trim())}
-                        >
-                          Save
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 px-2 text-[10px] text-gray-400 hover:text-gray-200"
-                          disabled={renameTeamMutation.isPending}
-                          onClick={() => {
-                            setIsEditingTeamName(false);
-                            setTeamNameDraft(myTeam?.name || "");
-                          }}
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    ) : (
-                      <>
-                        <h3 className="text-white font-semibold">{viewedTeam.name}</h3>
-                        {canManageViewedTeam && (
-                          <button
-                            type="button"
-                            className="text-gray-400 hover:text-white transition-colors"
-                            aria-label="Edit team name"
-                            title="Edit team name"
-                            onClick={() => setIsEditingTeamName(true)}
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </>
-                    )}
-                    {viewedTeam.userId === league.createdBy && (
-                      <Badge className="text-[10px] px-1.5 py-0 shrink-0 bg-yellow-600 text-white border-0">
-                        C
-                      </Badge>
-                    )}
-                  </div>
+                <div className="flex items-center justify-end mb-3 px-1">
                   <div className="flex items-center gap-2">
                     {!isBestBall && canManageViewedTeam && selectedSwapIndex !== null && (
                       <Button
@@ -2607,7 +2646,7 @@ export default function LeaguePage() {
                     </Select>
                   </div>
                 </div>
-                {!canManageViewedTeam && myTeam && (
+                {!isExternalRosterView && !canManageViewedTeam && myTeam && (
                   <div className="mb-2 px-1 flex items-center justify-between gap-2">
                     <p className="text-[11px] text-blue-300">Viewing {viewedTeam.name}</p>
                     <Button
@@ -3072,9 +3111,7 @@ export default function LeaguePage() {
             teams={teams}
             user={user}
             onSelectTeam={(teamId) => {
-              setViewedTeamId(teamId);
-              setShowSettings(false);
-              setActiveTab("roster");
+              setLocation(`/league/${leagueId}/roster/${teamId}`);
             }}
           />
         </div>
