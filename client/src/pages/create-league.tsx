@@ -22,13 +22,14 @@ const createLeagueSchema = z.object({
   numberOfTeams: z.coerce.number().min(2, "Minimum 2 teams").max(12, "Maximum 12 teams"),
   scoringFormat: z.enum(["Roto", "H2H Points", "H2H Each Category", "H2H Most Categories", "Season Points"]),
   isPublic: z.boolean(),
-  draftDate: z.string().optional(),
+  draftDate: z.string().min(1, "Draft date and time are required"),
 }).refine(
   (data) => {
-    if (!data.draftDate) return true;
+    if (!data.draftDate) return false;
+    if (!data.draftDate.includes("T")) return false;
     return new Date(data.draftDate) > new Date();
   },
-  { message: "Draft date must be in the future", path: ["draftDate"] }
+  { message: "Draft date and time must be in the future", path: ["draftDate"] }
 );
 
 type CreateLeagueForm = z.infer<typeof createLeagueSchema>;
@@ -57,7 +58,7 @@ export default function CreateLeague() {
         ...data,
         createdBy: user?.id,
         maxTeams: data.numberOfTeams,
-        draftDate: data.draftDate || null,
+        draftDate: data.draftDate,
       };
       const response = await apiRequest("POST", "/api/leagues", leagueData);
       return await response.json();
@@ -257,7 +258,7 @@ export default function CreateLeague() {
                 const minDate = new Date().toISOString().split("T")[0];
 
                 const setDate = (d: string) => {
-                  field.onChange(d && timePart ? `${d}T${timePart}` : d ? `${d}T19:00` : "");
+                  field.onChange(d && timePart ? `${d}T${timePart}` : d || "");
                 };
                 const setTime = (t: string) => {
                   if (!datePart) return;
@@ -329,7 +330,7 @@ export default function CreateLeague() {
                       </div>
                     </FormControl>
                     <p className="text-gray-500 text-xs mt-1.5">
-                      The draft will automatically start at this time. Leave blank to start manually.
+                      Select both date and time. The draft will automatically start at this time.
                     </p>
                     <FormMessage />
                   </FormItem>

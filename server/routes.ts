@@ -1291,8 +1291,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/leagues", async (req, res) => {
     try {
       const validatedData = insertLeagueSchema.parse(req.body);
-      if (validatedData.draftDate && new Date(validatedData.draftDate) <= new Date()) {
-        return res.status(400).json({ message: "Draft date must be in the future" });
+      if (!validatedData.draftDate || !String(validatedData.draftDate).includes("T")) {
+        return res.status(400).json({ message: "Draft date and time are required" });
+      }
+      if (new Date(validatedData.draftDate) <= new Date()) {
+        return res.status(400).json({ message: "Draft date and time must be in the future" });
       }
       if (validatedData.type === "Best Ball" && validatedData.scoringFormat && !["Roto", "Season Points"].includes(validatedData.scoringFormat)) {
         return res.status(400).json({ message: "Best Ball leagues only support Roto and Season Points scoring formats" });
