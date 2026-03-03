@@ -71,16 +71,16 @@ export default function Home() {
 
   return (
     <div className="px-4 py-6 space-y-4">
-      <div className="space-y-4">
-        <div className="card-3d rounded-xl px-4 py-4 bg-gradient-to-r from-[#2a3340]/85 via-[#1E2830]/85 to-[#2a3340]/85 border border-white/20">
-          <div className="mb-3 flex items-center justify-between">
+      <div className="space-y-3">
+        <div className="card-3d rounded-xl px-3.5 py-3 bg-gradient-to-r from-[#2a3340]/85 via-[#1E2830]/85 to-[#2a3340]/85 border border-white/20">
+          <div className="mb-2.5 flex items-center justify-between">
             <div className="min-w-0">
               <p className="text-[10px] uppercase tracking-[0.12em] text-gray-400">User Card</p>
               <p className="text-sm font-semibold text-white truncate">
                 {user?.username || "User"}
               </p>
             </div>
-            <div className="h-10 w-10 rounded-full overflow-hidden border border-white/20 bg-white/5 shrink-0 flex items-center justify-center">
+            <div className="h-9 w-9 rounded-full overflow-hidden border border-white/20 bg-white/5 shrink-0 flex items-center justify-center">
               {user?.avatar ? (
                 <img src={user.avatar} alt="Profile" className="h-full w-full object-cover" />
               ) : (
@@ -90,58 +90,58 @@ export default function Home() {
               )}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3 items-end">
+          <div className="grid grid-cols-2 gap-2.5 items-end">
             <div>
               <p className="text-[10px] uppercase tracking-[0.14em] text-gray-300">Current Level</p>
-              <p className="mt-1 text-2xl font-bold text-white tracking-wide leading-tight">{currentTierName}</p>
+              <p className="mt-1 text-xl font-bold text-white tracking-wide leading-tight">{currentTierName}</p>
             </div>
             <div className="text-right">
               <p className="text-[10px] uppercase tracking-[0.12em] text-gray-400">Progression Rank</p>
-              <p className="mt-1 text-2xl font-bold text-blue-300 leading-tight">
+              <p className="mt-1 text-xl font-bold text-blue-300 leading-tight">
                 {currentTierIndexAsc + 1} / {RANK_TIERS_ASC.length}
               </p>
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-4 gap-3 mb-4">
-          <div className="card-3d bg-gray-800/60 rounded-xl py-3 text-center">
+        <div className="grid grid-cols-4 gap-2.5 mb-3">
+          <div className="card-3d bg-gray-800/60 rounded-xl py-2.5 text-center">
             <div className="flex items-center justify-center gap-1 mb-1">
               <Users className="w-4 h-4 text-blue-300" />
             </div>
-            <div className="text-2xl font-bold text-white">{stats?.allTimeLeagues ?? 0}</div>
+            <div className="text-xl font-bold text-white">{stats?.allTimeLeagues ?? 0}</div>
             <div className="text-[10px] text-gray-400/80 font-medium">LEAGUES</div>
           </div>
-          <div className="card-3d bg-yellow-500/10 border border-yellow-500/20 rounded-xl py-3 text-center">
+          <div className="card-3d bg-yellow-500/10 border border-yellow-500/20 rounded-xl py-2.5 text-center">
             <div className="flex items-center justify-center gap-1 mb-1">
               <Award className="w-4 h-4 text-yellow-400" />
             </div>
-            <div className="text-2xl font-bold text-yellow-400">{stats?.gold ?? 0}</div>
+            <div className="text-xl font-bold text-yellow-400">{stats?.gold ?? 0}</div>
             <div className="text-[10px] text-yellow-400/70 font-medium">GOLD</div>
           </div>
-          <div className="card-3d bg-gray-400/10 border border-gray-400/20 rounded-xl py-3 text-center">
+          <div className="card-3d bg-gray-400/10 border border-gray-400/20 rounded-xl py-2.5 text-center">
             <div className="flex items-center justify-center gap-1 mb-1">
               <Medal className="w-4 h-4 text-gray-300" />
             </div>
-            <div className="text-2xl font-bold text-gray-300">{stats?.silver ?? 0}</div>
+            <div className="text-xl font-bold text-gray-300">{stats?.silver ?? 0}</div>
             <div className="text-[10px] text-gray-400/70 font-medium">SILVER</div>
           </div>
-          <div className="card-3d bg-orange-600/10 border border-orange-600/20 rounded-xl py-3 text-center">
+          <div className="card-3d bg-orange-600/10 border border-orange-600/20 rounded-xl py-2.5 text-center">
             <div className="flex items-center justify-center gap-1 mb-1">
               <Medal className="w-4 h-4 text-orange-400" />
             </div>
-            <div className="text-2xl font-bold text-orange-400">{stats?.bronze ?? 0}</div>
+            <div className="text-xl font-bold text-orange-400">{stats?.bronze ?? 0}</div>
             <div className="text-[10px] text-orange-500/70 font-medium">BRONZE</div>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div className="card-3d bg-gray-800/60 rounded-xl py-3 text-center">
-            <div className="text-xl font-bold text-white">{(stats?.winRate ?? 0).toFixed(1)}%</div>
+        <div className="grid grid-cols-2 gap-2.5">
+          <div className="card-3d bg-gray-800/60 rounded-xl py-2.5 text-center">
+            <div className="text-lg font-bold text-white">{(stats?.winRate ?? 0).toFixed(1)}%</div>
             <div className="text-[10px] text-gray-400 font-medium">WIN RATE</div>
           </div>
-          <div className="card-3d bg-gray-800/60 rounded-xl py-3 text-center">
-            <div className="text-xl font-bold text-white">{(stats?.trophyRate ?? 0).toFixed(1)}%</div>
+          <div className="card-3d bg-gray-800/60 rounded-xl py-2.5 text-center">
+            <div className="text-lg font-bold text-white">{(stats?.trophyRate ?? 0).toFixed(1)}%</div>
             <div className="text-[10px] text-gray-400 font-medium">MEDAL RATE</div>
           </div>
         </div>

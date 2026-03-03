@@ -1,4 +1,5 @@
 import { Switch, Route, Redirect, useLocation } from "wouter";
+import { useEffect } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -64,6 +65,10 @@ function AppLayout() {
   const [location] = useLocation();
   const isDraftRoom = /^\/league\/\d+\/draft$/.test(location);
   const isLeaguePage = /^\/league\/\d+$/.test(location);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }, [location]);
 
   if (isDraftRoom) {
     return (
