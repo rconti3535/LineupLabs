@@ -277,7 +277,7 @@ export default function Teams() {
                   href={item.link}
                   target="_blank"
                   rel="noreferrer"
-                  className="block rounded-xl border border-white/20 bg-gradient-to-br from-[#4b5563]/50 to-[#6b7280]/35 px-3 py-2 text-left text-white backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_6px_16px_rgba(0,0,0,0.25)] transition-all duration-200 hover:-translate-y-0.5 hover:from-[#6b7280]/55 hover:to-[#9ca3af]/35 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_9px_20px_rgba(0,0,0,0.32)] active:scale-[0.97]"
+                  className="block rounded-xl border border-white/30 bg-gradient-to-br from-[#4b5563]/62 via-[#6b7280]/45 to-[#9ca3af]/28 px-3 py-2 text-left text-white backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.24),inset_0_-2px_6px_rgba(0,0,0,0.28),0_10px_24px_rgba(0,0,0,0.35),0_2px_6px_rgba(0,0,0,0.28)] transition-all duration-200 hover:-translate-y-0.5 hover:from-[#6b7280]/68 hover:via-[#9ca3af]/44 hover:to-[#cbd5e1]/30 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.3),inset_0_-2px_7px_rgba(0,0,0,0.32),0_14px_30px_rgba(0,0,0,0.42),0_3px_8px_rgba(0,0,0,0.3)] active:scale-[0.97]"
                 >
                   <div className="flex items-start gap-2.5">
                     <div className="w-7 h-7 shrink-0 mt-0.5 flex items-center justify-center">
@@ -331,7 +331,7 @@ export default function Teams() {
                   href={item.link}
                   target="_blank"
                   rel="noreferrer"
-                  className="block rounded-xl border border-white/20 bg-gradient-to-br from-[#4b5563]/50 to-[#6b7280]/35 px-3 py-2 text-left text-white backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_6px_16px_rgba(0,0,0,0.25)] transition-all duration-200 hover:-translate-y-0.5 hover:from-[#6b7280]/55 hover:to-[#9ca3af]/35 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_9px_20px_rgba(0,0,0,0.32)] active:scale-[0.97]"
+                  className="block rounded-xl border border-white/30 bg-gradient-to-br from-[#4b5563]/62 via-[#6b7280]/45 to-[#9ca3af]/28 px-3 py-2 text-left text-white backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.24),inset_0_-2px_6px_rgba(0,0,0,0.28),0_10px_24px_rgba(0,0,0,0.35),0_2px_6px_rgba(0,0,0,0.28)] transition-all duration-200 hover:-translate-y-0.5 hover:from-[#6b7280]/68 hover:via-[#9ca3af]/44 hover:to-[#cbd5e1]/30 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.3),inset_0_-2px_7px_rgba(0,0,0,0.32),0_14px_30px_rgba(0,0,0,0.42),0_3px_8px_rgba(0,0,0,0.3)] active:scale-[0.97]"
                 >
                   <div className="flex items-start gap-2.5">
                     <div className="w-7 h-7 shrink-0 mt-0.5 flex items-center justify-center">

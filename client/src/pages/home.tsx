@@ -73,13 +73,7 @@ export default function Home() {
     <div className="px-4 py-6 space-y-4">
       <div className="space-y-3">
         <div className="card-3d rounded-xl px-3.5 py-3 bg-gradient-to-r from-[#2a3340]/85 via-[#1E2830]/85 to-[#2a3340]/85 border border-white/20">
-          <div className="mb-2.5 flex items-center justify-between">
-            <div className="min-w-0">
-              <p className="text-[10px] uppercase tracking-[0.12em] text-gray-400">User Card</p>
-              <p className="text-sm font-semibold text-white truncate">
-                {user?.username || "User"}
-              </p>
-            </div>
+          <div className="mb-2.5 flex items-center gap-3">
             <div className="h-9 w-9 rounded-full overflow-hidden border border-white/20 bg-white/5 shrink-0 flex items-center justify-center">
               {user?.avatar ? (
                 <img src={user.avatar} alt="Profile" className="h-full w-full object-cover" />
@@ -89,17 +83,15 @@ export default function Home() {
                 </span>
               )}
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-2.5 items-end">
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.14em] text-gray-300">Current Level</p>
-              <p className="mt-1 text-xl font-bold text-white tracking-wide leading-tight">{currentTierName}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-[10px] uppercase tracking-[0.12em] text-gray-400">Progression Rank</p>
-              <p className="mt-1 text-xl font-bold text-blue-300 leading-tight">
-                {currentTierIndexAsc + 1} / {RANK_TIERS_ASC.length}
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] uppercase tracking-[0.12em] text-gray-400">User Card</p>
+              <p className="text-sm font-semibold text-white truncate">
+                {user?.username || "User"}
               </p>
+            </div>
+            <div className="text-right shrink-0">
+              <p className="text-[10px] uppercase tracking-[0.14em] text-gray-300">Current Level</p>
+              <p className="mt-0.5 text-base font-bold text-white tracking-wide leading-tight">{currentTierName}</p>
             </div>
           </div>
         </div>
