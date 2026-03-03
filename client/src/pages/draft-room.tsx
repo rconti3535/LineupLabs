@@ -156,6 +156,7 @@ export default function DraftRoom() {
   const [searchQuery, setSearchQuery] = useState("");
   const [positionFilter, setPositionFilter] = useState("ALL");
   const [playersPanelView, setPlayersPanelView] = useState<PlayersPanelView>("2025-stats");
+  const [playersSortStat, setPlayersSortStat] = useState<string | null>(null);
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [draftQueue, setDraftQueue] = useState<number[]>([]);
 
@@ -651,6 +652,20 @@ export default function DraftRoom() {
     return val ?? "-";
   };
 
+  const getPlayerStatNumber = (player: Player, cat: string, pitcher: boolean, view: PlayersPanelView) => {
+    const map = pitcher ? PITCHING_STAT_KEYS : HITTING_STAT_KEYS;
+    const entry = map[cat];
+    if (!entry) return Number.NEGATIVE_INFINITY;
+    const key = view === "2025-stats" ? entry.stat : entry.proj;
+    const raw = player[key];
+    if (typeof raw === "number") return raw;
+    if (typeof raw === "string") {
+      const parsed = parseFloat(raw);
+      return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed;
+    }
+    return Number.NEGATIVE_INFINITY;
+  };
+
   const calcPlayerPoints = useCallback((player: Player, view: PlayersPanelView) => {
     const pitcher = isPitcher(player.position);
     const cats = pitcher ? PITCHING_POINT_STATS : HITTING_POINT_STATS;
@@ -668,6 +683,36 @@ export default function DraftRoom() {
     }
     return total;
   }, [pointValues]);
+
+  const playersStatColumns = useMemo(
+    () => [
+      ...hittingCats.map((cat) => ({ key: `h:${cat}`, cat, pitcher: false as const })),
+      ...pitchingCats.map((cat) => ({ key: `p:${cat}`, cat, pitcher: true as const })),
+    ],
+    [hittingCats, pitchingCats],
+  );
+
+  useEffect(() => {
+    if (!playersSortStat) return;
+    if (!playersStatColumns.some((col) => col.key === playersSortStat)) {
+      setPlayersSortStat(null);
+    }
+  }, [playersSortStat, playersStatColumns]);
+
+  const displayedPlayers = useMemo(() => {
+    if (!playersSortStat) return availablePlayers;
+    const col = playersStatColumns.find((c) => c.key === playersSortStat);
+    if (!col) return availablePlayers;
+    return [...availablePlayers].sort((a, b) => {
+      const bv = getPlayerStatNumber(b, col.cat, col.pitcher, playersPanelView);
+      const av = getPlayerStatNumber(a, col.cat, col.pitcher, playersPanelView);
+      if (bv !== av) return bv - av;
+      const adpA = getAdp(a) ?? Number.POSITIVE_INFINITY;
+      const adpB = getAdp(b) ?? Number.POSITIVE_INFINITY;
+      if (adpA !== adpB) return adpA - adpB;
+      return a.name.localeCompare(b.name);
+    });
+  }, [availablePlayers, playersSortStat, playersStatColumns, playersPanelView]);
 
   return (
     <div className="flex flex-col h-screen overflow-hidden relative">
@@ -1055,6 +1100,28 @@ export default function DraftRoom() {
             onScroll={handlePlayersScroll}
             className="flex-1 overflow-auto hide-scrollbar px-1 pb-16"
           >
+            {displayedPlayers.length > 0 && (
+              <div className="sticky top-0 z-10 bg-gray-900/95 border-b border-gray-800/80 min-w-max flex items-center gap-1.5 px-1 py-1">
+                <div className="shrink-0 w-7 text-center text-[9px] text-gray-500 uppercase">ADP</div>
+                <div className="shrink-0 w-[120px] text-[9px] text-gray-500 uppercase">Player</div>
+                {isPointsFormat && (
+                  <div className="shrink-0 text-center w-10 text-[9px] text-yellow-500 uppercase">PTS</div>
+                )}
+                {playersStatColumns.map((col) => (
+                  <button
+                    key={col.key}
+                    onClick={() => setPlayersSortStat(col.key)}
+                    className={`shrink-0 w-9 text-center text-[9px] uppercase font-semibold flex items-center justify-center gap-0.5 ${
+                      playersSortStat === col.key ? "text-blue-400" : "text-gray-500 hover:text-gray-300"
+                    }`}
+                  >
+                    <span>{col.cat}</span>
+                    {playersSortStat === col.key && <ChevronDown className="w-2.5 h-2.5" />}
+                  </button>
+                ))}
+                <div className="shrink-0 w-16" />
+              </div>
+            )}
             {playersLoading ? (
               Array.from({ length: 8 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-2 px-1 py-1.5 border-b border-gray-800/60">
@@ -1065,11 +1132,11 @@ export default function DraftRoom() {
                   </div>
                 </div>
               ))
-            ) : availablePlayers.length > 0 ? (
-              availablePlayers.map((player) => (
+            ) : displayedPlayers.length > 0 ? (
+              displayedPlayers.map((player) => (
                 <div
                   key={player.id}
-                  className="flex items-center gap-1.5 px-1 py-1.5 border-b border-gray-800/60"
+                  className="min-w-max flex items-center gap-1.5 px-1 py-1.5 border-b border-gray-800/60"
                 >
                   <div className="shrink-0 w-7 text-center">
                     <p className="text-[9px] text-gray-500">ADP</p>
@@ -1089,18 +1156,13 @@ export default function DraftRoom() {
                       </p>
                     </div>
                   )}
-                  <div className="flex-1 min-w-0 overflow-x-auto hide-scrollbar">
-                    <div className="flex gap-1.5 w-max">
-                      {(isPitcher(player.position) ? pitchingCats : hittingCats).map((cat) => (
-                        <div key={cat} className="text-center min-w-[28px]">
-                          <p className="text-[9px] text-gray-500">{cat}</p>
-                          <p className="text-xs font-medium text-gray-300">
-                            {getPlayerStat(player, cat, isPitcher(player.position), playersPanelView)}
-                          </p>
-                        </div>
-                      ))}
+                  {playersStatColumns.map((col) => (
+                    <div key={col.key} className="shrink-0 w-9 text-center">
+                      <p className="text-xs font-medium text-gray-300">
+                        {getPlayerStat(player, col.cat, col.pitcher, playersPanelView)}
+                      </p>
                     </div>
-                  </div>
+                  ))}
                   {commissionerAssignMode ? (
                     <Button
                       onClick={() => commissionerAssignMutation.mutate(player.id)}
@@ -1159,7 +1221,7 @@ export default function DraftRoom() {
                 <div className="text-gray-500 text-xs">Loading more players...</div>
               </div>
             )}
-            {!playersLoading && availablePlayers.length > 0 && hasNextPage && !isFetchingNextPage && (
+            {!playersLoading && displayedPlayers.length > 0 && hasNextPage && !isFetchingNextPage && (
               <div className="flex justify-center py-2">
                 <p className="text-gray-600 text-[10px]">Scroll for more</p>
               </div>
