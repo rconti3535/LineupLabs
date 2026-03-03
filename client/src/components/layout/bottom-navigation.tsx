@@ -7,6 +7,12 @@ export function BottomNavigation() {
   const [location] = useLocation();
   const { isAuthenticated } = useAuth();
 
+  const triggerNavHaptic = () => {
+    if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+      navigator.vibrate(18);
+    }
+  };
+
   if (!isAuthenticated || location === "/login" || location === "/signup" || location.match(/^\/league\/\d+\/draft$/)) {
     return null;
   }
@@ -43,6 +49,9 @@ export function BottomNavigation() {
             <div key={path} className="flex items-center flex-1 relative z-10">
               <Link href={path} className="flex-1">
                 <button
+                  onClick={() => {
+                    if (!isActive) triggerNavHaptic();
+                  }}
                   className={`flex flex-col items-center py-2.5 px-3 rounded-lg transition-all duration-200 w-full ${
                     isActive ? "" : "hover:bg-slate-800 hover:bg-opacity-50"
                   }`}

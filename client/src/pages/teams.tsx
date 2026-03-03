@@ -187,7 +187,7 @@ export default function Teams() {
   return (
     <div className="px-2 py-6">
       <div className="mb-5 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-white">My Leagues</h1>
+        <h1 className="text-xl font-semibold text-white">2026 Fantasy Baseball</h1>
         <div className="h-9 w-9 rounded-full overflow-hidden border border-white/15 bg-white/5 flex items-center justify-center">
           {user?.avatar ? (
             <img src={user.avatar} alt="Profile" className="h-full w-full object-cover" />
