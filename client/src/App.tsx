@@ -81,7 +81,12 @@ function AppLayout() {
   return (
     <>
       <div id="app-frame" className="min-h-screen flex flex-col max-w-md mx-auto sleeper-bg relative overflow-hidden hide-scrollbar">
-        <main className={`flex-1 hide-scrollbar ${isLeaguePage ? "pb-0" : "pb-20"}`}>
+        <div className="galactic-bg" aria-hidden="true">
+          <div className="galactic-layer galactic-layer-stars" />
+          <div className="galactic-layer galactic-layer-nebula" />
+          <div className="galactic-layer galactic-layer-wave" />
+        </div>
+        <main className={`relative z-10 flex-1 hide-scrollbar ${isLeaguePage ? "pb-0" : "pb-20"}`}>
           <Router />
         </main>
         {!isLeaguePage && <BottomNavigation />}

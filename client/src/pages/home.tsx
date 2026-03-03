@@ -90,8 +90,8 @@ export default function Home() {
               </p>
             </div>
             <div className="text-right shrink-0">
-              <p className="text-[10px] uppercase tracking-[0.14em] text-gray-300">Current Level</p>
-              <p className="mt-0.5 text-base font-bold text-white tracking-wide leading-tight">{currentTierName}</p>
+              <p className="text-[10px] uppercase tracking-[0.12em] text-gray-400">Current Level</p>
+              <p className="mt-0.5 text-sm font-semibold text-white tracking-wide leading-tight">{currentTierName}</p>
             </div>
           </div>
         </div>
