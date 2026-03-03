@@ -38,8 +38,26 @@ export default function Teams() {
     refetchOnWindowFocus: true,
   });
 
-  const leagueMap = new Map<number, { name: string; isPublic: boolean; createdBy: number | null; leagueImage: string | null; draftStatus: string | null }>();
-  leagues?.forEach((l) => leagueMap.set(l.id, { name: l.name, isPublic: l.isPublic ?? false, createdBy: l.createdBy, leagueImage: l.leagueImage, draftStatus: l.draftStatus }));
+  const leagueMap = new Map<number, {
+    name: string;
+    isPublic: boolean;
+    createdBy: number | null;
+    leagueImage: string | null;
+    draftStatus: string | null;
+    type: string | null;
+    maxTeams: number | null;
+    scoringFormat: string | null;
+  }>();
+  leagues?.forEach((l) => leagueMap.set(l.id, {
+    name: l.name,
+    isPublic: l.isPublic ?? false,
+    createdBy: l.createdBy,
+    leagueImage: l.leagueImage,
+    draftStatus: l.draftStatus,
+    type: l.type,
+    maxTeams: l.maxTeams,
+    scoringFormat: l.scoringFormat,
+  }));
 
   const liveLeagueIds = (leagues || [])
     .filter(l => l.draftStatus === "active")
@@ -168,6 +186,9 @@ export default function Teams() {
               isPublic={leagueMap.get(team.leagueId!)?.isPublic}
               isCommissioner={leagueMap.get(team.leagueId!)?.createdBy === user?.id}
               leagueImage={leagueMap.get(team.leagueId!)?.leagueImage}
+              leagueType={leagueMap.get(team.leagueId!)?.type}
+              maxTeams={leagueMap.get(team.leagueId!)?.maxTeams}
+              scoringFormat={leagueMap.get(team.leagueId!)?.scoringFormat}
               draftLive={leagueMap.get(team.leagueId!)?.draftStatus === "active"}
               userTurn={!!team.leagueId && !!liveTurnMap && liveTurnMap[team.leagueId] === team.id}
             />

@@ -10,12 +10,29 @@ interface TeamCardProps {
   isPublic?: boolean;
   isCommissioner?: boolean;
   leagueImage?: string | null;
+  leagueType?: string | null;
+  maxTeams?: number | null;
+  scoringFormat?: string | null;
   draftLive?: boolean;
   userTurn?: boolean;
 }
 
-export function TeamCard({ team, leagueName, isCommissioner, leagueImage, draftLive, userTurn }: TeamCardProps) {
+export function TeamCard({
+  team,
+  leagueName,
+  isCommissioner,
+  leagueImage,
+  leagueType,
+  maxTeams,
+  scoringFormat,
+  draftLive,
+  userTurn,
+}: TeamCardProps) {
   const [, setLocation] = useLocation();
+  const typeLabel = leagueType === "Best Ball" ? "Bestball" : (leagueType || "Redraft");
+  const teamsLabel = `${maxTeams || 12}-Team`;
+  const scoringLabel = scoringFormat || "Roto";
+  const leagueFormatLabel = `${typeLabel} ${teamsLabel} ${scoringLabel}`;
 
   return (
     <Card 
@@ -38,7 +55,7 @@ export function TeamCard({ team, leagueName, isCommissioner, leagueImage, draftL
         <div className="min-w-0 flex-1">
           <h3 className="text-sm font-semibold text-white truncate">{leagueName || `League #${team.leagueId}`}</h3>
           <div className="flex items-center gap-1.5">
-            <p className="text-gray-400 text-xs truncate">{team.name}</p>
+            <p className="text-gray-400 text-xs truncate">{leagueFormatLabel}</p>
             {leagueName && isCommissioner && (
               <Badge className="text-[10px] px-1.5 py-0 shrink-0 bg-yellow-600 text-white">
                 Commish

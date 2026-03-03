@@ -159,6 +159,7 @@ export default function DraftRoom() {
   const [playersSortStat, setPlayersSortStat] = useState<string | null>(null);
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [draftQueue, setDraftQueue] = useState<number[]>([]);
+  const playersStatsSyncingRef = useRef(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(searchQuery), 300);
@@ -732,6 +733,25 @@ export default function DraftRoom() {
     });
   }, [availablePlayers, playersSortStat, playersStatColumns, playersPanelView]);
 
+  const syncPlayersStatsScroll = useCallback((scrollLeft: number, source: HTMLElement | null) => {
+    if (playersStatsSyncingRef.current) return;
+    playersStatsSyncingRef.current = true;
+    const containers = document.querySelectorAll<HTMLElement>('[data-players-stats-scroll="true"]');
+    containers.forEach((el) => {
+      if (el !== source) {
+        el.scrollLeft = scrollLeft;
+      }
+    });
+    requestAnimationFrame(() => {
+      playersStatsSyncingRef.current = false;
+    });
+  }, []);
+
+  const handlePlayersStatsScroll = useCallback((e: { currentTarget: HTMLDivElement }) => {
+    const el = e.currentTarget;
+    syncPlayersStatsScroll(el.scrollLeft, el);
+  }, [syncPlayersStatsScroll]);
+
   return (
     <div className="flex flex-col h-screen overflow-hidden relative">
       <div className="px-3 py-2 shrink-0 border-b border-gray-800">
@@ -740,11 +760,11 @@ export default function DraftRoom() {
             onClick={() => setLocation(`/league/${leagueId}`)}
             variant="ghost"
             size="sm"
-            className="text-gray-400 hover:text-white -ml-1 h-8 px-2"
+            className="text-gray-400 hover:text-white -ml-1 h-9 px-2.5"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-5 h-5" />
           </Button>
-          <span className="text-white text-sm font-semibold truncate flex-1">{league.name}</span>
+          <span className="text-white text-base font-semibold truncate flex-1">{league.name}</span>
         </div>
 
         <div className="mt-1.5">
@@ -1130,7 +1150,11 @@ export default function DraftRoom() {
                   {playersSortStat === "adp" && <ChevronDown className="w-2.5 h-2.5" />}
                 </button>
                 <div className="shrink-0 w-[120px] text-[9px] text-gray-500 uppercase">Player</div>
-                <div className="flex-1 min-w-0 overflow-x-auto hide-scrollbar">
+                <div
+                  className="flex-1 min-w-0 overflow-x-auto hide-scrollbar"
+                  data-players-stats-scroll="true"
+                  onScroll={handlePlayersStatsScroll}
+                >
                   <div className="flex items-center gap-1.5 w-max pr-1">
                     {isPointsFormat && (
                       <div className="shrink-0 text-center w-10 text-[10px] text-yellow-500 uppercase">PTS</div>
@@ -1166,7 +1190,7 @@ export default function DraftRoom() {
               displayedPlayers.map((player) => (
                 <div
                   key={player.id}
-                  className="flex items-center gap-1.5 px-1 py-1.5 border-b border-gray-800/60"
+                  className="flex items-center gap-1.5 px-1 py-2.5 border-b border-gray-800/60"
                 >
                   <div className="shrink-0 w-7 text-center">
                     <p className="text-xs font-semibold text-gray-300">
@@ -1177,7 +1201,11 @@ export default function DraftRoom() {
                     <p className="text-white text-[13px] font-medium leading-tight truncate">{player.name}</p>
                     <p className="text-[10px] truncate"><span className={`font-medium ${positionTextColor(player.position)}`}>{player.position}</span> <span className="text-gray-500">&middot; {player.teamAbbreviation || player.team}</span></p>
                   </div>
-                  <div className="flex-1 min-w-0 overflow-x-auto hide-scrollbar">
+                  <div
+                    className="flex-1 min-w-0 overflow-x-auto hide-scrollbar"
+                    data-players-stats-scroll="true"
+                    onScroll={handlePlayersStatsScroll}
+                  >
                     <div className="flex items-center gap-1.5 w-max pr-1">
                       {isPointsFormat && (
                         <div className="shrink-0 text-center w-10">
@@ -1362,7 +1390,7 @@ export default function DraftRoom() {
                     <p className="text-white text-[15px] font-medium leading-tight truncate">{player.name}</p>
                     <p className="text-[11px]"><span className={`font-medium ${positionTextColor(player.position)}`}>{player.position}</span> <span className="text-gray-500">&middot; {player.teamAbbreviation || player.team}</span></p>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex items-center gap-2.5 shrink-0">
                     <button
                       onClick={() => {
                         if (idx === 0) return;
@@ -1422,7 +1450,7 @@ export default function DraftRoom() {
                   ) : (
                     <button
                       onClick={() => setDraftQueue(prev => prev.filter(id => id !== player.id))}
-                      className="p-1 text-gray-500 hover:text-red-400 shrink-0"
+                      className="p-1 ml-2 text-gray-500 hover:text-red-400 shrink-0"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
