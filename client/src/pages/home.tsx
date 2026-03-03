@@ -72,7 +72,7 @@ export default function Home() {
   return (
     <div className="px-4 py-6 space-y-4">
       <div className="space-y-3">
-        <div className="card-3d rounded-xl px-3.5 py-3 bg-gradient-to-r from-[#2a3340]/85 via-[#1E2830]/85 to-[#2a3340]/85 border border-white/20">
+        <div className="card-3d rounded-xl px-3.5 pt-3 pb-2 bg-gradient-to-r from-[#2a3340]/85 via-[#1E2830]/85 to-[#2a3340]/85 border border-white/20">
           <div className="mb-2.5 flex items-center gap-3">
             <div className="h-9 w-9 rounded-full overflow-hidden border border-white/20 bg-white/5 shrink-0 flex items-center justify-center">
               {user?.avatar ? (

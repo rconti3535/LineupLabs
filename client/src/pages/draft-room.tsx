@@ -145,13 +145,17 @@ export default function DraftRoom() {
   const [activeTab, setActiveTab] = useState<DraftTab>("board");
   const [commissionerAssignMode, setCommissionerAssignMode] = useState(false);
   const [selectedCellOverall, setSelectedCellOverall] = useState<number | null>(null);
+  const [pendingAssignCellOverall, setPendingAssignCellOverall] = useState<number | null>(null);
+  const [showAssignPrompt, setShowAssignPrompt] = useState(false);
   const [showTeamWarning, setShowTeamWarning] = useState(false);
   const [playerPanelDragY, setPlayerPanelDragY] = useState(0);
   const [isPlayerPanelDragging, setIsPlayerPanelDragging] = useState(false);
   const playerDragRef = useRef<{ startY: number; currentY: number } | null>(null);
   const [queuePanelDragY, setQueuePanelDragY] = useState(0);
+  const [isQueuePanelDragging, setIsQueuePanelDragging] = useState(false);
   const queueDragRef = useRef<{ startY: number; currentY: number } | null>(null);
   const [teamPanelDragY, setTeamPanelDragY] = useState(0);
+  const [isTeamPanelDragging, setIsTeamPanelDragging] = useState(false);
   const teamDragRef = useRef<{ startY: number; currentY: number } | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -161,6 +165,13 @@ export default function DraftRoom() {
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [draftQueue, setDraftQueue] = useState<number[]>([]);
   const [playersStatsScrollLeft, setPlayersStatsScrollLeft] = useState(0);
+  const statsHeaderScrollRef = useRef<HTMLDivElement | null>(null);
+  const statsDragRef = useRef<{
+    startX: number;
+    startY: number;
+    startScrollLeft: number;
+    isHorizontalDrag: boolean;
+  } | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(searchQuery), 300);
@@ -474,6 +485,8 @@ export default function DraftRoom() {
     .filter((p): p is Player => !!p && !draftedPlayerIdsSet.has(p.id));
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const queueScrollContainerRef = useRef<HTMLDivElement>(null);
+  const teamScrollContainerRef = useRef<HTMLDivElement>(null);
   const handlePlayersScroll = useCallback(() => {
     const el = scrollContainerRef.current;
     if (!el || !hasNextPage || isFetchingNextPage) return;
@@ -738,8 +751,83 @@ export default function DraftRoom() {
     setPlayersStatsScrollLeft(e.currentTarget.scrollLeft);
   }, []);
 
+  const handleStatsMouseMove = useCallback((e: MouseEvent) => {
+    const drag = statsDragRef.current;
+    const scroller = statsHeaderScrollRef.current;
+    if (!drag || !scroller) return;
+    const dx = e.clientX - drag.startX;
+    const maxScroll = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+    const next = Math.max(0, Math.min(maxScroll, drag.startScrollLeft - dx));
+    scroller.scrollLeft = next;
+    setPlayersStatsScrollLeft(next);
+  }, []);
+
+  const stopStatsMouseDrag = useCallback(() => {
+    statsDragRef.current = null;
+    window.removeEventListener("mousemove", handleStatsMouseMove);
+    window.removeEventListener("mouseup", stopStatsMouseDrag);
+  }, [handleStatsMouseMove]);
+
+  const startStatsMouseDrag = useCallback((e: React.MouseEvent) => {
+    const scroller = statsHeaderScrollRef.current;
+    if (!scroller) return;
+    e.preventDefault();
+    statsDragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      startScrollLeft: scroller.scrollLeft,
+      isHorizontalDrag: true,
+    };
+    window.addEventListener("mousemove", handleStatsMouseMove);
+    window.addEventListener("mouseup", stopStatsMouseDrag);
+  }, [handleStatsMouseMove, stopStatsMouseDrag]);
+
+  const startStatsTouchDrag = useCallback((e: React.TouchEvent) => {
+    const scroller = statsHeaderScrollRef.current;
+    if (!scroller) return;
+    const t = e.touches[0];
+    statsDragRef.current = {
+      startX: t.clientX,
+      startY: t.clientY,
+      startScrollLeft: scroller.scrollLeft,
+      isHorizontalDrag: false,
+    };
+  }, []);
+
+  const handleStatsTouchMove = useCallback((e: React.TouchEvent) => {
+    const drag = statsDragRef.current;
+    const scroller = statsHeaderScrollRef.current;
+    if (!drag || !scroller) return;
+    const t = e.touches[0];
+    const dx = t.clientX - drag.startX;
+    const dy = t.clientY - drag.startY;
+    if (!drag.isHorizontalDrag) {
+      if (Math.abs(dx) > Math.abs(dy) + 2) {
+        drag.isHorizontalDrag = true;
+      } else {
+        return;
+      }
+    }
+    e.preventDefault();
+    const maxScroll = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+    const next = Math.max(0, Math.min(maxScroll, drag.startScrollLeft - dx));
+    scroller.scrollLeft = next;
+    setPlayersStatsScrollLeft(next);
+  }, []);
+
+  const stopStatsTouchDrag = useCallback(() => {
+    statsDragRef.current = null;
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      window.removeEventListener("mousemove", handleStatsMouseMove);
+      window.removeEventListener("mouseup", stopStatsMouseDrag);
+    };
+  }, [handleStatsMouseMove, stopStatsMouseDrag]);
+
   return (
-    <div className="flex flex-col h-screen overflow-hidden relative">
+    <div className="flex flex-col h-screen overflow-hidden relative overscroll-none">
       <div className="px-3 py-2 shrink-0 border-b border-gray-800">
         <div className="flex items-center gap-2">
           <Button
@@ -924,7 +1012,7 @@ export default function DraftRoom() {
                   <div
                     key={cell.overall}
                     style={{ width: CELL_W, height: CELL_H }}
-                    className={`rounded-lg border flex flex-col items-center justify-center shrink-0 transition-all relative group ${
+                    className={`rounded-lg border flex flex-col items-center justify-center shrink-0 transition-all relative ${
                       isSelected
                         ? "border-yellow-400 bg-yellow-900/40 ring-1 ring-yellow-400/50 shadow-lg shadow-yellow-400/20"
                         : isCurrentPick
@@ -941,8 +1029,8 @@ export default function DraftRoom() {
                           setSelectedCellOverall(null);
                           setCommissionerAssignMode(false);
                         } else {
-                          setSelectedCellOverall(cell.overall);
-                          setCommissionerAssignMode(true);
+                          setPendingAssignCellOverall(cell.overall);
+                          setShowAssignPrompt(true);
                         }
                       }
                     }}
@@ -964,12 +1052,6 @@ export default function DraftRoom() {
                       </>
                     ) : (
                       <span className="text-gray-600 text-[10px] font-medium">{cell.round}.{String(cell.pick).padStart(2, "0")}</span>
-                    )}
-                    {canCommissionerAssign && !isSelected && (
-                      <div className="absolute inset-0 rounded-lg bg-yellow-900/70 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <UserPlus className="w-3 h-3 text-yellow-400 mb-0.5" />
-                        <span className="text-yellow-400 text-[8px] font-bold">ASSIGN</span>
-                      </div>
                     )}
                     {isSelected && (
                       <div className="absolute inset-0 rounded-lg bg-yellow-900/70 flex flex-col items-center justify-center">
@@ -1023,6 +1105,11 @@ export default function DraftRoom() {
                 setCommissionerAssignMode(false);
                 setSelectedCellOverall(null);
               }
+              setPlayerPanelDragY(0);
+            }}
+            onTouchCancel={() => {
+              playerDragRef.current = null;
+              setIsPlayerPanelDragging(false);
               setPlayerPanelDragY(0);
             }}
             onMouseDown={(e) => {
@@ -1147,8 +1234,14 @@ export default function DraftRoom() {
                 </button>
                 <div className="shrink-0 w-[120px] text-[9px] text-gray-500 uppercase">Player</div>
                 <div
+                  ref={statsHeaderScrollRef}
                   className="flex-1 min-w-0 overflow-x-auto hide-scrollbar"
                   onScroll={handlePlayersStatsHeaderScroll}
+                  onMouseDown={startStatsMouseDrag}
+                  onTouchStart={startStatsTouchDrag}
+                  onTouchMove={handleStatsTouchMove}
+                  onTouchEnd={stopStatsTouchDrag}
+                  onTouchCancel={stopStatsTouchDrag}
                 >
                   <div className="flex items-center gap-1.5 w-max pr-1">
                     {isPointsFormat && (
@@ -1197,7 +1290,12 @@ export default function DraftRoom() {
                     <p className="text-[10px] truncate"><span className={`font-medium ${positionTextColor(player.position)}`}>{player.position}</span> <span className="text-gray-500">&middot; {player.teamAbbreviation || player.team}</span></p>
                   </div>
                   <div
-                    className="flex-1 min-w-0 overflow-hidden"
+                    className="flex-1 min-w-0 overflow-hidden select-none cursor-grab active:cursor-grabbing"
+                    onMouseDown={startStatsMouseDrag}
+                    onTouchStart={startStatsTouchDrag}
+                    onTouchMove={handleStatsTouchMove}
+                    onTouchEnd={stopStatsTouchDrag}
+                    onTouchCancel={stopStatsTouchDrag}
                   >
                     <div
                       className="flex items-center gap-1.5 w-max pr-1 will-change-transform"
@@ -1289,7 +1387,9 @@ export default function DraftRoom() {
 
       {activeTab === "queue" && (
         <div
-          className="absolute bottom-10 left-0 right-0 bg-gray-900 border-t border-gray-700 rounded-t-2xl flex flex-col z-10 transition-transform duration-200 ease-out"
+          className={`absolute bottom-10 left-0 right-0 bg-gray-900 border-t border-gray-700 rounded-t-2xl flex flex-col z-10 will-change-transform ${
+            isQueuePanelDragging ? "" : "transition-transform duration-200 ease-out"
+          }`}
           style={{
             height: "75vh",
             transform: `translateY(${queuePanelDragY}px)`,
@@ -1301,6 +1401,7 @@ export default function DraftRoom() {
             onTouchStart={(e) => {
               const touch = e.touches[0];
               queueDragRef.current = { startY: touch.clientY, currentY: touch.clientY };
+              setIsQueuePanelDragging(true);
               setQueuePanelDragY(0);
             }}
             onTouchMove={(e) => {
@@ -1308,30 +1409,46 @@ export default function DraftRoom() {
               const touch = e.touches[0];
               queueDragRef.current.currentY = touch.clientY;
               const dy = touch.clientY - queueDragRef.current.startY;
-              if (dy > 0) setQueuePanelDragY(dy);
+              const isQueueListAtTop = (queueScrollContainerRef.current?.scrollTop ?? 0) <= 0;
+              if (dy > 2 && isQueueListAtTop) {
+                e.preventDefault();
+                setQueuePanelDragY(dy);
+              } else {
+                setQueuePanelDragY(0);
+              }
             }}
             onTouchEnd={() => {
               if (!queueDragRef.current) return;
               const dy = queueDragRef.current.currentY - queueDragRef.current.startY;
               queueDragRef.current = null;
+              setIsQueuePanelDragging(false);
               if (dy > 80) {
                 setActiveTab("board");
               }
               setQueuePanelDragY(0);
             }}
+            onTouchCancel={() => {
+              queueDragRef.current = null;
+              setIsQueuePanelDragging(false);
+              setQueuePanelDragY(0);
+            }}
             onMouseDown={(e) => {
               queueDragRef.current = { startY: e.clientY, currentY: e.clientY };
+              setIsQueuePanelDragging(true);
               setQueuePanelDragY(0);
               const onMove = (ev: MouseEvent) => {
                 if (!queueDragRef.current) return;
                 queueDragRef.current.currentY = ev.clientY;
                 const dy = ev.clientY - queueDragRef.current.startY;
-                if (dy > 0) setQueuePanelDragY(dy);
+                const isQueueListAtTop = (queueScrollContainerRef.current?.scrollTop ?? 0) <= 0;
+                if (dy > 2 && isQueueListAtTop) setQueuePanelDragY(dy);
+                else setQueuePanelDragY(0);
               };
               const onUp = () => {
                 if (queueDragRef.current) {
                   const dy = queueDragRef.current.currentY - queueDragRef.current.startY;
                   queueDragRef.current = null;
+                  setIsQueuePanelDragging(false);
                   if (dy > 80) {
                     setActiveTab("board");
                   }
@@ -1362,7 +1479,7 @@ export default function DraftRoom() {
               )}
             </div>
           </div>
-          <div className="flex-1 overflow-auto hide-scrollbar px-1.5 pb-3 space-y-1">
+          <div ref={queueScrollContainerRef} className="flex-1 overflow-auto hide-scrollbar px-1.5 pb-3 space-y-1">
             {orderedQueuePlayers.length === 0 ? (
               <div className="text-center py-12">
                 <ClipboardList className="w-8 h-8 text-gray-600 mx-auto mb-3" />
@@ -1460,7 +1577,9 @@ export default function DraftRoom() {
 
       {activeTab === "team" && (
         <div
-          className="absolute bottom-10 left-0 right-0 bg-gray-900 border-t border-gray-700 rounded-t-2xl flex flex-col z-10 transition-transform duration-200 ease-out"
+          className={`absolute bottom-10 left-0 right-0 bg-gray-900 border-t border-gray-700 rounded-t-2xl flex flex-col z-10 will-change-transform ${
+            isTeamPanelDragging ? "" : "transition-transform duration-200 ease-out"
+          }`}
           style={{
             height: "75vh",
             transform: `translateY(${teamPanelDragY}px)`,
@@ -1472,6 +1591,7 @@ export default function DraftRoom() {
             onTouchStart={(e) => {
               const touch = e.touches[0];
               teamDragRef.current = { startY: touch.clientY, currentY: touch.clientY };
+              setIsTeamPanelDragging(true);
               setTeamPanelDragY(0);
             }}
             onTouchMove={(e) => {
@@ -1479,30 +1599,46 @@ export default function DraftRoom() {
               const touch = e.touches[0];
               teamDragRef.current.currentY = touch.clientY;
               const dy = touch.clientY - teamDragRef.current.startY;
-              if (dy > 0) setTeamPanelDragY(dy);
+              const isTeamListAtTop = (teamScrollContainerRef.current?.scrollTop ?? 0) <= 0;
+              if (dy > 2 && isTeamListAtTop) {
+                e.preventDefault();
+                setTeamPanelDragY(dy);
+              } else {
+                setTeamPanelDragY(0);
+              }
             }}
             onTouchEnd={() => {
               if (!teamDragRef.current) return;
               const dy = teamDragRef.current.currentY - teamDragRef.current.startY;
               teamDragRef.current = null;
+              setIsTeamPanelDragging(false);
               if (dy > 80) {
                 setActiveTab("board");
               }
               setTeamPanelDragY(0);
             }}
+            onTouchCancel={() => {
+              teamDragRef.current = null;
+              setIsTeamPanelDragging(false);
+              setTeamPanelDragY(0);
+            }}
             onMouseDown={(e) => {
               teamDragRef.current = { startY: e.clientY, currentY: e.clientY };
+              setIsTeamPanelDragging(true);
               setTeamPanelDragY(0);
               const onMove = (ev: MouseEvent) => {
                 if (!teamDragRef.current) return;
                 teamDragRef.current.currentY = ev.clientY;
                 const dy = ev.clientY - teamDragRef.current.startY;
-                if (dy > 0) setTeamPanelDragY(dy);
+                const isTeamListAtTop = (teamScrollContainerRef.current?.scrollTop ?? 0) <= 0;
+                if (dy > 2 && isTeamListAtTop) setTeamPanelDragY(dy);
+                else setTeamPanelDragY(0);
               };
               const onUp = () => {
                 if (teamDragRef.current) {
                   const dy = teamDragRef.current.currentY - teamDragRef.current.startY;
                   teamDragRef.current = null;
+                  setIsTeamPanelDragging(false);
                   if (dy > 80) {
                     setActiveTab("board");
                   }
@@ -1520,7 +1656,7 @@ export default function DraftRoom() {
             </div>
             <h3 className="text-white font-semibold text-sm px-4 pb-2">My Team</h3>
           </div>
-          <div className="flex-1 overflow-auto hide-scrollbar px-3 pb-16">
+          <div ref={teamScrollContainerRef} className="flex-1 overflow-auto hide-scrollbar px-3 pb-16">
             {myTeam ? (() => {
               const isBestBallDraft = league?.type === "Best Ball";
               const STAT_COL = "w-[42px] text-center text-[11px] shrink-0";
@@ -1809,6 +1945,49 @@ export default function DraftRoom() {
               Go to Settings & Change Team Count
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={showAssignPrompt}
+        onOpenChange={(open) => {
+          setShowAssignPrompt(open);
+          if (!open) setPendingAssignCellOverall(null);
+        }}
+      >
+        <DialogContent className="bg-gray-900 border-gray-700 text-white max-w-xs">
+          <DialogHeader>
+            <DialogTitle className="text-yellow-400">Assign this pick?</DialogTitle>
+            <DialogDescription className="text-gray-300">
+              {pendingAssignCellOverall
+                ? `Pick ${Math.ceil(pendingAssignCellOverall / numTeams)}.${String(((pendingAssignCellOverall - 1) % numTeams) + 1).padStart(2, "0")}`
+                : "Select a draft pick to assign."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col gap-2 sm:flex-col">
+            <Button
+              className="w-full bg-yellow-600 hover:bg-yellow-700 text-white"
+              onClick={() => {
+                if (!pendingAssignCellOverall) return;
+                setSelectedCellOverall(pendingAssignCellOverall);
+                setCommissionerAssignMode(true);
+                setShowAssignPrompt(false);
+                setPendingAssignCellOverall(null);
+              }}
+            >
+              Assign Pick
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full border-gray-600 text-gray-200 hover:bg-gray-800 hover:text-white"
+              onClick={() => {
+                setShowAssignPrompt(false);
+                setPendingAssignCellOverall(null);
+              }}
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

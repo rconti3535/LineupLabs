@@ -93,12 +93,12 @@ export default function Exposure() {
           />
         </div>
         <Select value={posFilter} onValueChange={setPosFilter}>
-          <SelectTrigger className="h-9 w-[80px] bg-gray-800 border-gray-700 text-gray-200 text-xs">
+          <SelectTrigger className="h-9 w-[80px] bg-gray-800 border-gray-700 text-gray-200 text-sm">
             <SelectValue />
           </SelectTrigger>
           <SelectContent className="bg-gray-900 border-gray-700">
             {["ALL", "C", "INF", "OF", "SP", "RP"].map((pos) => (
-              <SelectItem key={pos} value={pos} className="text-gray-200 focus:bg-gray-800 focus:text-white">
+              <SelectItem key={pos} value={pos} className="text-sm text-gray-200 focus:bg-gray-800 focus:text-white">
                 {pos}
               </SelectItem>
             ))}

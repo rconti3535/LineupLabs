@@ -683,7 +683,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!league) {
         return res.status(404).json({ message: "League not found" });
       }
-      const { userId } = req.body;
+      const userIdRaw = (req.body as any)?.userId ?? req.query.userId;
+      const userId = typeof userIdRaw === "string" ? parseInt(userIdRaw) : Number(userIdRaw);
+      if (!userId || Number.isNaN(userId)) {
+        return res.status(400).json({ message: "Missing or invalid userId" });
+      }
       if (league.createdBy !== userId) {
         return res.status(403).json({ message: "Only the commissioner can delete the league" });
       }

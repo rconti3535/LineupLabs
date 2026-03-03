@@ -1905,14 +1905,16 @@ export default function LeaguePage() {
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest("DELETE", `/api/leagues/${leagueId}`, { userId: user?.id });
+      await apiRequest("DELETE", `/api/leagues/${leagueId}?userId=${user?.id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/leagues/public"] });
       queryClient.invalidateQueries({ queryKey: ["/api/teams/user"] });
+      toast({ title: "League deleted" });
       setLocation("/teams");
     },
-    onError: () => {
+    onError: (error: Error) => {
+      toast({ title: "Failed to delete league", description: error.message, variant: "destructive" });
     },
   });
 
@@ -3873,6 +3875,7 @@ export default function LeaguePage() {
               Permanently delete this league and all its data. Draft position data used for ADP calculations will be preserved.
             </p>
             <Button
+              type="button"
               onClick={() => setShowDeleteConfirm(true)}
               variant="outline"
               className="w-full border-red-800 text-red-400 hover:bg-red-900/30 hover:text-red-300 gap-2"
@@ -3898,6 +3901,7 @@ export default function LeaguePage() {
             </DialogHeader>
             <DialogFooter className="flex gap-2 mt-2">
               <Button
+                type="button"
                 onClick={() => setShowDeleteConfirm(false)}
                 variant="outline"
                 className="flex-1 border-gray-600 text-gray-300 hover:bg-gray-800"
@@ -3905,6 +3909,7 @@ export default function LeaguePage() {
                 Cancel
               </Button>
               <Button
+                type="button"
                 onClick={() => deleteMutation.mutate()}
                 disabled={deleteMutation.isPending}
                 className="flex-1 bg-red-600 hover:bg-red-700 text-white"
