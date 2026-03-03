@@ -13,6 +13,7 @@ type NewsFeedResponse = {
     title: string;
     link: string;
     pubDate: string | null;
+    author: string | null;
     teamAbbreviation: string | null;
     teamLogoUrl: string | null;
   }[];
@@ -278,24 +279,24 @@ export default function Teams() {
                   className="block rounded-lg px-3 py-2 border border-white/10 bg-white/[0.02] hover:bg-white/[0.06] transition-colors"
                 >
                   <div className="flex items-start gap-2.5">
-                    <div className="w-7 h-7 shrink-0 mt-0.5 rounded-full bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center">
+                    <div className="w-7 h-7 shrink-0 mt-0.5 flex items-center justify-center">
                       {item.teamLogoUrl ? (
                         <img
                           src={item.teamLogoUrl}
                           alt={item.teamAbbreviation || "MLB"}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-contain"
                         />
                       ) : (
                         <span className="text-[10px] text-gray-400">MLB</span>
                       )}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm text-white line-clamp-2">{item.title}</p>
-                      {item.pubDate && (
-                        <p className="text-[11px] text-gray-500 mt-1">
-                          {new Date(item.pubDate).toLocaleString()}
-                        </p>
-                      )}
+                      <p className="text-sm text-white leading-5">
+                        {item.title}{" "}
+                        <span className="text-[11px] text-gray-500 whitespace-nowrap">
+                          {item.author ? `By "${item.author}"` : 'By "Unknown"'}
+                        </span>
+                      </p>
                     </div>
                   </div>
                 </a>
@@ -323,24 +324,24 @@ export default function Teams() {
                   className="block rounded-lg px-3 py-2 border border-white/10 bg-white/[0.02] hover:bg-white/[0.06] transition-colors"
                 >
                   <div className="flex items-start gap-2.5">
-                    <div className="w-7 h-7 shrink-0 mt-0.5 rounded-full bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center">
+                    <div className="w-7 h-7 shrink-0 mt-0.5 flex items-center justify-center">
                       {item.teamLogoUrl ? (
                         <img
                           src={item.teamLogoUrl}
                           alt={item.teamAbbreviation || "MLB"}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-contain"
                         />
                       ) : (
                         <span className="text-[10px] text-gray-400">MLB</span>
                       )}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm text-white line-clamp-2">{item.title}</p>
-                      {item.pubDate && (
-                        <p className="text-[11px] text-gray-500 mt-1">
-                          {new Date(item.pubDate).toLocaleString()}
-                        </p>
-                      )}
+                      <p className="text-sm text-white leading-5">
+                        {item.title}{" "}
+                        <span className="text-[11px] text-gray-500 whitespace-nowrap">
+                          {item.author ? `By "${item.author}"` : 'By "Unknown"'}
+                        </span>
+                      </p>
                     </div>
                   </div>
                 </a>

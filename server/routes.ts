@@ -15,6 +15,7 @@ type NewsItem = {
   title: string;
   link: string;
   pubDate: string | null;
+  author: string | null;
   teamAbbreviation: string | null;
   teamLogoUrl: string | null;
 };
@@ -106,6 +107,7 @@ function parseRssItems(xml: string, limit = 10): NewsItem[] {
         title,
         link,
         pubDate,
+        author: extractTagValue(itemXml, "author") || extractTagValue(itemXml, "dc:creator") || null,
         teamAbbreviation: inferredTeam?.abbr || null,
         teamLogoUrl: inferredTeam?.logoUrl || null,
       };
