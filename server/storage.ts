@@ -15,6 +15,12 @@ import {
 import { db } from "./db";
 import { eq, ilike, or, and, sql, notInArray, asc, desc, inArray, gte, gt } from "drizzle-orm";
 
+function isMissingRelationError(error: unknown): boolean {
+  const code = (error as { code?: string })?.code;
+  const message = String((error as { message?: string })?.message || "").toLowerCase();
+  return code === "42P01" || message.includes("does not exist");
+}
+
 export interface IStorage {
   // Users
   getUser(id: number): Promise<User | undefined>;
@@ -239,8 +245,16 @@ export class DatabaseStorage implements IStorage {
 
     await db.delete(dailyLineups).where(eq(dailyLineups.leagueId, id));
     await db.delete(leagueTransactions).where(eq(leagueTransactions.leagueId, id));
-    await db.delete(weeklyBestBallPoints).where(eq(weeklyBestBallPoints.leagueId, id));
-    await db.delete(weeklyBestBallRotoPoints).where(eq(weeklyBestBallRotoPoints.leagueId, id));
+    try {
+      await db.delete(weeklyBestBallPoints).where(eq(weeklyBestBallPoints.leagueId, id));
+    } catch (error) {
+      if (!isMissingRelationError(error)) throw error;
+    }
+    try {
+      await db.delete(weeklyBestBallRotoPoints).where(eq(weeklyBestBallRotoPoints.leagueId, id));
+    } catch (error) {
+      if (!isMissingRelationError(error)) throw error;
+    }
     await db.delete(leagueMatchups).where(eq(leagueMatchups.leagueId, id));
     await db.delete(draftPicks).where(eq(draftPicks.leagueId, id));
     await db.delete(teams).where(eq(teams.leagueId, id));

@@ -2349,6 +2349,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/leagues/:id/waivers", async (req, res) => {
     try {
       const leagueId = parseInt(req.params.id);
+      const league = await storage.getLeague(leagueId);
+      if (!league) return res.status(404).json({ message: "League not found" });
+      if (league.type === "Best Ball") return res.json([]);
       const activeWaivers = await storage.getActiveWaiversByLeague(leagueId);
       const waiversWithPlayers = await Promise.all(activeWaivers.map(async (w) => {
         const player = await storage.getPlayer(w.playerId);
@@ -2366,6 +2369,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const leagueId = parseInt(req.params.id);
       const userId = parseInt(req.query.userId as string);
       if (!userId) return res.status(400).json({ message: "Missing userId" });
+      const league = await storage.getLeague(leagueId);
+      if (!league) return res.status(404).json({ message: "League not found" });
+      if (league.type === "Best Ball") return res.json([]);
 
       const leagueTeams = await storage.getTeamsByLeagueId(leagueId);
       const userTeam = leagueTeams.find(t => t.userId === userId);
@@ -2477,6 +2483,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const claimId = parseInt(req.params.claimId);
       const userId = parseInt(req.query.userId as string);
       if (!userId) return res.status(400).json({ message: "Missing userId" });
+      const league = await storage.getLeague(leagueId);
+      if (!league) return res.status(404).json({ message: "League not found" });
+      if (league.type === "Best Ball") return res.status(400).json({ message: "Waivers are disabled in Best Ball leagues" });
 
       const leagueTeams = await storage.getTeamsByLeagueId(leagueId);
       const userTeam = leagueTeams.find(t => t.userId === userId);
