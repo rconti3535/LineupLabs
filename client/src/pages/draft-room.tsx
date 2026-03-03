@@ -666,6 +666,16 @@ export default function DraftRoom() {
     return Number.NEGATIVE_INFINITY;
   };
 
+  const formatPlayersPanelStatValue = (value: unknown) => {
+    if (typeof value === "number") return value === 0 ? "-" : value;
+    if (typeof value === "string") {
+      const parsed = parseFloat(value);
+      if (!Number.isNaN(parsed) && parsed === 0) return "-";
+      return value;
+    }
+    return "-";
+  };
+
   const calcPlayerPoints = useCallback((player: Player, view: PlayersPanelView) => {
     const pitcher = isPitcher(player.position);
     const cats = pitcher ? PITCHING_POINT_STATS : HITTING_POINT_STATS;
@@ -701,6 +711,14 @@ export default function DraftRoom() {
 
   const displayedPlayers = useMemo(() => {
     if (!playersSortStat) return availablePlayers;
+    if (playersSortStat === "adp") {
+      return [...availablePlayers].sort((a, b) => {
+        const adpA = getAdp(a) ?? Number.POSITIVE_INFINITY;
+        const adpB = getAdp(b) ?? Number.POSITIVE_INFINITY;
+        if (adpA !== adpB) return adpA - adpB;
+        return a.name.localeCompare(b.name);
+      });
+    }
     const col = playersStatColumns.find((c) => c.key === playersSortStat);
     if (!col) return availablePlayers;
     return [...availablePlayers].sort((a, b) => {
@@ -1101,24 +1119,36 @@ export default function DraftRoom() {
             className="flex-1 overflow-auto hide-scrollbar px-1 pb-16"
           >
             {displayedPlayers.length > 0 && (
-              <div className="sticky top-0 z-10 bg-gray-900/95 border-b border-gray-800/80 min-w-max flex items-center gap-1.5 px-1 py-1">
-                <div className="shrink-0 w-7 text-center text-[9px] text-gray-500 uppercase">ADP</div>
+              <div className="sticky top-0 z-10 bg-gray-900/95 border-b border-gray-800/80 flex items-center gap-1.5 px-1 py-1">
+                <button
+                  onClick={() => setPlayersSortStat("adp")}
+                  className={`shrink-0 w-7 text-center text-[10px] uppercase font-semibold flex items-center justify-center gap-0.5 ${
+                    playersSortStat === "adp" ? "text-blue-400" : "text-gray-500 hover:text-gray-300"
+                  }`}
+                >
+                  <span>ADP</span>
+                  {playersSortStat === "adp" && <ChevronDown className="w-2.5 h-2.5" />}
+                </button>
                 <div className="shrink-0 w-[120px] text-[9px] text-gray-500 uppercase">Player</div>
-                {isPointsFormat && (
-                  <div className="shrink-0 text-center w-10 text-[9px] text-yellow-500 uppercase">PTS</div>
-                )}
-                {playersStatColumns.map((col) => (
-                  <button
-                    key={col.key}
-                    onClick={() => setPlayersSortStat(col.key)}
-                    className={`shrink-0 w-9 text-center text-[9px] uppercase font-semibold flex items-center justify-center gap-0.5 ${
-                      playersSortStat === col.key ? "text-blue-400" : "text-gray-500 hover:text-gray-300"
-                    }`}
-                  >
-                    <span>{col.cat}</span>
-                    {playersSortStat === col.key && <ChevronDown className="w-2.5 h-2.5" />}
-                  </button>
-                ))}
+                <div className="flex-1 min-w-0 overflow-x-auto hide-scrollbar">
+                  <div className="flex items-center gap-1.5 w-max pr-1">
+                    {isPointsFormat && (
+                      <div className="shrink-0 text-center w-10 text-[10px] text-yellow-500 uppercase">PTS</div>
+                    )}
+                    {playersStatColumns.map((col) => (
+                      <button
+                        key={col.key}
+                        onClick={() => setPlayersSortStat(col.key)}
+                        className={`shrink-0 w-9 text-center text-[10px] uppercase font-semibold flex items-center justify-center gap-0.5 ${
+                          playersSortStat === col.key ? "text-blue-400" : "text-gray-500 hover:text-gray-300"
+                        }`}
+                      >
+                        <span>{col.cat}</span>
+                        {playersSortStat === col.key && <ChevronDown className="w-2.5 h-2.5" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <div className="shrink-0 w-16" />
               </div>
             )}
@@ -1136,11 +1166,10 @@ export default function DraftRoom() {
               displayedPlayers.map((player) => (
                 <div
                   key={player.id}
-                  className="min-w-max flex items-center gap-1.5 px-1 py-1.5 border-b border-gray-800/60"
+                  className="flex items-center gap-1.5 px-1 py-1.5 border-b border-gray-800/60"
                 >
                   <div className="shrink-0 w-7 text-center">
-                    <p className="text-[9px] text-gray-500">ADP</p>
-                    <p className="text-[11px] font-semibold text-gray-300">
+                    <p className="text-xs font-semibold text-gray-300">
                       {getAdp(player) != null ? Number(getAdp(player)).toFixed(1) : "-"}
                     </p>
                   </div>
@@ -1148,21 +1177,25 @@ export default function DraftRoom() {
                     <p className="text-white text-[13px] font-medium leading-tight truncate">{player.name}</p>
                     <p className="text-[10px] truncate"><span className={`font-medium ${positionTextColor(player.position)}`}>{player.position}</span> <span className="text-gray-500">&middot; {player.teamAbbreviation || player.team}</span></p>
                   </div>
-                  {isPointsFormat && (
-                    <div className="shrink-0 text-center w-10">
-                      <p className="text-[9px] text-yellow-500">PTS</p>
-                      <p className="text-xs font-bold text-yellow-400">
-                        {calcPlayerPoints(player, playersPanelView).toFixed(1)}
-                      </p>
+                  <div className="flex-1 min-w-0 overflow-x-auto hide-scrollbar">
+                    <div className="flex items-center gap-1.5 w-max pr-1">
+                      {isPointsFormat && (
+                        <div className="shrink-0 text-center w-10">
+                          <p className="text-[9px] text-yellow-500">PTS</p>
+                          <p className="text-xs font-bold text-yellow-400">
+                            {calcPlayerPoints(player, playersPanelView).toFixed(1)}
+                          </p>
+                        </div>
+                      )}
+                      {playersStatColumns.map((col) => (
+                        <div key={col.key} className="shrink-0 w-9 text-center">
+                          <p className="text-xs font-medium text-gray-300">
+                            {formatPlayersPanelStatValue(getPlayerStat(player, col.cat, col.pitcher, playersPanelView))}
+                          </p>
+                        </div>
+                      ))}
                     </div>
-                  )}
-                  {playersStatColumns.map((col) => (
-                    <div key={col.key} className="shrink-0 w-9 text-center">
-                      <p className="text-xs font-medium text-gray-300">
-                        {getPlayerStat(player, col.cat, col.pitcher, playersPanelView)}
-                      </p>
-                    </div>
-                  ))}
+                  </div>
                   {commissionerAssignMode ? (
                     <Button
                       onClick={() => commissionerAssignMutation.mutate(player.id)}

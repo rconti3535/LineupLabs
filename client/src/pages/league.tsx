@@ -2148,7 +2148,7 @@ export default function LeaguePage() {
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-1 shrink-0">
+        <div className="flex items-center justify-end gap-1.5 shrink-0">
           {isCommissioner && (
             <Button
               onClick={() => {
@@ -2161,9 +2161,9 @@ export default function LeaguePage() {
               }}
               variant="ghost"
               size="icon"
-              className="h-9 w-9 rounded-full text-gray-400 hover:text-white"
+              className="h-10 w-10 rounded-full text-gray-400 hover:text-white"
             >
-              <Share className="w-5 h-5" />
+              <Share className="w-[22px] h-[22px]" />
             </Button>
           )}
           <Button
@@ -2173,9 +2173,9 @@ export default function LeaguePage() {
             }}
             variant="ghost"
             size="icon"
-            className={`h-9 w-9 rounded-full ${showSettings ? "text-blue-400 bg-white/10" : "text-gray-400 hover:text-white"}`}
+            className={`h-10 w-10 rounded-full ${showSettings ? "text-blue-400 bg-white/10" : "text-gray-400 hover:text-white"}`}
           >
-            <Settings className="w-5 h-5" />
+            <Settings className="w-[22px] h-[22px]" />
           </Button>
         </div>
       </div>

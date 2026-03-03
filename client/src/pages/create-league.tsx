@@ -275,7 +275,7 @@ export default function CreateLeague() {
                   <FormItem>
                     <FormLabel className="text-white">Draft Date & Time</FormLabel>
                     <FormControl>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="flex flex-col gap-3">
                         <div
                           className="relative cursor-pointer rounded-lg sleeper-card-bg border sleeper-border p-3 flex items-center gap-3 hover:border-blue-500/50 transition-colors"
                           onClick={(e) => {
