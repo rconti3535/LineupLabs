@@ -88,9 +88,6 @@ export function TeamCard({
               </Badge>
             )}
           </div>
-          {!draftLive && countdownLabel && (
-            <p className="text-[10px] text-blue-300 mt-0.5 truncate">{countdownLabel}</p>
-          )}
         </div>
         {draftLive && (
           <div className="flex items-center gap-2 ml-auto shrink-0">
@@ -101,6 +98,11 @@ export function TeamCard({
               <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${userTurn ? "bg-blue-400" : "bg-green-400"} opacity-75`}></span>
               <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${userTurn ? "bg-blue-500" : "bg-green-500"}`}></span>
             </span>
+          </div>
+        )}
+        {!draftLive && countdownLabel && (
+          <div className="ml-auto shrink-0 text-right">
+            <p className="text-[10px] text-blue-300 whitespace-nowrap">{countdownLabel}</p>
           </div>
         )}
       </div>

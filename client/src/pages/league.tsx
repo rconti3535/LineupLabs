@@ -329,6 +329,7 @@ function TransactionsList({ leagueId }: { leagueId: number }) {
 
 function StandingsTab({ leagueId, league, teamsLoading, teams, user, onSelectTeam }: { leagueId: number; league: League; teamsLoading: boolean; teams: Team[] | undefined; user: { id: number } | null; onSelectTeam?: (teamId: number) => void }) {
   const [standingsSubTab, setStandingsSubTab] = useState<"standings" | "transactions">("standings");
+  const [rotoDisplayMode, setRotoDisplayMode] = useState<"stats" | "roto">("stats");
   const { data: standingsData, isLoading } = useQuery<StandingsData>({
     queryKey: ["/api/leagues", leagueId, "standings"],
     queryFn: async () => {
@@ -422,7 +423,8 @@ function StandingsTab({ leagueId, league, teamsLoading, teams, user, onSelectTea
 
   if (format === "Roto") {
     const totalCats = hittingCategories.length + pitchingCategories.length;
-    const minWidth = 140 + 48 + totalCats * 56;
+    const showRotoScores = rotoDisplayMode === "roto";
+    const minWidth = 140 + (showRotoScores ? 48 : 0) + totalCats * 56;
     return (
       <div className="space-y-4">
         {league.type !== "Best Ball" && <div className="flex bg-[#1a1d26] p-1 rounded-xl border border-gray-800">
@@ -442,13 +444,29 @@ function StandingsTab({ leagueId, league, teamsLoading, teams, user, onSelectTea
 
         {(league.type === "Best Ball" || standingsSubTab === "standings") ? (
           <Card className="gradient-card rounded-xl p-4 border-0">
-            <h3 className="text-white font-semibold mb-3">Roto Standings</h3>
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <h3 className="text-white font-semibold">Roto Standings</h3>
+              <div className="flex bg-[#1a1d26] p-1 rounded-lg border border-gray-800 shrink-0">
+                <button
+                  onClick={() => setRotoDisplayMode("stats")}
+                  className={`px-2.5 py-1 text-[10px] font-semibold rounded-md transition-colors ${rotoDisplayMode === "stats" ? "bg-gray-800 text-white" : "text-gray-500 hover:text-gray-300"}`}
+                >
+                  Stats
+                </button>
+                <button
+                  onClick={() => setRotoDisplayMode("roto")}
+                  className={`px-2.5 py-1 text-[10px] font-semibold rounded-md transition-colors ${rotoDisplayMode === "roto" ? "bg-gray-800 text-white" : "text-gray-500 hover:text-gray-300"}`}
+                >
+                  Roto
+                </button>
+              </div>
+            </div>
             <div className="overflow-x-auto hide-scrollbar -mx-1 px-1" style={{ WebkitOverflowScrolling: "touch" }}>
               <table className="w-full" style={{ minWidth: minWidth + "px" }}>
                 <thead>
                   <tr className="border-b border-gray-700">
                     <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 sticky left-0 bg-[#1a1d26] z-10 w-[140px] pl-1">Team</th>
-                    <th className="text-center text-[10px] text-yellow-400 font-bold uppercase pb-1.5 w-[48px]">PTS</th>
+                    {showRotoScores && <th className="text-center text-[10px] text-yellow-400 font-bold uppercase pb-1.5 w-[48px]">PTS</th>}
                     {hittingCategories.map((cat, i) => (
                       <th key={`h_${cat}`} className={`text-center text-[10px] text-blue-400 font-semibold uppercase pb-1.5 w-[56px] ${i === 0 ? "border-l border-gray-700/50" : ""}`}>{cat}</th>
                     ))}
@@ -461,16 +479,21 @@ function StandingsTab({ leagueId, league, teamsLoading, teams, user, onSelectTea
                   {standings.map((team, idx) => (
                     <tr key={team.teamId} className="border-b border-gray-800/50 hover:bg-white/[0.02]">
                       {teamCell(team, idx)}
-                      <td className="text-center py-2">
-                        <p className="text-yellow-400 text-xs font-bold">{(team.totalPoints ?? 0).toFixed(1)}</p>
-                      </td>
+                      {showRotoScores && (
+                        <td className="text-center py-2">
+                          <p className="text-yellow-400 text-xs font-bold">{(team.totalPoints ?? 0).toFixed(1)}</p>
+                        </td>
+                      )}
                       {hittingCategories.map((cat, i) => {
                         const val = team.categoryValues[`h_${cat}`] || 0;
                         const pts = team.categoryPoints?.[`h_${cat}`] || 0;
                         return (
                           <td key={`h_${cat}`} className={`text-center py-2 ${i === 0 ? "border-l border-gray-700/50" : ""}`}>
-                            <p className="text-white text-[11px] font-medium leading-tight">{formatStatValue(cat, val)}</p>
-                            <p className="text-gray-500 text-[9px] leading-tight">{pts.toFixed(1)}</p>
+                            {showRotoScores ? (
+                              <p className="text-yellow-300 text-[11px] font-semibold leading-tight">{pts.toFixed(1)}</p>
+                            ) : (
+                              <p className="text-white text-[11px] font-medium leading-tight">{formatStatValue(cat, val)}</p>
+                            )}
                           </td>
                         );
                       })}
@@ -479,8 +502,11 @@ function StandingsTab({ leagueId, league, teamsLoading, teams, user, onSelectTea
                         const pts = team.categoryPoints?.[`p_${cat}`] || 0;
                         return (
                           <td key={`p_${cat}`} className={`text-center py-2 ${i === 0 ? "border-l border-gray-700/50" : ""}`}>
-                            <p className="text-white text-[11px] font-medium leading-tight">{formatStatValue(cat, val)}</p>
-                            <p className="text-gray-500 text-[9px] leading-tight">{pts.toFixed(1)}</p>
+                            {showRotoScores ? (
+                              <p className="text-yellow-300 text-[11px] font-semibold leading-tight">{pts.toFixed(1)}</p>
+                            ) : (
+                              <p className="text-white text-[11px] font-medium leading-tight">{formatStatValue(cat, val)}</p>
+                            )}
                           </td>
                         );
                       })}
@@ -489,7 +515,7 @@ function StandingsTab({ leagueId, league, teamsLoading, teams, user, onSelectTea
                   {Array.from({ length: emptySlots }, (_, i) => (
                     <tr key={`empty-${i}`} className="border-b border-gray-800/50">
                       {emptyTeamCell(i)}
-                      <td className="text-center py-2"><p className="text-gray-700 text-xs">-</p></td>
+                      {showRotoScores && <td className="text-center py-2"><p className="text-gray-700 text-xs">-</p></td>}
                       {hittingCategories.map((cat, ci) => (
                         <td key={`eh_${cat}`} className={`text-center py-2 ${ci === 0 ? "border-l border-gray-700/50" : ""}`}><p className="text-gray-700 text-xs">-</p></td>
                       ))}
