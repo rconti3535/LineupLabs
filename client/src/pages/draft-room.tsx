@@ -159,7 +159,7 @@ export default function DraftRoom() {
   const [playersSortStat, setPlayersSortStat] = useState<string | null>(null);
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [draftQueue, setDraftQueue] = useState<number[]>([]);
-  const playersStatsSyncingRef = useRef(false);
+  const [playersStatsScrollLeft, setPlayersStatsScrollLeft] = useState(0);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(searchQuery), 300);
@@ -733,24 +733,9 @@ export default function DraftRoom() {
     });
   }, [availablePlayers, playersSortStat, playersStatColumns, playersPanelView]);
 
-  const syncPlayersStatsScroll = useCallback((scrollLeft: number, source: HTMLElement | null) => {
-    if (playersStatsSyncingRef.current) return;
-    playersStatsSyncingRef.current = true;
-    const containers = document.querySelectorAll<HTMLElement>('[data-players-stats-scroll="true"]');
-    containers.forEach((el) => {
-      if (el !== source) {
-        el.scrollLeft = scrollLeft;
-      }
-    });
-    requestAnimationFrame(() => {
-      playersStatsSyncingRef.current = false;
-    });
+  const handlePlayersStatsHeaderScroll = useCallback((e: { currentTarget: HTMLDivElement }) => {
+    setPlayersStatsScrollLeft(e.currentTarget.scrollLeft);
   }, []);
-
-  const handlePlayersStatsScroll = useCallback((e: { currentTarget: HTMLDivElement }) => {
-    const el = e.currentTarget;
-    syncPlayersStatsScroll(el.scrollLeft, el);
-  }, [syncPlayersStatsScroll]);
 
   return (
     <div className="flex flex-col h-screen overflow-hidden relative">
@@ -1152,8 +1137,7 @@ export default function DraftRoom() {
                 <div className="shrink-0 w-[120px] text-[9px] text-gray-500 uppercase">Player</div>
                 <div
                   className="flex-1 min-w-0 overflow-x-auto hide-scrollbar"
-                  data-players-stats-scroll="true"
-                  onScroll={handlePlayersStatsScroll}
+                  onScroll={handlePlayersStatsHeaderScroll}
                 >
                   <div className="flex items-center gap-1.5 w-max pr-1">
                     {isPointsFormat && (
@@ -1202,11 +1186,12 @@ export default function DraftRoom() {
                     <p className="text-[10px] truncate"><span className={`font-medium ${positionTextColor(player.position)}`}>{player.position}</span> <span className="text-gray-500">&middot; {player.teamAbbreviation || player.team}</span></p>
                   </div>
                   <div
-                    className="flex-1 min-w-0 overflow-x-auto hide-scrollbar"
-                    data-players-stats-scroll="true"
-                    onScroll={handlePlayersStatsScroll}
+                    className="flex-1 min-w-0 overflow-hidden"
                   >
-                    <div className="flex items-center gap-1.5 w-max pr-1">
+                    <div
+                      className="flex items-center gap-1.5 w-max pr-1 will-change-transform"
+                      style={{ transform: `translateX(-${playersStatsScrollLeft}px)` }}
+                    >
                       {isPointsFormat && (
                         <div className="shrink-0 text-center w-10">
                           <p className="text-[9px] text-yellow-500">PTS</p>
