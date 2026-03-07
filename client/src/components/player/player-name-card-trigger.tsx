@@ -253,9 +253,11 @@ export function PlayerNameCardTrigger({ player, className, leagueId }: PlayerNam
                     </div>
                   )}
                 </div>
-                {resolvedPlayer.jerseyNumber && (
+                {(resolvedPlayer.jerseyNumber || resolvedPlayer.position) && (
                   <div className="absolute bottom-0 right-[-2px] rounded bg-amber-300 text-black text-[8px] font-bold px-1.5 py-0.5 tracking-[0.05em]">
-                    #{resolvedPlayer.jerseyNumber}
+                    {resolvedPlayer.jerseyNumber ? `#${resolvedPlayer.jerseyNumber}` : ""}
+                    {resolvedPlayer.jerseyNumber && resolvedPlayer.position ? " " : ""}
+                    {resolvedPlayer.position || ""}
                   </div>
                 )}
               </div>

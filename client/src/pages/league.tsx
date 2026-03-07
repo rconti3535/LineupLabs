@@ -382,7 +382,7 @@ function StandingsTab({ leagueId, league, teamsLoading, teams, user, onSelectTea
     idx === 0 ? "text-yellow-400" : idx === 1 ? "text-gray-300" : idx === 2 ? "text-orange-400" : "text-gray-500";
 
   const emptyTeamCell = (slotIdx: number) => (
-    <td className="py-2 sticky left-0 bg-[#1a1d26] z-10 pl-1">
+    <td className="py-2 sticky left-0 bg-[#1a1d26] z-10 pl-1 pr-2 w-[168px] min-w-[168px] max-w-[168px]">
       <div className="flex items-center gap-2">
         <span className="text-xs font-bold w-5 text-center shrink-0 text-gray-600">{standings.length + slotIdx + 1}</span>
         <span className="text-gray-600 text-xs italic">Open Slot</span>
@@ -391,7 +391,7 @@ function StandingsTab({ leagueId, league, teamsLoading, teams, user, onSelectTea
   );
 
   const teamCell = (team: typeof standings[0], idx: number) => (
-    <td className="py-2 sticky left-0 bg-[#1a1d26] z-10 pl-1">
+    <td className="py-2 sticky left-0 bg-[#1a1d26] z-10 pl-1 pr-2 w-[168px] min-w-[168px] max-w-[168px]">
       <div className="flex items-center gap-2">
         <span className={`text-xs font-bold w-5 text-center shrink-0 ${rankClass(idx)}`}>{idx + 1}</span>
         <div className="min-w-0">
@@ -425,7 +425,7 @@ function StandingsTab({ leagueId, league, teamsLoading, teams, user, onSelectTea
   if (format === "Roto") {
     const totalCats = hittingCategories.length + pitchingCategories.length;
     const showRotoScores = rotoDisplayMode === "roto";
-    const minWidth = 140 + (showRotoScores ? 48 : 0) + totalCats * 56;
+    const minWidth = 168 + (showRotoScores ? 48 : 0) + totalCats * 56;
     return (
       <div className="space-y-4">
         {league.type !== "Best Ball" && <div className="flex bg-[#1a1d26] p-1 rounded-xl border border-gray-800">
@@ -466,7 +466,7 @@ function StandingsTab({ leagueId, league, teamsLoading, teams, user, onSelectTea
               <table className="w-full" style={{ minWidth: minWidth + "px" }}>
                 <thead>
                   <tr className="border-b border-gray-700">
-                    <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 sticky left-0 bg-[#1a1d26] z-10 w-[140px] pl-1">Team</th>
+                    <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 sticky left-0 bg-[#1a1d26] z-10 w-[168px] min-w-[168px] max-w-[168px] pl-1 pr-2">Team</th>
                     {showRotoScores && <th className="text-center text-[10px] text-yellow-400 font-bold uppercase pb-1.5 w-[48px]">PTS</th>}
                     {hittingCategories.map((cat, i) => (
                       <th key={`h_${cat}`} className={`text-center text-[10px] text-blue-400 font-semibold uppercase pb-1.5 w-[56px] ${i === 0 ? "border-l border-gray-700/50" : ""}`}>{cat}</th>
@@ -569,7 +569,7 @@ function StandingsTab({ leagueId, league, teamsLoading, teams, user, onSelectTea
                 <table className="w-full" style={{ minWidth: "440px" }}>
                   <thead>
                     <tr className="border-b border-gray-700">
-                      <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 sticky left-0 bg-[#1a1d26] z-10 w-[140px] pl-1">Team</th>
+                      <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 sticky left-0 bg-[#1a1d26] z-10 w-[168px] min-w-[168px] max-w-[168px] pl-1 pr-2">Team</th>
                       <th className="text-center text-[10px] text-green-400 font-semibold uppercase pb-1.5 w-[40px]">W</th>
                       <th className="text-center text-[10px] text-red-400 font-semibold uppercase pb-1.5 w-[40px]">L</th>
                       <th className="text-center text-[10px] text-gray-400 font-semibold uppercase pb-1.5 w-[40px]">T</th>
@@ -648,7 +648,7 @@ function StandingsTab({ leagueId, league, teamsLoading, teams, user, onSelectTea
                 <table className="w-full" style={{ minWidth: "400px" }}>
                   <thead>
                     <tr className="border-b border-gray-700">
-                      <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 sticky left-0 bg-[#1a1d26] z-10 w-[140px] pl-1">Team</th>
+                      <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 sticky left-0 bg-[#1a1d26] z-10 w-[168px] min-w-[168px] max-w-[168px] pl-1 pr-2">Team</th>
                       <th className="text-center text-[10px] text-green-400 font-semibold uppercase pb-1.5 w-[48px]">CAT W</th>
                       <th className="text-center text-[10px] text-red-400 font-semibold uppercase pb-1.5 w-[48px]">CAT L</th>
                       <th className="text-center text-[10px] text-gray-400 font-semibold uppercase pb-1.5 w-[48px]">CAT T</th>
@@ -722,7 +722,7 @@ function StandingsTab({ leagueId, league, teamsLoading, teams, user, onSelectTea
               <table className="w-full" style={{ minWidth: "280px" }}>
                 <thead>
                   <tr className="border-b border-gray-700">
-                    <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 sticky left-0 bg-[#1a1d26] z-10 w-[140px] pl-1">Team</th>
+                    <th className="text-left text-[10px] text-gray-500 font-semibold uppercase pb-1.5 sticky left-0 bg-[#1a1d26] z-10 w-[168px] min-w-[168px] max-w-[168px] pl-1 pr-2">Team</th>
                     <th className="text-center text-[10px] text-yellow-400 font-bold uppercase pb-1.5 w-[70px]">Total Pts</th>
                   </tr>
                 </thead>
@@ -2376,7 +2376,7 @@ export default function LeaguePage() {
               }}
               variant="ghost"
               size="icon"
-              className="h-10 w-10 rounded-full text-gray-400 hover:text-white"
+              className="h-10 w-12 rounded-full text-gray-400 hover:text-white"
             >
               <Share className="w-[22px] h-[22px]" />
             </Button>
@@ -2389,7 +2389,7 @@ export default function LeaguePage() {
               }}
               variant="ghost"
               size="icon"
-              className={`h-10 w-10 rounded-full ${showSettings ? "text-blue-400 bg-white/10" : "text-gray-400 hover:text-white"}`}
+              className={`h-10 w-12 rounded-full ${showSettings ? "text-blue-400 bg-white/10" : "text-gray-400 hover:text-white"}`}
             >
               <Settings className="w-[22px] h-[22px]" />
             </Button>
