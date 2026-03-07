@@ -209,7 +209,7 @@ export default function Teams() {
       <div className="mb-5 flex items-center justify-between">
         <div>
           <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">2026 Season</p>
-          <h1 className="text-xl font-semibold text-white">Fanntasy Baseball</h1>
+          <h1 className="text-xl font-semibold text-white">Fantasy Baseball</h1>
         </div>
         <div className="h-9 w-9 rounded-full overflow-hidden border border-white/15 bg-white/5 flex items-center justify-center">
           {user?.avatar ? (
