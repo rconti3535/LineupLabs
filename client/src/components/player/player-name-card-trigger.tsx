@@ -169,7 +169,7 @@ export function PlayerNameCardTrigger({ player, className, leagueId }: PlayerNam
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="bg-gray-900 border-gray-700 text-white max-w-md p-4 sm:p-5">
           <DialogHeader>
-            <DialogTitle className="text-white text-base">{player.name}</DialogTitle>
+            <DialogTitle className="text-white text-base">Player Card</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -193,17 +193,20 @@ export function PlayerNameCardTrigger({ player, className, leagueId }: PlayerNam
                   </div>
                 )}
               </div>
-              <div className="min-w-0">
-                {teamLogoUrl && (
-                  <img
-                    src={teamLogoUrl}
-                    alt={`${player.teamAbbreviation || player.team || "Team"} logo`}
-                    className="w-6 h-6 object-contain mb-1"
-                  />
-                )}
-                <p className="text-sm text-gray-300">{player.teamAbbreviation || player.team || "-"}</p>
-                <p className="text-sm text-blue-300">{player.position || "-"}</p>
+              <div className="min-w-0 flex-1 text-right">
+                <p className="text-lg font-semibold text-white truncate">{player.name}</p>
               </div>
+            </div>
+            <div className="flex items-center gap-2.5 pl-1">
+              {teamLogoUrl && (
+                <img
+                  src={teamLogoUrl}
+                  alt={`${player.teamAbbreviation || player.team || "Team"} logo`}
+                  className="w-6 h-6 object-contain"
+                />
+              )}
+              <p className="text-sm text-gray-300">{player.teamAbbreviation || player.team || "-"}</p>
+              <p className="text-sm text-blue-300">{player.position || "-"}</p>
             </div>
 
             {leagueId && (

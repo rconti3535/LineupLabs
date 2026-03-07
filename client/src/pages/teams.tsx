@@ -20,6 +20,13 @@ type NewsFeedResponse = {
   }[];
 };
 
+function isLeagueDraftLive(league: Pick<League, "draftStatus" | "draftPickStartedAt">): boolean {
+  const status = (league.draftStatus || "").toLowerCase();
+  if (status === "active" || status === "paused") return true;
+  if (status === "completed") return false;
+  return !!league.draftPickStartedAt;
+}
+
 export default function Teams() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
@@ -57,6 +64,7 @@ export default function Teams() {
     createdBy: number | null;
     leagueImage: string | null;
     draftStatus: string | null;
+    draftPickStartedAt: string | null;
     type: string | null;
     maxTeams: number | null;
     scoringFormat: string | null;
@@ -68,6 +76,7 @@ export default function Teams() {
     createdBy: l.createdBy,
     leagueImage: l.leagueImage,
     draftStatus: l.draftStatus,
+    draftPickStartedAt: l.draftPickStartedAt,
     type: l.type,
     maxTeams: l.maxTeams,
     scoringFormat: l.scoringFormat,
@@ -75,7 +84,7 @@ export default function Teams() {
   }));
 
   const liveLeagueIds = (leagues || [])
-    .filter(l => l.draftStatus === "active")
+    .filter((l) => isLeagueDraftLive(l))
     .map(l => l.id);
 
   const { data: liveTurnMap } = useQuery<Record<number, number | null>>({
@@ -227,7 +236,10 @@ export default function Teams() {
               maxTeams={leagueMap.get(team.leagueId!)?.maxTeams}
               scoringFormat={leagueMap.get(team.leagueId!)?.scoringFormat}
               draftDate={leagueMap.get(team.leagueId!)?.draftDate}
-              draftLive={leagueMap.get(team.leagueId!)?.draftStatus === "active"}
+              draftLive={!!team.leagueId && !!leagueMap.get(team.leagueId!) && isLeagueDraftLive({
+                draftStatus: leagueMap.get(team.leagueId!)?.draftStatus || null,
+                draftPickStartedAt: leagueMap.get(team.leagueId!)?.draftPickStartedAt || null,
+              })}
               userTurn={!!team.leagueId && !!liveTurnMap && liveTurnMap[team.leagueId] === team.id}
             />
           ))

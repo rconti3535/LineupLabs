@@ -342,10 +342,12 @@ export default function DraftRoom() {
     if (pickTimeLeft > 0) {
       queueAutoPickRef.current = false;
     }
-    if (pickTimeLeft === 0 && isDraftActive && isMyTurn && !queueAutoPickRef.current) {
+    if (pickTimeLeft === 0 && isDraftActive && !queueAutoPickRef.current && leagueId) {
+      queueAutoPickRef.current = true;
       const availableQueued = draftQueue.filter(id => !draftedPlayerIdsSet.has(id));
-      if (availableQueued.length > 0) {
-        queueAutoPickRef.current = true;
+
+      // Priority: if it is your turn and you have a queue, use queue top.
+      if (isMyTurn && availableQueued.length > 0) {
         const topPlayerId = availableQueued[0];
         apiRequest("POST", `/api/leagues/${leagueId}/draft-picks`, { userId: user?.id, playerId: topPlayerId })
           .then(() => {
@@ -354,11 +356,21 @@ export default function DraftRoom() {
             queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "drafted-player-ids"] });
             queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId] });
           })
+          .catch(() => {
+            // If queue pick fails (or queue is stale), fall back to server auto-pick.
+            return apiRequest("POST", `/api/leagues/${leagueId}/auto-pick`, {});
+          })
           .catch(() => { queueAutoPickRef.current = false; });
         return;
       }
+
+      // Fallback for empty queue / bot turns / missed worker cycle.
+      apiRequest("POST", `/api/leagues/${leagueId}/auto-pick`, {})
+        .catch(() => {
+          queueAutoPickRef.current = false;
+        });
     }
-  }, [pickTimeLeft, isDraftActive, isMyTurn, draftQueue]);
+  }, [pickTimeLeft, isDraftActive, isMyTurn, draftQueue, draftedPlayerIdsSet, leagueId, user?.id]);
 
   const picksByOverall = new Map<number, DraftPick>();
   draftPicks.forEach(p => picksByOverall.set(p.overallPick, p));
