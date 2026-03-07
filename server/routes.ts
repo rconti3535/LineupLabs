@@ -15,6 +15,7 @@ const INF_POSITIONS = ["1B", "2B", "3B", "SS"];
 type NewsItem = {
   title: string;
   link: string;
+  description?: string;
   pubDate: string | null;
   author: string | null;
   imageUrl: string | null;
@@ -70,6 +71,10 @@ function decodeXmlEntities(input: string): string {
     .replace(/&#39;/g, "'");
 }
 
+function stripHtmlTags(input: string): string {
+  return input.replace(/<[^>]*>/g, " ");
+}
+
 function extractTagValue(xml: string, tag: string): string {
   const match = xml.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, "i"));
   if (!match) return "";
@@ -93,6 +98,107 @@ function inferMlbTeamFromText(text: string): { abbr: string; logoUrl: string } |
       }
     }
   }
+  return null;
+}
+
+function getMlbTeamLogoUrl(teamAbbreviation: string | null | undefined): string | null {
+  if (!teamAbbreviation) return null;
+  const normalized = teamAbbreviation.trim().toUpperCase();
+  const match = MLB_TEAM_METADATA.find((t) => t.abbr === normalized);
+  if (!match) return null;
+  return `https://a.espncdn.com/i/teamlogos/mlb/500/${match.espnAbbr}.png`;
+}
+
+const PLAYER_NAME_STOP_WORDS = new Set([
+  "MLB", "Fantasy", "Baseball", "League", "Lineup", "Update", "News", "Report",
+  "Injury", "Injured", "Out", "Probable", "Questionable", "Activated", "Placed",
+  "Transferred", "Recalled", "Optioned", "Manager", "Coach", "Bullpen", "Rotation",
+  "Spring", "Training", "Trade", "Deadline", "Prospect", "Pitcher", "Catcher",
+  "Infielder", "Outfielder", "Closer", "Starter", "Game", "Series", "Tonight",
+]);
+
+function isLikelyPlayerCandidate(candidate: string): boolean {
+  const trimmed = candidate.trim().replace(/\s+/g, " ");
+  if (!trimmed) return false;
+  if (trimmed.length < 5 || trimmed.length > 40) return false;
+
+  const words = trimmed.split(" ");
+  if (words.length < 2 || words.length > 3) return false;
+
+  // Skip common non-player title fragments and team names/cities.
+  if (words.some((w) => PLAYER_NAME_STOP_WORDS.has(w.replace(/[^\w]/g, "")))) return false;
+  const lowered = trimmed.toLowerCase();
+  const matchesTeamAlias = MLB_TEAM_METADATA.some((team) => team.aliases.some((a) => a.toLowerCase() === lowered));
+  if (matchesTeamAlias) return false;
+
+  return true;
+}
+
+function extractLikelyPlayerNames(text: string): string[] {
+  const matches = text.match(/\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})(?:\s+(?:Jr\.?|Sr\.?|II|III|IV))?\b/g) || [];
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const raw of matches) {
+    const candidate = raw.trim().replace(/\s+/g, " ");
+    if (!isLikelyPlayerCandidate(candidate)) continue;
+    if (seen.has(candidate)) continue;
+    seen.add(candidate);
+    result.push(candidate);
+  }
+  return result;
+}
+
+const newsPlayerTeamCache = new Map<string, string | null>();
+
+async function inferTeamFromPlayerMention(text: string): Promise<{ abbr: string; logoUrl: string } | null> {
+  const playerCandidates = extractLikelyPlayerNames(text);
+  if (playerCandidates.length === 0) return null;
+
+  for (const candidate of playerCandidates) {
+    const cacheKey = candidate.toLowerCase();
+    const cachedTeam = newsPlayerTeamCache.get(cacheKey);
+    if (cachedTeam !== undefined) {
+      if (cachedTeam) {
+        const cachedLogo = getMlbTeamLogoUrl(cachedTeam);
+        if (cachedLogo) return { abbr: cachedTeam, logoUrl: cachedLogo };
+      }
+      continue;
+    }
+
+    const nameParts = candidate.split(" ");
+    const firstName = (nameParts[0] || "").toLowerCase();
+    const lastName = (nameParts[nameParts.length - 1] || "").toLowerCase();
+    const candidateLower = candidate.toLowerCase();
+
+    const playerRows = await db
+      .select({
+        teamAbbreviation: players.teamAbbreviation,
+      })
+      .from(players)
+      .where(sql`
+        (
+          lower(${players.name}) = ${candidateLower}
+          OR (
+            lower(coalesce(${players.firstName}, '')) = ${firstName}
+            AND lower(coalesce(${players.lastName}, '')) = ${lastName}
+          )
+        )
+      `)
+      .limit(1);
+
+    const teamAbbr = playerRows[0]?.teamAbbreviation?.toUpperCase() || null;
+    newsPlayerTeamCache.set(cacheKey, teamAbbr);
+    if (newsPlayerTeamCache.size > 3000) {
+      const firstKey = newsPlayerTeamCache.keys().next().value;
+      if (firstKey) newsPlayerTeamCache.delete(firstKey);
+    }
+
+    const logoUrl = getMlbTeamLogoUrl(teamAbbr);
+    if (teamAbbr && logoUrl) {
+      return { abbr: teamAbbr, logoUrl };
+    }
+  }
+
   return null;
 }
 
@@ -128,15 +234,15 @@ function parseRssItems(xml: string, limit = 10): NewsItem[] {
       const link = extractTagValue(itemXml, "link");
       const pubDate = extractTagValue(itemXml, "pubDate") || null;
       const description = extractTagValue(itemXml, "description");
-      const inferredTeam = inferMlbTeamFromText(`${title} ${description}`);
       return {
         title,
         link,
+        description: stripHtmlTags(description),
         pubDate,
         author: extractTagValue(itemXml, "author") || extractTagValue(itemXml, "dc:creator") || null,
         imageUrl: extractImageUrlFromItemXml(itemXml),
-        teamAbbreviation: inferredTeam?.abbr || null,
-        teamLogoUrl: inferredTeam?.logoUrl || null,
+        teamAbbreviation: null,
+        teamLogoUrl: null,
       };
     })
     .filter((item) => item.title && item.link)
@@ -413,7 +519,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const xml = await response.text();
-      const items = parseRssItems(xml, 8);
+      const parsedItems = parseRssItems(xml, 8);
+      const items = await Promise.all(
+        parsedItems.map(async (item) => {
+          const fullText = `${item.title} ${item.description || ""}`;
+          // First preference: identify player mention and use that player's current MLB team.
+          const playerTeam = await inferTeamFromPlayerMention(fullText);
+          if (playerTeam) {
+            return {
+              ...item,
+              teamAbbreviation: playerTeam.abbr,
+              teamLogoUrl: playerTeam.logoUrl,
+            };
+          }
+
+          // Fallback: infer from article text if no player is confidently matched.
+          const inferredTeam = inferMlbTeamFromText(fullText);
+          return {
+            ...item,
+            teamAbbreviation: inferredTeam?.abbr || null,
+            teamLogoUrl: inferredTeam?.logoUrl || null,
+          };
+        }),
+      );
+
       return res.json({ source, items });
     } catch (error) {
       console.error("News feed fetch error:", error);
