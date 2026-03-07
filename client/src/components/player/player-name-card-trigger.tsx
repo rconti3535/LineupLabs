@@ -180,6 +180,7 @@ export function PlayerNameCardTrigger({ player, className, leagueId }: PlayerNam
       return { height, on };
     });
   }, [resolvedPlayer.id, resolvedPlayer.statHR, resolvedPlayer.statSO]);
+  const showStatusSection = !!(leagueId || holderLoading || holderInfo);
 
   return (
     <>
@@ -196,7 +197,6 @@ export function PlayerNameCardTrigger({ player, className, leagueId }: PlayerNam
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="text-white w-[calc(100vw-12px)] max-w-[430px] p-0 overflow-hidden bg-[#0e1623] border border-[#1c2d42] rounded-[20px] shadow-[0_24px_60px_rgba(0,0,0,0.6),0_0_0_1px_rgba(0,201,255,0.06)]">
-          <div className="h-8 bg-[#0e1623]" />
           <div className="relative h-[190px] overflow-hidden bg-gradient-to-br from-[#0d1f38] via-[#091323] to-[#040c18]">
             <div
               className="absolute inset-0 pointer-events-none"
@@ -262,10 +262,10 @@ export function PlayerNameCardTrigger({ player, className, leagueId }: PlayerNam
             </div>
           </div>
 
-          <div className="px-[18px] pt-4 pb-5">
-            {(leagueId || holderLoading || holderInfo) && (
+          <div className="px-[18px] pt-1 pb-5">
+            {showStatusSection && (
               <>
-                <div className="mt-4 text-[8px] tracking-[0.28em] uppercase text-slate-500 flex items-center gap-2">
+                <div className="mt-1 text-[8px] tracking-[0.28em] uppercase text-slate-500 flex items-center gap-2">
                   <span>Status</span>
                   <span className="h-px flex-1 bg-[#1c2d42]" />
                 </div>
@@ -286,7 +286,7 @@ export function PlayerNameCardTrigger({ player, className, leagueId }: PlayerNam
               </>
             )}
 
-            <div className="mt-4 text-[8px] tracking-[0.28em] uppercase text-slate-500 flex items-center gap-2">
+            <div className={`${showStatusSection ? "mt-4" : "mt-1"} text-[8px] tracking-[0.28em] uppercase text-slate-500 flex items-center gap-2`}>
               <span>{isPitcher ? "Pitching Snapshot" : "Hitting Snapshot"}</span>
               <span className="h-px flex-1 bg-[#1c2d42]" />
             </div>
