@@ -207,7 +207,10 @@ export default function Teams() {
   return (
     <div className="px-2 py-6">
       <div className="mb-5 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-white">2026 Fantasy Baseball</h1>
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">2026 Season</p>
+          <h1 className="text-xl font-semibold text-white">Fanntasy Baseball</h1>
+        </div>
         <div className="h-9 w-9 rounded-full overflow-hidden border border-white/15 bg-white/5 flex items-center justify-center">
           {user?.avatar ? (
             <img src={user.avatar} alt="Profile" className="h-full w-full object-cover" />
@@ -261,7 +264,7 @@ export default function Teams() {
         )}
       </div>
 
-      <div className="mt-6 pt-4 border-t border-white/10">
+      <div className="mt-6 pt-4">
         <SectionHeader label="League Actions" className="mb-3 px-1" />
         <div className="league-card rounded-xl p-3 border border-white/15 bg-white/[0.03] backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_6px_16px_rgba(0,0,0,0.25)]">
           <div className="grid grid-cols-2 gap-[10px]">
@@ -289,111 +292,115 @@ export default function Teams() {
       </div>
 
       <div className="mt-6 space-y-4">
-        <div className="league-card rounded-xl p-4 border border-white/15 bg-white/[0.03] backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_6px_16px_rgba(0,0,0,0.25)]">
-          <SectionHeader label="Rotowire News" className="mb-3" />
-          <div className="space-y-2">
-            {rotowireLoading ? (
-              Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="h-10 rounded-lg bg-gray-800/70" />
-              ))
-            ) : (rotowireNews?.items || []).length > 0 ? (
-              rotowireNews!.items.map((item, idx) => (
-                <a
-                  key={`${item.link}-${idx}`}
-                  href={item.link}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block rounded-xl border border-white/30 bg-gradient-to-br from-[#4b5563]/62 via-[#6b7280]/45 to-[#9ca3af]/28 px-3 py-2 text-left text-white backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.24),inset_0_-2px_6px_rgba(0,0,0,0.28),0_10px_24px_rgba(0,0,0,0.35),0_2px_6px_rgba(0,0,0,0.28)] transition-all duration-200 hover:-translate-y-0.5 hover:from-[#6b7280]/68 hover:via-[#9ca3af]/44 hover:to-[#cbd5e1]/30 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.3),inset_0_-2px_7px_rgba(0,0,0,0.32),0_14px_30px_rgba(0,0,0,0.42),0_3px_8px_rgba(0,0,0,0.3)] active:scale-[0.97]"
-                >
-                  <div className="flex items-start gap-2.5">
-                    <div className="w-7 h-7 shrink-0 mt-0.5 flex items-center justify-center">
-                      {item.teamLogoUrl ? (
+        <div>
+          <SectionHeader label="Rotowire News" className="mb-3 px-1" />
+          <div className="league-card rounded-xl p-4 border border-white/15 bg-white/[0.03] backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_6px_16px_rgba(0,0,0,0.25)]">
+            <div className="space-y-2">
+              {rotowireLoading ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-10 rounded-lg bg-gray-800/70" />
+                ))
+              ) : (rotowireNews?.items || []).length > 0 ? (
+                rotowireNews!.items.map((item, idx) => (
+                  <a
+                    key={`${item.link}-${idx}`}
+                    href={item.link}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block rounded-xl border border-white/30 bg-gradient-to-br from-[#4b5563]/62 via-[#6b7280]/45 to-[#9ca3af]/28 px-3 py-2 text-left text-white backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.24),inset_0_-2px_6px_rgba(0,0,0,0.28),0_10px_24px_rgba(0,0,0,0.35),0_2px_6px_rgba(0,0,0,0.28)] transition-all duration-200 hover:-translate-y-0.5 hover:from-[#6b7280]/68 hover:via-[#9ca3af]/44 hover:to-[#cbd5e1]/30 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.3),inset_0_-2px_7px_rgba(0,0,0,0.32),0_14px_30px_rgba(0,0,0,0.42),0_3px_8px_rgba(0,0,0,0.3)] active:scale-[0.97]"
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-7 h-7 shrink-0 mt-0.5 flex items-center justify-center">
+                        {item.teamLogoUrl ? (
+                          <img
+                            src={item.teamLogoUrl}
+                            alt={item.teamAbbreviation || "MLB"}
+                            className="w-full h-full object-contain"
+                          />
+                        ) : (
+                          <span className="text-[10px] text-gray-400">MLB</span>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm text-white leading-5">
+                          {item.title}{" "}
+                          {item.author && (
+                            <span className="text-[11px] text-gray-500 whitespace-nowrap">
+                              {`By ${item.author}`}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                      {item.imageUrl && (
                         <img
-                          src={item.teamLogoUrl}
-                          alt={item.teamAbbreviation || "MLB"}
-                          className="w-full h-full object-contain"
+                          src={item.imageUrl}
+                          alt="Article"
+                          className="w-14 h-14 shrink-0 rounded-md object-cover border border-white/15"
                         />
-                      ) : (
-                        <span className="text-[10px] text-gray-400">MLB</span>
                       )}
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-sm text-white leading-5">
-                        {item.title}{" "}
-                        {item.author && (
-                          <span className="text-[11px] text-gray-500 whitespace-nowrap">
-                            {`By ${item.author}`}
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                    {item.imageUrl && (
-                      <img
-                        src={item.imageUrl}
-                        alt="Article"
-                        className="w-14 h-14 shrink-0 rounded-md object-cover border border-white/15"
-                      />
-                    )}
-                  </div>
-                </a>
-              ))
-            ) : (
-              <p className="text-sm text-gray-500">No Rotowire news available right now.</p>
-            )}
+                  </a>
+                ))
+              ) : (
+                <p className="text-sm text-gray-500">No Rotowire news available right now.</p>
+              )}
+            </div>
           </div>
         </div>
 
-        <div className="league-card rounded-xl p-4 border border-white/15 bg-white/[0.03] backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_6px_16px_rgba(0,0,0,0.25)]">
-          <SectionHeader label="ESPN News" className="mb-3" />
-          <div className="space-y-2">
-            {espnLoading ? (
-              Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="h-10 rounded-lg bg-gray-800/70" />
-              ))
-            ) : (espnNews?.items || []).length > 0 ? (
-              espnNews!.items.map((item, idx) => (
-                <a
-                  key={`${item.link}-${idx}`}
-                  href={item.link}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block rounded-xl border border-white/30 bg-gradient-to-br from-[#4b5563]/62 via-[#6b7280]/45 to-[#9ca3af]/28 px-3 py-2 text-left text-white backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.24),inset_0_-2px_6px_rgba(0,0,0,0.28),0_10px_24px_rgba(0,0,0,0.35),0_2px_6px_rgba(0,0,0,0.28)] transition-all duration-200 hover:-translate-y-0.5 hover:from-[#6b7280]/68 hover:via-[#9ca3af]/44 hover:to-[#cbd5e1]/30 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.3),inset_0_-2px_7px_rgba(0,0,0,0.32),0_14px_30px_rgba(0,0,0,0.42),0_3px_8px_rgba(0,0,0,0.3)] active:scale-[0.97]"
-                >
-                  <div className="flex items-start gap-2.5">
-                    <div className="w-7 h-7 shrink-0 mt-0.5 flex items-center justify-center">
-                      {item.teamLogoUrl ? (
+        <div>
+          <SectionHeader label="ESPN News" className="mb-3 px-1" />
+          <div className="league-card rounded-xl p-4 border border-white/15 bg-white/[0.03] backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_6px_16px_rgba(0,0,0,0.25)]">
+            <div className="space-y-2">
+              {espnLoading ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-10 rounded-lg bg-gray-800/70" />
+                ))
+              ) : (espnNews?.items || []).length > 0 ? (
+                espnNews!.items.map((item, idx) => (
+                  <a
+                    key={`${item.link}-${idx}`}
+                    href={item.link}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block rounded-xl border border-white/30 bg-gradient-to-br from-[#4b5563]/62 via-[#6b7280]/45 to-[#9ca3af]/28 px-3 py-2 text-left text-white backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.24),inset_0_-2px_6px_rgba(0,0,0,0.28),0_10px_24px_rgba(0,0,0,0.35),0_2px_6px_rgba(0,0,0,0.28)] transition-all duration-200 hover:-translate-y-0.5 hover:from-[#6b7280]/68 hover:via-[#9ca3af]/44 hover:to-[#cbd5e1]/30 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.3),inset_0_-2px_7px_rgba(0,0,0,0.32),0_14px_30px_rgba(0,0,0,0.42),0_3px_8px_rgba(0,0,0,0.3)] active:scale-[0.97]"
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-7 h-7 shrink-0 mt-0.5 flex items-center justify-center">
+                        {item.teamLogoUrl ? (
+                          <img
+                            src={item.teamLogoUrl}
+                            alt={item.teamAbbreviation || "MLB"}
+                            className="w-full h-full object-contain"
+                          />
+                        ) : (
+                          <span className="text-[10px] text-gray-400">MLB</span>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm text-white leading-5">
+                          {item.title}{" "}
+                          {item.author && (
+                            <span className="text-[11px] text-gray-500 whitespace-nowrap">
+                              {`By ${item.author}`}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                      {item.imageUrl && (
                         <img
-                          src={item.teamLogoUrl}
-                          alt={item.teamAbbreviation || "MLB"}
-                          className="w-full h-full object-contain"
+                          src={item.imageUrl}
+                          alt="Article"
+                          className="w-14 h-14 shrink-0 rounded-md object-cover border border-white/15"
                         />
-                      ) : (
-                        <span className="text-[10px] text-gray-400">MLB</span>
                       )}
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-sm text-white leading-5">
-                        {item.title}{" "}
-                        {item.author && (
-                          <span className="text-[11px] text-gray-500 whitespace-nowrap">
-                            {`By ${item.author}`}
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                    {item.imageUrl && (
-                      <img
-                        src={item.imageUrl}
-                        alt="Article"
-                        className="w-14 h-14 shrink-0 rounded-md object-cover border border-white/15"
-                      />
-                    )}
-                  </div>
-                </a>
-              ))
-            ) : (
-              <p className="text-sm text-gray-500">No ESPN news available right now.</p>
-            )}
+                  </a>
+                ))
+              ) : (
+                <p className="text-sm text-gray-500">No ESPN news available right now.</p>
+              )}
+            </div>
           </div>
         </div>
       </div>
