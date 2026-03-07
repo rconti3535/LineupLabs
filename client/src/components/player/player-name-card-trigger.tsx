@@ -164,22 +164,8 @@ export function PlayerNameCardTrigger({ player, className, leagueId }: PlayerNam
         { label: "OPS", value: resolvedPlayer.statOPS },
       ];
   const featuredStats = coreStats.slice(0, 4);
-  const fantasyPoints = typeof resolvedPlayer.points === "number" ? resolvedPlayer.points : null;
   const teamAbbr = (resolvedPlayer.teamAbbreviation || "").toUpperCase();
   const watermarkTeam = teamAbbr || (resolvedPlayer.team ? resolvedPlayer.team.slice(0, 3).toUpperCase() : "MLB");
-  const trendBars = useMemo(() => {
-    const seedBase = (resolvedPlayer.id || 1) * 7919 + (Number(resolvedPlayer.statHR) || 0) * 37 + (Number(resolvedPlayer.statSO) || 0) * 17;
-    let seed = Math.max(1, seedBase % 2147483647);
-    const next = () => {
-      seed = (seed * 48271) % 2147483647;
-      return seed / 2147483647;
-    };
-    return Array.from({ length: 10 }).map(() => {
-      const height = 6 + Math.floor(next() * 13);
-      const on = next() > 0.25;
-      return { height, on };
-    });
-  }, [resolvedPlayer.id, resolvedPlayer.statHR, resolvedPlayer.statSO]);
   const showStatusSection = !!(leagueId || holderLoading || holderInfo);
 
   return (
@@ -219,16 +205,6 @@ export function PlayerNameCardTrigger({ player, className, leagueId }: PlayerNam
               <p className="text-[24px] leading-none tracking-[0.03em] text-white font-bold max-w-[65vw] truncate">
                 {resolvedPlayer.name}
               </p>
-              <p className="text-[12px] leading-none tracking-[0.18em] uppercase text-cyan-300 font-semibold mt-1">
-                {resolvedPlayer.position || "-"}
-              </p>
-            </div>
-
-            <div className="absolute right-4 bottom-3 text-right">
-              <p className="text-[30px] leading-none font-bold text-amber-300">
-                {fantasyPoints !== null ? fantasyPoints : "--"}
-              </p>
-              <p className="text-[7px] tracking-[0.28em] uppercase text-slate-500 mt-0.5">Fantasy Pts</p>
             </div>
 
             <div className="absolute left-4 bottom-2">
@@ -301,24 +277,6 @@ export function PlayerNameCardTrigger({ player, className, leagueId }: PlayerNam
                   <p className="text-[7px] tracking-[0.18em] uppercase text-slate-500 mt-1">{s.label}</p>
                 </div>
               ))}
-            </div>
-
-            <div className="mt-4 text-[8px] tracking-[0.28em] uppercase text-slate-500 flex items-center gap-2">
-              <span>Recent Form</span>
-              <span className="h-px flex-1 bg-[#1c2d42]" />
-            </div>
-            <div className="mt-2 flex items-center gap-2 rounded-[9px] bg-[#131f30] border border-[#1c2d42] px-3 py-2.5">
-              <p className="text-[8px] tracking-[0.15em] uppercase text-slate-500 flex-1">Last 10 Games</p>
-              <div className="flex items-end gap-[3px] h-5">
-                {trendBars.map((bar, idx) => (
-                  <span
-                    key={`${resolvedPlayer.id}-${idx}`}
-                    className={`w-[5px] rounded-t-[2px] rounded-b-[1px] ${bar.on ? "bg-cyan-300" : "bg-[#1c2d42]"}`}
-                    style={{ height: `${bar.height}px` }}
-                  />
-                ))}
-              </div>
-              <p className="text-[11px] font-bold text-emerald-400">+{(Math.abs((resolvedPlayer.id % 13) * 0.7) + 1).toFixed(1)}</p>
             </div>
 
             <div className="mt-4 text-[8px] tracking-[0.28em] uppercase text-slate-500 flex items-center gap-2">
