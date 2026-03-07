@@ -339,6 +339,13 @@
   .sleeper-border {
     border-color: hsl(var(--sleeper-border));
   }
+
+  /* Slightly brighten gray text across the app for readability. */
+  .text-gray-700 { color: rgb(148 163 184); } /* was closer to gray-700 */
+  .text-gray-600 { color: rgb(156 163 175); }
+  .text-gray-500 { color: rgb(172 180 194); }
+  .text-gray-400 { color: rgb(188 195 208); }
+  .text-gray-300 { color: rgb(207 214 224); }
 }
 
 .hide-scrollbar, html, body {

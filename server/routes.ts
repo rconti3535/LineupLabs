@@ -704,12 +704,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      const secondsPerPick = league.secondsPerPick || 60;
       const newStatus = action === "pause" ? "paused" : "active";
       const updateData: Record<string, unknown> = { draftStatus: newStatus };
       if (newStatus === "active") {
-        updateData.draftPickStartedAt = new Date().toISOString();
+        if (action === "resume" && typeof league.draftPickStartedAt === "string" && league.draftPickStartedAt.startsWith("paused:")) {
+          const remainingRaw = Number(league.draftPickStartedAt.slice("paused:".length));
+          const remainingSeconds = Number.isFinite(remainingRaw)
+            ? Math.max(0, Math.min(secondsPerPick, Math.floor(remainingRaw)))
+            : secondsPerPick;
+          const elapsedSeconds = Math.max(0, secondsPerPick - remainingSeconds);
+          updateData.draftPickStartedAt = new Date(Date.now() - elapsedSeconds * 1000).toISOString();
+        } else {
+          updateData.draftPickStartedAt = new Date().toISOString();
+        }
       } else {
-        updateData.draftPickStartedAt = null;
+        // Persist remaining time so resume does not reset the pick clock.
+        const startedAtMs = league.draftPickStartedAt ? new Date(league.draftPickStartedAt).getTime() : NaN;
+        if (Number.isFinite(startedAtMs)) {
+          const elapsedSeconds = Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000));
+          const remainingSeconds = Math.max(0, secondsPerPick - elapsedSeconds);
+          updateData.draftPickStartedAt = `paused:${remainingSeconds}`;
+        } else {
+          updateData.draftPickStartedAt = `paused:${secondsPerPick}`;
+        }
       }
       const updated = await storage.updateLeague(id, updateData);
       broadcastDraftEvent(id, "draft-status", { action, draftStatus: newStatus });
