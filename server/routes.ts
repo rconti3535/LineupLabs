@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertLeagueSchema, insertTeamSchema, insertUserSchema, insertDraftPickSchema, players, playerAdp, teams as teamsTable, users, type Player, type InsertLeagueMatchup } from "@shared/schema";
@@ -8,6 +8,7 @@ import { getScheduleForDate, getPlayerGameTimes, type PlayerGameTime } from "./m
 import { addClient, broadcastDraftEvent } from "./draft-events";
 import { db } from "./db";
 import { eq, ne, and, sql, inArray } from "drizzle-orm";
+import { compare, hash } from "bcryptjs";
 
 const INF_POSITIONS = ["1B", "2B", "3B", "SS"];
 
@@ -142,8 +143,8 @@ function parseRssItems(xml: string, limit = 10): NewsItem[] {
     .slice(0, limit);
 }
 
-function stripBotFlag<T extends Record<string, unknown>>(user: T): Omit<T, "isBot"> {
-  const { isBot, ...rest } = user as any;
+function stripBotFlag<T extends Record<string, unknown>>(user: T): Omit<T, "isBot" | "password"> {
+  const { isBot, password, ...rest } = user as any;
   return rest;
 }
 
@@ -198,6 +199,53 @@ function getWaiverExpirationPST(): string {
     guess.setUTCHours(guess.getUTCHours() - h);
   }
   return guess.toISOString();
+}
+
+function getSessionUserId(req: any): number | null {
+  const userId = req?.session?.userId;
+  if (!userId) return null;
+  const parsed = Number(userId);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function getAdminUserIds(): Set<number> {
+  const raw = (process.env.ADMIN_USER_IDS || "").trim();
+  if (!raw) return new Set<number>();
+  return new Set(
+    raw
+      .split(",")
+      .map((s) => Number(s.trim()))
+      .filter((n) => Number.isFinite(n) && n > 0),
+  );
+}
+
+async function isLeagueMember(leagueId: number, userId: number): Promise<boolean> {
+  const leagueTeams = await storage.getTeamsByLeagueId(leagueId);
+  return leagueTeams.some((t) => t.userId === userId);
+}
+
+function parsePositiveInt(value: unknown): number | null {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return null;
+  if (!Number.isInteger(num) || num <= 0) return null;
+  return num;
+}
+
+function parseBoundedInt(value: unknown, defaultValue: number, min: number, max: number): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || !Number.isInteger(parsed)) return defaultValue;
+  return Math.max(min, Math.min(max, parsed));
+}
+
+function sanitizeSearchQuery(value: unknown, maxLen = 80): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  return trimmed.slice(0, maxLen);
+}
+
+function safeErrorResponse(res: Response, clientMessage: string, status = 500) {
+  return res.status(status).json({ message: clientMessage });
 }
 
 async function generateLeagueMatchups(leagueId: number): Promise<void> {
@@ -369,7 +417,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json({ source, items });
     } catch (error) {
       console.error("News feed fetch error:", error);
-      return res.status(500).json({ message: "Failed to load news feed" });
+      return safeErrorResponse(res, "Failed to load news feed");
     }
   });
 
@@ -403,18 +451,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }));
       res.json(leaguesWithTeamCount);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch public leagues" });
+      safeErrorResponse(res, "Failed to fetch public leagues");
+    }
+  });
+
+  // Enforce league membership for league-scoped API access.
+  app.use("/api/leagues/:id", async (req, res, next) => {
+    try {
+      const leagueId = parseInt(req.params.id);
+      if (!leagueId || Number.isNaN(leagueId)) {
+        return res.status(400).json({ message: "Invalid league id" });
+      }
+
+      const userId = getSessionUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const league = await storage.getLeague(leagueId);
+      if (!league) {
+        return res.status(404).json({ message: "League not found" });
+      }
+
+      // Joining must remain available to authenticated non-members.
+      if (req.method.toUpperCase() === "POST" && req.path === "/join") {
+        return next();
+      }
+
+      const member = await isLeagueMember(leagueId, userId);
+      if (!member) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      return next();
+    } catch {
+      return safeErrorResponse(res, "Failed to authorize league access");
+    }
+  });
+
+  // Restrict league-team listings to league members only.
+  app.use("/api/teams/league/:leagueId", async (req, res, next) => {
+    try {
+      const leagueId = parseInt(req.params.leagueId);
+      if (!leagueId || Number.isNaN(leagueId)) {
+        return res.status(400).json({ message: "Invalid league id" });
+      }
+      const userId = getSessionUserId(req);
+      if (!userId) return res.status(401).json({ message: "Authentication required" });
+      const member = await isLeagueMember(leagueId, userId);
+      if (!member) return res.status(403).json({ message: "Forbidden" });
+      return next();
+    } catch {
+      return safeErrorResponse(res, "Failed to authorize team access");
     }
   });
 
   // Get user teams
   app.get("/api/teams/user/:userId", async (req, res) => {
     try {
+      const authUserId = getSessionUserId(req);
       const userId = parseInt(req.params.userId);
+      if (!authUserId || authUserId !== userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
       const teams = await storage.getTeamsByUserId(userId);
       res.json(teams);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch user teams" });
+      safeErrorResponse(res, "Failed to fetch user teams");
     }
   });
 
@@ -426,30 +529,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sorted = [...teams].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999));
       res.json(sorted);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch league teams" });
+      safeErrorResponse(res, "Failed to fetch league teams");
     }
   });
 
   // Get user activities
   app.get("/api/activities/user/:userId", async (req, res) => {
     try {
+      const authUserId = getSessionUserId(req);
       const userId = parseInt(req.params.userId);
+      if (!authUserId || authUserId !== userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
       const activities = await storage.getActivitiesByUserId(userId);
       res.json(activities);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch user activities" });
+      safeErrorResponse(res, "Failed to fetch user activities");
     }
   });
 
   // Update league settings (commissioner only)
   app.patch("/api/leagues/:id", async (req, res) => {
     try {
+      const authUserId = getSessionUserId(req);
       const id = parseInt(req.params.id);
       const league = await storage.getLeague(id);
       if (!league) {
         return res.status(404).json({ message: "League not found" });
       }
-      const { userId, ...updates } = req.body;
+      const { ...updates } = req.body;
+      const userId = authUserId;
       if (league.createdBy !== userId) {
         return res.status(403).json({ message: "Only the commissioner can update league settings" });
       }
@@ -517,7 +626,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       broadcastDraftEvent(id, "league-settings", updates);
       res.json(updated);
     } catch (error) {
-      res.status(500).json({ message: "Failed to update league" });
+      safeErrorResponse(res, "Failed to update league");
     }
   });
 
@@ -545,7 +654,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!league) {
         return res.status(404).json({ message: "League not found" });
       }
-      const { userId, action, fillWithCpu } = req.body;
+      const authUserId = getSessionUserId(req);
+      const { action, fillWithCpu } = req.body;
+      const userId = authUserId;
       if (league.createdBy !== userId) {
         return res.status(403).json({ message: "Only the commissioner can control the draft" });
       }
@@ -605,7 +716,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       broadcastDraftEvent(id, "teams-update");
       res.json(updated);
     } catch (error) {
-      res.status(500).json({ message: "Failed to update draft status" });
+      safeErrorResponse(res, "Failed to update draft status");
     }
   });
 
@@ -616,7 +727,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!league) {
         return res.status(404).json({ message: "League not found" });
       }
-      const { userId } = req.body;
+      const userId = getSessionUserId(req);
       if (league.createdBy !== userId) {
         return res.status(403).json({ message: "Only the commissioner can set draft order" });
       }
@@ -635,7 +746,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedTeams = await storage.getTeamsByLeagueId(id);
       res.json(updatedTeams.sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999)));
     } catch (error) {
-      res.status(500).json({ message: "Failed to randomize draft order" });
+      safeErrorResponse(res, "Failed to randomize draft order");
     }
   });
 
@@ -646,7 +757,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!league) {
         return res.status(404).json({ message: "League not found" });
       }
-      const { userId, teamOrder } = req.body;
+      const userId = getSessionUserId(req);
+      const { teamOrder } = req.body;
       if (league.createdBy !== userId) {
         return res.status(403).json({ message: "Only the commissioner can set draft order" });
       }
@@ -672,7 +784,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedTeams = await storage.getTeamsByLeagueId(id);
       res.json(updatedTeams.sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999)));
     } catch (error) {
-      res.status(500).json({ message: "Failed to set draft order" });
+      safeErrorResponse(res, "Failed to set draft order");
     }
   });
 
@@ -683,8 +795,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!league) {
         return res.status(404).json({ message: "League not found" });
       }
-      const userIdRaw = (req.body as any)?.userId ?? req.query.userId;
-      const userId = typeof userIdRaw === "string" ? parseInt(userIdRaw) : Number(userIdRaw);
+      const userId = getSessionUserId(req);
       if (!userId || Number.isNaN(userId)) {
         return res.status(400).json({ message: "Missing or invalid userId" });
       }
@@ -695,8 +806,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "League deleted" });
     } catch (error) {
       console.error("[League Delete] failed:", error);
-      const detail = error instanceof Error ? error.message : "Unknown delete failure";
-      res.status(500).json({ message: "Failed to delete league", detail });
+      safeErrorResponse(res, "Failed to delete league");
     }
   });
 
@@ -710,7 +820,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.json(league);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch league" });
+      safeErrorResponse(res, "Failed to fetch league");
     }
   });
 
@@ -779,7 +889,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(result);
     } catch (error) {
       console.error("[Standings] route failed:", error);
-      res.status(500).json({ message: "Failed to compute standings" });
+      safeErrorResponse(res, "Failed to compute standings");
     }
   });
 
@@ -815,7 +925,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const matchups = computeMatchups(league, teams, draftPicks, playerMap, rosterPositions, persistedMatchups);
       res.json({ format, matchups });
     } catch (error) {
-      res.status(500).json({ message: "Failed to compute matchups" });
+      safeErrorResponse(res, "Failed to compute matchups");
     }
   });
 
@@ -829,7 +939,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const lineup = await storage.getDailyLineup(leagueId, teamId, date);
       res.json(lineup);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch daily lineup" });
+      safeErrorResponse(res, "Failed to fetch daily lineup");
     }
   });
 
@@ -873,7 +983,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ isLocked: info?.isLocked || false });
     } catch (error) {
-      res.status(500).json({ message: "Failed to check lock status" });
+      safeErrorResponse(res, "Failed to check lock status");
     }
   });
 
@@ -933,7 +1043,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(gameTimes);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch game times" });
+      safeErrorResponse(res, "Failed to fetch game times");
     }
   });
 
@@ -1004,25 +1114,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.saveDailyLineup(newEntries);
       res.json({ message: "Lineup updated" });
     } catch (error) {
-      res.status(500).json({ message: "Failed to swap lineup slots" });
+      safeErrorResponse(res, "Failed to swap lineup slots");
     }
   });
 
   // Search players
   app.get("/api/players", async (req, res) => {
     try {
-      const query = req.query.q as string | undefined;
-      const position = req.query.position as string | undefined;
-      const mlbLevel = req.query.level as string | undefined;
-      const limit = parseInt(req.query.limit as string) || 50;
-      const offset = parseInt(req.query.offset as string) || 0;
+      const query = sanitizeSearchQuery(req.query.q);
+      const position = typeof req.query.position === "string" ? req.query.position : undefined;
+      const mlbLevel = typeof req.query.level === "string" ? req.query.level : undefined;
+      const limit = parseBoundedInt(req.query.limit, 50, 1, 200);
+      const offset = parseBoundedInt(req.query.offset, 0, 0, 10000);
       const adpType = req.query.adpType as string | undefined;
       const adpScoring = req.query.adpScoring as string | undefined;
-      const adpSeason = req.query.adpSeason ? parseInt(req.query.adpSeason as string) : undefined;
+      const adpSeason = req.query.adpSeason ? parsePositiveInt(req.query.adpSeason) || undefined : undefined;
       const result = await storage.searchPlayers(query, position, mlbLevel, limit, offset, adpType, adpScoring, adpSeason);
       res.json(result);
     } catch (error) {
-      res.status(500).json({ message: "Failed to search players" });
+      safeErrorResponse(res, "Failed to search players");
     }
   });
   // Get player by ID
@@ -1032,30 +1142,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!Array.isArray(ids) || ids.length === 0) {
         return res.json([]);
       }
-      const numericIds = ids.map((id: any) => parseInt(id)).filter((id: number) => !isNaN(id));
+      if (ids.length > 500) {
+        return res.status(400).json({ message: "ids exceeds max size (500)" });
+      }
+      const numericIds = ids.map((id: unknown) => parsePositiveInt(id)).filter((id: number | null): id is number => id !== null);
+      if (numericIds.length !== ids.length) {
+        return res.status(400).json({ message: "ids must contain only positive integers" });
+      }
       const players = await storage.getPlayersByIds(numericIds);
       res.json(players);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch players" });
+      safeErrorResponse(res, "Failed to fetch players");
     }
   });
 
   app.get("/api/players/:id", async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
+      const id = parsePositiveInt(req.params.id);
+      if (!id) return res.status(400).json({ message: "Invalid player id" });
       const player = await storage.getPlayer(id);
       if (!player) {
         return res.status(404).json({ message: "Player not found" });
       }
       res.json(player);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch player" });
+      safeErrorResponse(res, "Failed to fetch player");
     }
   });
 
   app.get("/api/users/:id/profile-stats", async (req, res) => {
     try {
+      const authUserId = getSessionUserId(req);
       const userId = parseInt(req.params.id);
+      if (!authUserId || authUserId !== userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
       const userTeams = await storage.getTeamsByUserId(userId);
       const leagueIds = [...new Set(userTeams.map(t => t.leagueId).filter(Boolean))] as number[];
       const leagueMap = new Map<number, { status: string | null }>();
@@ -1092,13 +1213,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ allTimeLeagues, completedLeagues, gold, silver, bronze, winRate, trophyRate, gmTier });
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch profile stats" });
+      safeErrorResponse(res, "Failed to fetch profile stats");
     }
   });
 
   app.get("/api/users/:id/exposure", async (req, res) => {
     try {
+      const authUserId = getSessionUserId(req);
       const userId = parseInt(req.params.id);
+      if (!authUserId || authUserId !== userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
       const userTeams = await storage.getTeamsByUserId(userId);
       const teamIds = new Set(userTeams.filter(t => !t.isCpu).map(t => t.id));
       const leagueIds = [...new Set(userTeams.filter(t => !t.isCpu && t.leagueId).map(t => t.leagueId!))] as number[];
@@ -1160,27 +1285,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ totalLeagues, players: exposureList });
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch exposure data" });
+      safeErrorResponse(res, "Failed to fetch exposure data");
     }
   });
 
   // Get user profile
   app.get("/api/users/:id", async (req, res) => {
     try {
+      const authUserId = getSessionUserId(req);
       const id = parseInt(req.params.id);
+      if (!authUserId || authUserId !== id) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
       const user = await storage.getUser(id);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
       res.json(stripBotFlag(user));
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch user" });
+      safeErrorResponse(res, "Failed to fetch user");
     }
   });
 
   app.patch("/api/users/:id", async (req, res) => {
     try {
+      const authUserId = getSessionUserId(req);
       const id = parseInt(req.params.id);
+      if (!authUserId || authUserId !== id) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
       const { username, avatar } = req.body;
       if (username !== undefined) {
         const existing = await storage.getUserByUsername(username);
@@ -1192,21 +1325,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!updated) return res.status(404).json({ message: "User not found" });
       res.json(stripBotFlag(updated));
     } catch (error) {
-      res.status(500).json({ message: "Failed to update profile" });
+      safeErrorResponse(res, "Failed to update profile");
     }
   });
 
   app.delete("/api/users/:id", async (req, res) => {
     try {
+      const authUserId = getSessionUserId(req);
       const id = parseInt(req.params.id);
+      if (!authUserId || authUserId !== id) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
       const user = await storage.getUser(id);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
       await storage.deleteUser(id);
+      if (req.session) {
+        req.session.destroy(() => {});
+      }
       res.json({ message: "Account deleted" });
     } catch (error) {
-      res.status(500).json({ message: "Failed to delete account" });
+      safeErrorResponse(res, "Failed to delete account");
     }
   });
 
@@ -1226,23 +1366,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (existingEmail) {
         return res.status(400).json({ message: "Email already exists" });
       }
-      const user = await storage.createUser(validatedData);
+      const hashedPassword = await hash(validatedData.password, 12);
+      const user = await storage.createUser({
+        ...validatedData,
+        password: hashedPassword,
+      });
       if (!user) {
         console.error("Signup: createUser returned no user");
-        return res.status(500).json({ message: "Account could not be created. Please try again." });
+        return safeErrorResponse(res, "Account could not be created. Please try again.");
+      }
+      if (req.session) {
+        req.session.userId = user.id;
       }
       res.status(201).json(stripBotFlag(user));
     } catch (error: any) {
       console.error("Signup error:", error?.message || error);
       if (error?.stack) console.error(error.stack);
       if (error?.issues) {
-        const fieldErrors = error.issues.map((i: any) => `${i.path.join(".")}: ${i.message}`).join(", ");
-        return res.status(400).json({ message: fieldErrors });
+        const invalidFields = Array.from(
+          new Set(
+            error.issues
+              .map((i: any) => String(i?.path?.[0] ?? "").trim())
+              .filter((f: string) => f.length > 0)
+          )
+        );
+        return res.status(400).json({
+          message: invalidFields.length
+            ? `Invalid input for: ${invalidFields.join(", ")}`
+            : "Invalid user data",
+        });
       }
       const isValidation = error?.name === "ZodError";
-      const msg = error?.message || "Invalid user data";
-      if (isValidation) return res.status(400).json({ message: msg });
-      res.status(500).json({ message: "Server error during signup. Please try again." });
+      if (isValidation) return res.status(400).json({ message: "Invalid user data" });
+      safeErrorResponse(res, "Server error during signup. Please try again.");
     }
   });
 
@@ -1253,13 +1409,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const trimmedUsername = (username || "").trim();
       const trimmedPassword = (password || "").trim();
       const user = await storage.getUserByUsername(trimmedUsername);
-      if (!user || user.password !== trimmedPassword) {
+      let validPassword = false;
+      if (user) {
+        if (user.password.startsWith("$2a$") || user.password.startsWith("$2b$") || user.password.startsWith("$2y$")) {
+          validPassword = await compare(trimmedPassword, user.password);
+        } else {
+          // Backward compatibility for legacy plaintext rows; upgrade hash on successful login.
+          validPassword = user.password === trimmedPassword;
+          if (validPassword) {
+            const upgradedHash = await hash(trimmedPassword, 12);
+            await storage.updateUserPassword(user.id, upgradedHash);
+          }
+        }
+      }
+      if (!user || !validPassword) {
         return res.status(401).json({ message: "Invalid username or password" });
+      }
+      if (req.session) {
+        req.session.userId = user.id;
       }
       res.json(stripBotFlag(user));
     } catch (error: any) {
       console.error("Login error:", error?.message || error);
-      res.status(500).json({ message: "Login failed" });
+      safeErrorResponse(res, "Login failed");
     }
   });
 
@@ -1277,20 +1449,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user) {
         return res.status(404).json({ message: "No account found with that email" });
       }
-      const updated = await storage.updateUserPassword(user.id, newPassword);
+      const hashedPassword = await hash(newPassword, 12);
+      const updated = await storage.updateUserPassword(user.id, hashedPassword);
       if (!updated) {
-        return res.status(500).json({ message: "Failed to update password" });
+        return safeErrorResponse(res, "Failed to update password");
       }
       res.json({ message: "Password updated successfully" });
     } catch (error) {
-      res.status(500).json({ message: "Failed to reset password" });
+      safeErrorResponse(res, "Failed to reset password");
     }
+  });
+
+  app.get("/api/auth/me", async (req, res) => {
+    try {
+      const authUserId = getSessionUserId(req);
+      if (!authUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      const user = await storage.getUser(authUserId);
+      if (!user) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      return res.json(stripBotFlag(user));
+    } catch {
+      return safeErrorResponse(res, "Failed to fetch session user");
+    }
+  });
+
+  app.post("/api/auth/logout", async (req, res) => {
+    req.session?.destroy(() => {
+      res.clearCookie("lineuplabs.sid");
+      res.json({ ok: true });
+    });
   });
 
   // Create league
   app.post("/api/leagues", async (req, res) => {
     try {
-      const validatedData = insertLeagueSchema.parse(req.body);
+      const authUserId = getSessionUserId(req);
+      const validatedData = insertLeagueSchema.parse({
+        ...req.body,
+        createdBy: authUserId,
+      });
       if (!validatedData.draftDate || !String(validatedData.draftDate).includes("T")) {
         return res.status(400).json({ message: "Draft date and time are required" });
       }
@@ -1348,7 +1548,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create team
   app.post("/api/teams", async (req, res) => {
     try {
-      const validatedData = insertTeamSchema.parse(req.body);
+      const authUserId = getSessionUserId(req);
+      const validatedData = insertTeamSchema.parse({ ...req.body, userId: authUserId });
       const team = await storage.createTeam(validatedData);
       if (team.leagueId) {
         broadcastDraftEvent(team.leagueId, "teams-update");
@@ -1362,7 +1563,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/teams/:id/name", async (req, res) => {
     try {
       const teamId = parseInt(req.params.id, 10);
-      const { userId, name } = req.body as { userId?: number; name?: string };
+      const userId = getSessionUserId(req);
+      const { name } = req.body as { name?: string };
       if (!teamId || !userId || typeof name !== "string") {
         return res.status(400).json({ message: "teamId, userId, and name are required" });
       }
@@ -1388,7 +1590,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const updated = await storage.updateTeam(teamId, { name: trimmedName } as any);
       if (!updated) {
-        return res.status(500).json({ message: "Failed to update team name" });
+        return safeErrorResponse(res, "Failed to update team name");
       }
       if (updated.leagueId) {
         broadcastDraftEvent(updated.leagueId, "teams-update");
@@ -1396,14 +1598,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(updated);
     } catch (error) {
-      res.status(500).json({ message: "Failed to update team name" });
+      safeErrorResponse(res, "Failed to update team name");
     }
   });
 
   app.post("/api/leagues/:id/join", async (req, res) => {
     try {
       const leagueId = parseInt(req.params.id);
-      const { userId, invite } = req.body;
+      const userId = getSessionUserId(req);
+      const { invite } = req.body;
       if (!userId) {
         return res.status(400).json({ message: "User ID is required" });
       }
@@ -1453,14 +1656,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       broadcastDraftEvent(leagueId, "teams-update");
       res.status(201).json(team);
     } catch (error) {
-      res.status(500).json({ message: "Failed to join league" });
+      safeErrorResponse(res, "Failed to join league");
     }
   });
 
   app.post("/api/leagues/:id/leave", async (req, res) => {
     try {
       const leagueId = parseInt(req.params.id);
-      const { userId } = req.body;
+      const userId = getSessionUserId(req);
       if (!userId) {
         return res.status(400).json({ message: "User ID is required" });
       }
@@ -1483,14 +1686,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       broadcastDraftEvent(leagueId, "teams-update");
       res.json({ message: "Successfully left the league" });
     } catch (error) {
-      res.status(500).json({ message: "Failed to leave league" });
+      safeErrorResponse(res, "Failed to leave league");
     }
   });
 
   app.post("/api/leagues/:id/kick", async (req, res) => {
     try {
       const leagueId = parseInt(req.params.id);
-      const { commissionerId, teamId } = req.body;
+      const commissionerId = getSessionUserId(req);
+      const { teamId } = req.body;
       if (!commissionerId || !teamId) {
         return res.status(400).json({ message: "commissionerId and teamId are required" });
       }
@@ -1515,7 +1719,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       broadcastDraftEvent(leagueId, "teams-update");
       res.json({ message: "User removed from the league" });
     } catch (error) {
-      res.status(500).json({ message: "Failed to remove user" });
+      safeErrorResponse(res, "Failed to remove user");
     }
   });
 
@@ -1526,7 +1730,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const picks = await storage.getDraftPicksByLeague(leagueId);
       res.json(picks);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch draft picks" });
+      safeErrorResponse(res, "Failed to fetch draft picks");
     }
   });
 
@@ -1539,7 +1743,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!league) return { status: 404, body: { message: "League not found" } };
         if (league.draftStatus !== "active") return { status: 400, body: { message: "Draft is not active" } };
 
-        const { userId, playerId } = req.body;
+        const userId = getSessionUserId(req);
+        const { playerId } = req.body;
         if (!userId || !playerId) return { status: 400, body: { message: "userId and playerId are required" } };
 
         const rawLeagueTeams = await storage.getTeamsByLeagueId(leagueId);
@@ -1647,7 +1852,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(result.status).json(result.body);
     } catch (error) {
       console.error("Draft pick error:", error);
-      res.status(500).json({ message: "Failed to make draft pick" });
+      safeErrorResponse(res, "Failed to make draft pick");
     }
   });
 
@@ -1662,7 +1867,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return { status: 400, body: { message: "Draft is not active or paused" } };
         }
 
-        const { commissionerId, playerId, targetOverall } = req.body;
+        const commissionerId = getSessionUserId(req);
+        const { playerId, targetOverall } = req.body;
         if (!commissionerId || !playerId) return { status: 400, body: { message: "commissionerId and playerId are required" } };
         if (league.createdBy !== commissionerId) return { status: 403, body: { message: "Only the commissioner can assign players" } };
 
@@ -1723,7 +1929,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(result.status).json(result.body);
     } catch (error) {
       console.error("Commissioner pick error:", error);
-      res.status(500).json({ message: "Failed to make commissioner pick" });
+      safeErrorResponse(res, "Failed to make commissioner pick");
     }
   });
 
@@ -1906,7 +2112,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       broadcastDraftEvent(leagueId, "pick", { overallPick: nextOverall, playerId: selectedPlayer.id, teamId: pickingTeam.id });
       res.status(201).json({ pick, player: selectedPlayer });
     } catch (error) {
-      res.status(500).json({ message: "Failed to auto-pick" });
+      safeErrorResponse(res, "Failed to auto-pick");
     }
   });
 
@@ -1914,7 +2120,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/leagues/:id/roster-swap", async (req, res) => {
     try {
       const leagueId = parseInt(req.params.id);
-      const { userId, pickIdA, slotA, pickIdB, slotB } = req.body;
+      const userId = getSessionUserId(req);
+      const { pickIdA, slotA, pickIdB, slotB } = req.body;
       if (!userId || pickIdA === undefined || slotA === undefined || slotB === undefined) {
         return res.status(400).json({ message: "Missing required fields" });
       }
@@ -1968,7 +2175,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ message: "Roster swap successful" });
     } catch (error) {
-      res.status(500).json({ message: "Failed to swap roster slots" });
+      safeErrorResponse(res, "Failed to swap roster slots");
     }
   });
 
@@ -1976,7 +2183,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/leagues/:id/init-roster-slots", async (req, res) => {
     try {
       const leagueId = parseInt(req.params.id);
-      const { userId } = req.body;
+      const userId = getSessionUserId(req);
       if (!userId) return res.status(400).json({ message: "userId is required" });
 
       const league = await storage.getLeague(leagueId);
@@ -2053,7 +2260,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ message: "Roster slots initialized" });
     } catch (error) {
-      res.status(500).json({ message: "Failed to initialize roster slots" });
+      safeErrorResponse(res, "Failed to initialize roster slots");
     }
   });
 
@@ -2064,57 +2271,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const playerIds = await storage.getDraftedPlayerIds(leagueId);
       res.json(playerIds);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch drafted player IDs" });
+      safeErrorResponse(res, "Failed to fetch drafted player IDs");
     }
   });
 
   app.get("/api/adp", async (req, res) => {
     try {
-      const leagueType = (req.query.type as string) || "Redraft";
-      const scoringFormat = (req.query.scoring as string) || "Roto";
-      const season = parseInt(req.query.season as string) || 2026;
-      const limit = parseInt(req.query.limit as string) || 50;
-      const offset = parseInt(req.query.offset as string) || 0;
+      const leagueType = (typeof req.query.type === "string" && req.query.type.trim()) || "Redraft";
+      const scoringFormat = (typeof req.query.scoring === "string" && req.query.scoring.trim()) || "Roto";
+      const season = parseBoundedInt(req.query.season, 2026, 2000, 2100);
+      const limit = parseBoundedInt(req.query.limit, 50, 1, 500);
+      const offset = parseBoundedInt(req.query.offset, 0, 0, 100000);
       const result = await storage.getAdp(leagueType, scoringFormat, season, limit, offset);
       res.json(result);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch ADP data" });
+      safeErrorResponse(res, "Failed to fetch ADP data");
     }
   });
 
   app.get("/api/adp/player/:playerId", async (req, res) => {
     try {
-      const playerId = parseInt(req.params.playerId);
-      const leagueType = (req.query.type as string) || "Redraft";
-      const scoringFormat = (req.query.scoring as string) || "Roto";
-      const season = parseInt(req.query.season as string) || 2026;
+      const playerId = parsePositiveInt(req.params.playerId);
+      if (!playerId) return res.status(400).json({ message: "Invalid playerId" });
+      const leagueType = (typeof req.query.type === "string" && req.query.type.trim()) || "Redraft";
+      const scoringFormat = (typeof req.query.scoring === "string" && req.query.scoring.trim()) || "Roto";
+      const season = parseBoundedInt(req.query.season, 2026, 2000, 2100);
       const record = await storage.getPlayerAdp(playerId, leagueType, scoringFormat, season);
       if (!record) {
         return res.status(404).json({ message: "No ADP data for this player" });
       }
       res.json(record);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch player ADP" });
+      safeErrorResponse(res, "Failed to fetch player ADP");
     }
   });
 
   app.post("/api/adp/recalculate", async (req, res) => {
     try {
+      const userId = getSessionUserId(req);
+      const admins = getAdminUserIds();
+      if (!userId || !admins.has(userId)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
       const leagueType = (req.body.type as string) || "Redraft";
       const scoringFormat = (req.body.scoring as string) || "Roto";
       const season = parseInt(req.body.season) || 2026;
       await storage.recalculateAdp(leagueType, scoringFormat, season);
       res.json({ message: "ADP recalculated successfully" });
     } catch (error) {
-      res.status(500).json({ message: "Failed to recalculate ADP" });
+      safeErrorResponse(res, "Failed to recalculate ADP");
     }
   });
 
   app.post("/api/adp/import", async (req, res) => {
     try {
-      const { data, leagueType, scoringFormat, season, weight, userId, mode } = req.body;
-      if (!userId) {
-        return res.status(401).json({ message: "Authentication required" });
+      const { data, leagueType, scoringFormat, season, weight, mode } = req.body;
+      const userId = getSessionUserId(req);
+      const admins = getAdminUserIds();
+      if (!userId || !admins.has(userId)) {
+        return res.status(403).json({ message: "Forbidden" });
       }
       if (!data || typeof data !== "string") {
         return res.status(400).json({ message: "Missing 'data' field with tab-separated player ADP list" });
@@ -2206,7 +2421,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("ADP import error:", error);
-      res.status(500).json({ message: "Failed to import ADP data" });
+      safeErrorResponse(res, "Failed to import ADP data");
     }
   });
 
@@ -2216,24 +2431,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/leagues/:id/available-players", async (req, res) => {
     try {
-      const leagueId = parseInt(req.params.id);
-      const query = req.query.q as string | undefined;
-      const position = req.query.position as string | undefined;
-      const limit = parseInt(req.query.limit as string) || 50;
-      const offset = parseInt(req.query.offset as string) || 0;
-      const playerType = req.query.type as string | undefined;
-      const rosterStatus = req.query.status as string | undefined;
+      const leagueId = parsePositiveInt(req.params.id);
+      if (!leagueId) return res.status(400).json({ message: "Invalid league id" });
+      const query = sanitizeSearchQuery(req.query.q);
+      const position = typeof req.query.position === "string" ? req.query.position : undefined;
+      const limit = parseBoundedInt(req.query.limit, 50, 1, 200);
+      const offset = parseBoundedInt(req.query.offset, 0, 0, 10000);
+      const playerType = typeof req.query.type === "string" ? req.query.type : undefined;
+      const rosterStatus = typeof req.query.status === "string" ? req.query.status : undefined;
       const result = await storage.searchAvailablePlayers(leagueId, query, position, limit, offset, playerType, rosterStatus);
       res.json(result);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch available players" });
+      safeErrorResponse(res, "Failed to fetch available players");
     }
   });
 
   app.post("/api/leagues/:id/add-player", async (req, res) => {
     try {
       const leagueId = parseInt(req.params.id);
-      const { userId, playerId } = req.body;
+      const userId = getSessionUserId(req);
+      const { playerId } = req.body;
       if (!userId || !playerId) return res.status(400).json({ message: "Missing required fields" });
 
       const league = await storage.getLeague(leagueId);
@@ -2280,14 +2497,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ pick, player });
     } catch (error) {
-      res.status(500).json({ message: "Failed to add player" });
+      safeErrorResponse(res, "Failed to add player");
     }
   });
 
   app.post("/api/leagues/:id/add-drop", async (req, res) => {
     try {
       const leagueId = parseInt(req.params.id);
-      const { userId, addPlayerId, dropPickId } = req.body;
+      const userId = getSessionUserId(req);
+      const { addPlayerId, dropPickId } = req.body;
       if (!userId || !addPlayerId || !dropPickId) return res.status(400).json({ message: "Missing required fields" });
 
       const league = await storage.getLeague(leagueId);
@@ -2342,14 +2560,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ pick, player, message: "Player added and dropped successfully" });
     } catch (error) {
-      res.status(500).json({ message: "Failed to add/drop player" });
+      safeErrorResponse(res, "Failed to add/drop player");
     }
   });
 
   app.post("/api/leagues/:id/drop-player", async (req, res) => {
     try {
       const leagueId = parseInt(req.params.id);
-      const { userId, pickId } = req.body;
+      const userId = getSessionUserId(req);
+      const { pickId } = req.body;
       if (!userId || !pickId) return res.status(400).json({ message: "Missing required fields" });
 
       const league = await storage.getLeague(leagueId);
@@ -2386,7 +2605,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ message: "Player dropped successfully — on waivers for 2 days" });
     } catch (error) {
-      res.status(500).json({ message: "Failed to drop player" });
+      safeErrorResponse(res, "Failed to drop player");
     }
   });
 
@@ -2404,14 +2623,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }));
       res.json(waiversWithPlayers);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch waivers" });
+      safeErrorResponse(res, "Failed to fetch waivers");
     }
   });
 
   app.get("/api/leagues/:id/my-claims", async (req, res) => {
     try {
       const leagueId = parseInt(req.params.id);
-      const userId = parseInt(req.query.userId as string);
+      const userId = getSessionUserId(req);
       if (!userId) return res.status(400).json({ message: "Missing userId" });
       const league = await storage.getLeague(leagueId);
       if (!league) return res.status(404).json({ message: "League not found" });
@@ -2442,14 +2661,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.json(activeClaims);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch claims" });
+      safeErrorResponse(res, "Failed to fetch claims");
     }
   });
 
   app.post("/api/leagues/:id/waiver-claim", async (req, res) => {
     try {
       const leagueId = parseInt(req.params.id);
-      const { userId, playerId, dropPickId } = req.body;
+      const userId = getSessionUserId(req);
+      const { playerId, dropPickId } = req.body;
       if (!userId || !playerId) return res.status(400).json({ message: "Missing required fields" });
 
       const league = await storage.getLeague(leagueId);
@@ -2492,7 +2712,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       res.json({ claim, message: "Waiver claim submitted" });
     } catch (error) {
-      res.status(500).json({ message: "Failed to submit waiver claim" });
+      safeErrorResponse(res, "Failed to submit waiver claim");
     }
   });
 
@@ -2517,7 +2737,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }));
       res.json(transactionsWithDetails);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch transactions" });
+      safeErrorResponse(res, "Failed to fetch transactions");
     }
   });
 
@@ -2525,7 +2745,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const leagueId = parseInt(req.params.id);
       const claimId = parseInt(req.params.claimId);
-      const userId = parseInt(req.query.userId as string);
+      const userId = getSessionUserId(req);
       if (!userId) return res.status(400).json({ message: "Missing userId" });
       const league = await storage.getLeague(leagueId);
       if (!league) return res.status(404).json({ message: "League not found" });
@@ -2542,12 +2762,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deleteWaiverClaim(claimId);
       res.json({ message: "Waiver claim cancelled" });
     } catch (error) {
-      res.status(500).json({ message: "Failed to cancel waiver claim" });
+      safeErrorResponse(res, "Failed to cancel waiver claim");
     }
   });
 
   app.post("/api/import-stats", async (req, res) => {
     try {
+      const userId = getSessionUserId(req);
+      const admins = getAdminUserIds();
+      if (!userId || !admins.has(userId)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
       const { importSeasonStats } = await import("./import-stats");
       const season = req.body.season ? parseInt(req.body.season) : undefined;
       res.json({ message: `Stats import started for season ${season || 2025}` });
@@ -2556,7 +2781,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }).catch(e => console.error("Stats import error:", e));
     } catch (error) {
       console.error("Import stats error:", error);
-      res.status(500).json({ message: "Failed to start stats import" });
+      safeErrorResponse(res, "Failed to start stats import");
     }
   });
 
@@ -2622,7 +2847,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(lineup);
     } catch (error) {
       console.error("Get daily lineup error:", error);
-      res.status(500).json({ message: "Failed to fetch daily lineup" });
+      safeErrorResponse(res, "Failed to fetch daily lineup");
     }
   });
 
@@ -2702,7 +2927,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(newLineup);
     } catch (error) {
       console.error("Daily lineup swap error:", error);
-      res.status(500).json({ message: "Failed to swap daily lineup" });
+      safeErrorResponse(res, "Failed to swap daily lineup");
     }
   });
 
@@ -3185,17 +3410,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log("[ADP Sync] Startup sync skipped (set ADP_STARTUP_SYNC_ENABLED=true to enable)");
   }
 
-  app.post("/api/adp/sync", async (_req, res) => {
+  app.post("/api/adp/sync", async (req, res) => {
     try {
+      const userId = getSessionUserId(req);
+      const admins = getAdminUserIds();
+      if (!userId || !admins.has(userId)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
       await syncExternalAdpToTable();
       res.json({ message: "ADP sync complete" });
     } catch (error) {
-      res.status(500).json({ message: "Failed to sync ADP" });
+      safeErrorResponse(res, "Failed to sync ADP");
     }
   });
 
   app.post("/api/adp/upload-csv", async (req, res) => {
     try {
+      const userId = getSessionUserId(req);
+      const admins = getAdminUserIds();
+      if (!userId || !admins.has(userId)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
       const { csv } = req.body;
       if (!csv || typeof csv !== "string") {
         return res.status(400).json({ message: "Missing 'csv' field with CSV text" });
@@ -3237,7 +3472,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: `Updated ${updated} players, skipped ${skipped} rows` });
     } catch (error) {
       console.error("CSV upload error:", error);
-      res.status(500).json({ message: "Failed to process CSV" });
+      safeErrorResponse(res, "Failed to process CSV");
     }
   });
 

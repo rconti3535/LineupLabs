@@ -54,7 +54,7 @@ export default function Signup() {
       return await response.json();
     },
     onSuccess: (user) => {
-      queryClient.setQueryData(["/api/users", user.id], user);
+      queryClient.setQueryData(["/api/auth/me"], user);
       login(user.id);
     },
     onError: (error: any) => {

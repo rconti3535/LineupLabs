@@ -1,11 +1,12 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useCallback, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 
 interface AuthContextType {
   user: any;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (userId: number) => void;
+  login: (userId?: number) => void;
   logout: () => void;
 }
 
@@ -13,41 +14,41 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
-  const [currentUserId, setCurrentUserId] = useState<number | null>(() => {
-    const stored = localStorage.getItem("currentUserId");
-    return stored ? parseInt(stored) : null;
-  });
 
   const { data: user, isLoading } = useQuery({
-    queryKey: ["/api/users", currentUserId],
+    queryKey: ["/api/auth/me"],
     queryFn: async () => {
-      const res = await fetch(`/api/users/${currentUserId}`);
-      if (!res.ok) throw new Error("Failed to fetch user");
+      const res = await fetch("/api/auth/me", { credentials: "include" });
+      if (res.status === 401) return null;
+      if (!res.ok) throw new Error("Failed to fetch session user");
       return res.json();
     },
-    enabled: currentUserId !== null,
     retry: false,
   });
 
-  const login = useCallback((userId: number) => {
-    setCurrentUserId(userId);
-    localStorage.setItem("currentUserId", userId.toString());
-    queryClient.invalidateQueries({ queryKey: ["/api/users", userId] });
+  const login = useCallback((_userId?: number) => {
+    queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
   }, [queryClient]);
 
   const logout = useCallback(() => {
-    setCurrentUserId(null);
-    localStorage.removeItem("currentUserId");
-    queryClient.clear();
+    (async () => {
+      try {
+        await apiRequest("POST", "/api/auth/logout");
+      } catch {
+        // ignore logout errors client-side; clear local cache regardless.
+      } finally {
+        queryClient.clear();
+      }
+    })();
   }, [queryClient]);
 
-  const isAuthenticated = !!currentUserId && (!!user || isLoading);
+  const isAuthenticated = !!user;
 
   return (
     <AuthContext.Provider
       value={{
         user,
-        isLoading: currentUserId !== null && isLoading,
+        isLoading,
         isAuthenticated,
         login,
         logout,

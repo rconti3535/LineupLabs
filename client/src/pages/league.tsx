@@ -4084,8 +4084,9 @@ export default function LeaguePage() {
             <Button
               type="button"
               onClick={() => setShowDeleteConfirm(true)}
+              onTouchEnd={() => setShowDeleteConfirm(true)}
               variant="outline"
-              className="w-full border-red-800 text-red-400 hover:bg-red-900/30 hover:text-red-300 gap-2"
+              className="w-full border-red-800 text-red-400 hover:bg-red-900/30 hover:text-red-300 gap-2 touch-manipulation"
             >
               <Trash2 className="w-4 h-4" />
               Delete League
