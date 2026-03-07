@@ -262,6 +262,29 @@ export function PlayerNameCardTrigger({ player, className, leagueId }: PlayerNam
           </div>
 
           <div className="px-[18px] pt-8 pb-5">
+            {(leagueId || holderLoading || holderInfo) && (
+              <>
+                <div className="mt-4 text-[8px] tracking-[0.28em] uppercase text-slate-500 flex items-center gap-2">
+                  <span>Status</span>
+                  <span className="h-px flex-1 bg-[#1c2d42]" />
+                </div>
+                <div className="mt-2 flex items-center gap-2 rounded-[9px] bg-[#131f30] border border-[#1c2d42] px-3 py-2.5">
+                  <span className="w-[7px] h-[7px] rounded-full bg-emerald-400 shadow-[0_0_7px_#1fd97a] shrink-0 animate-pulse" />
+                  <p className="text-[10px] text-slate-200 flex-1">
+                    {holderLoading ? (
+                      "Loading roster status..."
+                    ) : holderInfo ? (
+                      <>
+                        Rostered by <span className="text-amber-300 font-semibold">{holderInfo.userName || holderInfo.teamName}</span>
+                      </>
+                    ) : (
+                      "Active - Available in this league"
+                    )}
+                  </p>
+                </div>
+              </>
+            )}
+
             <div className="mt-4 text-[8px] tracking-[0.28em] uppercase text-slate-500 flex items-center gap-2">
               <span>{isPitcher ? "Pitching Snapshot" : "Hitting Snapshot"}</span>
               <span className="h-px flex-1 bg-[#1c2d42]" />
@@ -294,29 +317,6 @@ export function PlayerNameCardTrigger({ player, className, leagueId }: PlayerNam
               </div>
               <p className="text-[11px] font-bold text-emerald-400">+{(Math.abs((resolvedPlayer.id % 13) * 0.7) + 1).toFixed(1)}</p>
             </div>
-
-            {(leagueId || holderLoading || holderInfo) && (
-              <>
-                <div className="mt-4 text-[8px] tracking-[0.28em] uppercase text-slate-500 flex items-center gap-2">
-                  <span>Status</span>
-                  <span className="h-px flex-1 bg-[#1c2d42]" />
-                </div>
-                <div className="mt-2 flex items-center gap-2 rounded-[9px] bg-[#131f30] border border-[#1c2d42] px-3 py-2.5">
-                  <span className="w-[7px] h-[7px] rounded-full bg-emerald-400 shadow-[0_0_7px_#1fd97a] shrink-0 animate-pulse" />
-                  <p className="text-[10px] text-slate-200 flex-1">
-                    {holderLoading ? (
-                      "Loading roster status..."
-                    ) : holderInfo ? (
-                      <>
-                        Rostered by <span className="text-amber-300 font-semibold">{holderInfo.userName || holderInfo.teamName}</span>
-                      </>
-                    ) : (
-                      "Active - Available in this league"
-                    )}
-                  </p>
-                </div>
-              </>
-            )}
 
             <div className="mt-4 text-[8px] tracking-[0.28em] uppercase text-slate-500 flex items-center gap-2">
               <span>News</span>
