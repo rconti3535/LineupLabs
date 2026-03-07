@@ -1304,6 +1304,7 @@ export default function DraftRoom() {
                   <div className="shrink-0 w-[120px]">
                     <PlayerNameCardTrigger
                       player={player}
+                      leagueId={leagueId || undefined}
                       className="text-white text-[13px] font-medium leading-tight truncate w-full text-left hover:text-blue-300 transition-colors"
                     />
                     <p className="text-[10px] truncate"><span className={`font-medium ${positionTextColor(player.position)}`}>{player.position}</span> <span className="text-gray-500">&middot; {player.teamAbbreviation || player.team}</span></p>
@@ -1521,6 +1522,7 @@ export default function DraftRoom() {
                   <div className="flex-1 min-w-0">
                     <PlayerNameCardTrigger
                       player={player}
+                      leagueId={leagueId || undefined}
                       className="text-white text-[15px] font-medium leading-tight truncate w-full text-left hover:text-blue-300 transition-colors"
                     />
                     <p className="text-[11px]"><span className={`font-medium ${positionTextColor(player.position)}`}>{player.position}</span> <span className="text-gray-500">&middot; {player.teamAbbreviation || player.team}</span></p>

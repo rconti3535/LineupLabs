@@ -1734,6 +1734,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get who currently rosters a specific player in this league.
+  app.get("/api/leagues/:id/player-holder/:playerId", async (req, res) => {
+    try {
+      const leagueId = parsePositiveInt(req.params.id);
+      const playerId = parsePositiveInt(req.params.playerId);
+      if (!leagueId || !playerId) {
+        return res.status(400).json({ message: "Invalid league id or player id" });
+      }
+
+      const picks = await storage.getDraftPicksByLeague(leagueId);
+      const pick = picks.find((p) => p.playerId === playerId);
+      if (!pick) {
+        return res.status(404).json({ message: "Player not rostered in this league" });
+      }
+
+      const team = await storage.getTeam(pick.teamId);
+      if (!team) {
+        return res.status(404).json({ message: "Team not found" });
+      }
+
+      let userName: string | null = null;
+      if (team.userId) {
+        const owner = await storage.getUser(team.userId);
+        userName = owner?.username || null;
+      }
+
+      return res.json({
+        teamId: team.id,
+        teamName: team.name,
+        userId: team.userId,
+        userName,
+        isCpu: !!team.isCpu,
+      });
+    } catch {
+      return safeErrorResponse(res, "Failed to fetch player holder");
+    }
+  });
+
   // Make a draft pick
   app.post("/api/leagues/:id/draft-picks", async (req, res) => {
     const leagueId = parseInt(req.params.id);

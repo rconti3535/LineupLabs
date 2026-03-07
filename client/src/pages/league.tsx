@@ -790,11 +790,12 @@ const DEFAULT_PV: Record<string, number> = {
   IP: 3, ER: -2, W: 2, L: -2, SV: 5, SO: 1, HA: -1, BBA: -1, QS: 0, HLD: 0, CG: 0, SHO: 0, BSV: 0,
 };
 
-function AddDropRosterRow({ pick, rosterPositions, isPending, onSelect }: {
+function AddDropRosterRow({ pick, rosterPositions, isPending, onSelect, leagueId }: {
   pick: DraftPick;
   rosterPositions: string[];
   isPending: boolean;
   onSelect: (pickId: number) => void;
+  leagueId: number;
 }) {
   const { data: player } = useQuery<Player>({
     queryKey: ["/api/players", pick.playerId],
@@ -820,6 +821,7 @@ function AddDropRosterRow({ pick, rosterPositions, isPending, onSelect }: {
         <div className="flex-1 min-w-0">
           <PlayerNameCardTrigger
             player={player}
+            leagueId={leagueId}
             className="text-white text-sm font-medium truncate w-full text-left hover:text-blue-300 transition-colors"
           />
           <div className="flex items-center gap-1.5">
@@ -1230,6 +1232,7 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
                     <td className="py-1.5 pl-1">
                       <PlayerNameCardTrigger
                         player={player}
+                        leagueId={leagueId}
                         className="text-white text-xs font-medium truncate max-w-[110px] w-full text-left hover:text-blue-300 transition-colors"
                       />
                       <div className="flex items-center gap-1">
@@ -1324,6 +1327,7 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
                 pick={pick}
                 rosterPositions={rosterPositions}
                 isPending={addDropMutation.isPending}
+                leagueId={leagueId}
                 onSelect={(pickId) => {
                   addDropMutation.mutate({ addPlayerId: addDropPlayer.id, dropPickId: pickId });
                 }}
@@ -1376,6 +1380,7 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
                 pick={pick}
                 rosterPositions={rosterPositions}
                 isPending={claimMutation.isPending}
+                leagueId={leagueId}
                 onSelect={(pickId) => {
                   claimMutation.mutate({ playerId: waiverClaimPlayer.id, dropPickId: pickId });
                 }}
@@ -2572,6 +2577,7 @@ export default function LeaguePage() {
                           {claim.player?.id && claim.player?.name ? (
                             <PlayerNameCardTrigger
                               player={claim.player}
+                              leagueId={leagueId || undefined}
                               className="text-white text-xs font-medium truncate w-full text-left hover:text-blue-300 transition-colors"
                             />
                           ) : (
@@ -2824,6 +2830,7 @@ export default function LeaguePage() {
                                                 statSO: p.statSO as number,
                                                 statIP: p.statIP as string,
                                               }}
+                                              leagueId={leagueId || undefined}
                                               className="text-white text-xs font-medium truncate max-w-[115px] w-full text-left hover:text-blue-300 transition-colors"
                                             />
                                             <p className="text-gray-500 text-[10px]">{p.position as string} — {(p.teamAbbreviation || p.team) as string}</p>
@@ -2907,6 +2914,7 @@ export default function LeaguePage() {
                                             statSO: p.statSO as number,
                                             statIP: p.statIP as string,
                                           }}
+                                          leagueId={leagueId || undefined}
                                           className="text-white text-xs font-medium truncate max-w-[115px] w-full text-left hover:text-blue-300 transition-colors"
                                         />
                                         <p className="text-gray-500 text-[10px]">{p.position as string} — {(p.teamAbbreviation || p.team) as string}</p>
@@ -2988,6 +2996,7 @@ export default function LeaguePage() {
                                             statSO: p.statSO as number,
                                             statIP: p.statIP as string,
                                           }}
+                                          leagueId={leagueId || undefined}
                                           className="text-white text-xs font-medium truncate max-w-[130px] w-full text-left hover:text-blue-300 transition-colors"
                                         />
                                       ) : (
@@ -3089,6 +3098,7 @@ export default function LeaguePage() {
                                             statSO: p.statSO as number,
                                             statIP: p.statIP as string,
                                           }}
+                                          leagueId={leagueId || undefined}
                                           className="text-white text-xs font-medium truncate max-w-[115px] w-full text-left hover:text-blue-300 transition-colors"
                                         />
                                         <p className="text-gray-500 text-[10px]">{p.position as string} — {(p.teamAbbreviation || p.team) as string}</p>
@@ -3170,6 +3180,7 @@ export default function LeaguePage() {
                                             statSO: p.statSO as number,
                                             statIP: p.statIP as string,
                                           }}
+                                          leagueId={leagueId || undefined}
                                           className="text-white text-xs font-medium truncate max-w-[130px] w-full text-left hover:text-blue-300 transition-colors"
                                         />
                                       ) : (
