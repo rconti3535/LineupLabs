@@ -2990,6 +2990,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
   let draftPickCheckInProgress = false;
+  const botPickDelayByTurnKey = new Map<string, number>();
+
+  function getBotPickDelaySeconds(leagueId: number, overallPick: number, secondsPerPick: number): number {
+    const turnKey = `${leagueId}:${overallPick}`;
+    const existing = botPickDelayByTurnKey.get(turnKey);
+    if (existing !== undefined) return existing;
+
+    // Bot picks should happen randomly after 25% to 50% of the pick clock has elapsed.
+    const minDelay = Math.max(1, Math.floor(secondsPerPick * 0.25));
+    const maxDelay = Math.max(minDelay, Math.floor(secondsPerPick * 0.5));
+    const delay = Math.floor(minDelay + Math.random() * (maxDelay - minDelay + 1));
+    botPickDelayByTurnKey.set(turnKey, delay);
+    return delay;
+  }
+
   async function checkExpiredDraftPicks() {
     if (draftPickCheckInProgress) return;
     draftPickCheckInProgress = true;
@@ -3010,6 +3025,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const leagueTeams = [...rawLeagueTeams].sort((a, b) => (a.draftPosition || 999) - (b.draftPosition || 999));
         const numTeams = leagueTeams.length;
         if (numTeams === 0) continue;
+        const candidateBotUserIds = leagueTeams
+          .filter((t) => !t.isCpu && t.userId != null)
+          .map((t) => t.userId!) as number[];
+        let botUserIds = new Set<number>();
+        if (candidateBotUserIds.length > 0) {
+          const botRows = await db
+            .select({ id: users.id })
+            .from(users)
+            .where(and(inArray(users.id, candidateBotUserIds), eq(users.isBot, true)));
+          botUserIds = new Set(botRows.map((r) => r.id));
+        }
+        const isAutoPickTeam = (team: { isCpu?: boolean | null; userId?: number | null } | undefined | null) =>
+          !!team && (team.isCpu === true || (team.userId != null && botUserIds.has(team.userId)));
 
         const preCheckPicks = await storage.getDraftPicksByLeague(league.id);
         const preNextOverall = preCheckPicks.length + 1;
@@ -3030,11 +3058,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const pickingTeam = leagueTeams[preTeamIndex];
         if (!pickingTeam) continue;
 
-        const isCpuTeam = pickingTeam.isCpu === true;
-        if (!isCpuTeam) {
-          const startedAt = new Date(league.draftPickStartedAt!).getTime();
-          const elapsed = (Date.now() - startedAt) / 1000;
+        const startedAt = new Date(league.draftPickStartedAt!).getTime();
+        const elapsed = Math.max(0, (Date.now() - startedAt) / 1000);
+        if (!isAutoPickTeam(pickingTeam)) {
           if (elapsed < secondsPerPick) continue;
+        } else {
+          const botDelaySeconds = getBotPickDelaySeconds(league.id, preNextOverall, secondsPerPick);
+          if (elapsed < botDelaySeconds) continue;
         }
 
         let continuePicking = true;
@@ -3213,7 +3243,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 return {
                   completed: false,
                   pick: { overallPick: nextOverall, playerId: selectedPlayer.id, teamId: currentPickingTeam.id },
-                  nextTeamIsCpu: nextTeam?.isCpu === true,
+                  nextTeamIsCpu: isAutoPickTeam(nextTeam),
                 };
               }
             } catch (insertErr: any) {
@@ -3227,13 +3257,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
 
           if (pickResult?.pick) {
+            botPickDelayByTurnKey.delete(`${league.id}:${pickResult.pick.overallPick}`);
             broadcastDraftEvent(league.id, "pick", pickResult.pick);
           }
           if (pickResult?.completed) {
             broadcastDraftEvent(league.id, "draft-status", { draftStatus: "completed" });
-          } else if (pickResult?.nextTeamIsCpu) {
-            await new Promise(r => setTimeout(r, 1200));
-            continuePicking = true;
           }
         }
         } catch (leagueErr) {

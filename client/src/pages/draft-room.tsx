@@ -10,6 +10,7 @@ import { ArrowLeft, ListFilter, Users2, Search, X, Clock, Timer, Play, Pause, Us
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { PlayerNameCardTrigger } from "@/components/player/player-name-card-trigger";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { League, Team, Player, DraftPick } from "@shared/schema";
 import { assignPlayersToRoster } from "@/lib/roster-utils";
@@ -142,6 +143,7 @@ export default function DraftRoom() {
   const [, params] = useRoute("/league/:id/draft");
   const [, setLocation] = useLocation();
   const { user } = useAuth();
+  const { toast } = useToast();
   const leagueId = params?.id ? parseInt(params.id) : null;
   const [activeTab, setActiveTab] = useState<DraftTab>("board");
   const [commissionerAssignMode, setCommissionerAssignMode] = useState(false);
@@ -259,6 +261,17 @@ export default function DraftRoom() {
   });
 
   const draftedPlayerIdsSet = useMemo(() => new Set(draftedPlayerIds), [draftedPlayerIds]);
+  const markPlayerDraftedLocally = useCallback((playerId: number) => {
+    if (!leagueId) return;
+    queryClient.setQueryData<number[]>(
+      ["/api/leagues", leagueId, "drafted-player-ids"],
+      (prev) => {
+        if (!prev) return [playerId];
+        if (prev.includes(playerId)) return prev;
+        return [...prev, playerId];
+      },
+    );
+  }, [leagueId]);
 
   useEffect(() => {
     if (!leagueId) return;
@@ -271,6 +284,10 @@ export default function DraftRoom() {
         try {
           const data = JSON.parse(event.data);
           if (data.type === "pick") {
+            const playerId = data?.data?.playerId;
+            if (typeof playerId === "number") {
+              markPlayerDraftedLocally(playerId);
+            }
             queryClient.refetchQueries({ queryKey: ["/api/leagues", leagueId, "draft-picks"] });
             queryClient.refetchQueries({ queryKey: ["/api/leagues", leagueId, "drafted-player-ids"] });
             queryClient.refetchQueries({ queryKey: ["/api/leagues", leagueId] });
@@ -299,7 +316,7 @@ export default function DraftRoom() {
       es?.close();
       if (reconnectTimer) clearTimeout(reconnectTimer);
     };
-  }, [leagueId]);
+  }, [leagueId, markPlayerDraftedLocally]);
 
   const draftDate = league?.draftDate ? new Date(league.draftDate) : null;
   const secondsPerPick = league?.secondsPerPick || 60;
@@ -336,6 +353,13 @@ export default function DraftRoom() {
   const isMyTurn = isDraftActive && currentPickingTeam && myTeam && currentPickingTeam.id === myTeam.id;
 
   const { pickTimeLeft } = usePickTimer(isDraftActive, secondsPerPick, league?.draftPickStartedAt || null);
+  const pausedRemainingSeconds = useMemo(() => {
+    const raw = league?.draftPickStartedAt || "";
+    if (!isDraftPaused || typeof raw !== "string" || !raw.startsWith("paused:")) return null;
+    const parsed = Number(raw.slice("paused:".length));
+    if (!Number.isFinite(parsed)) return null;
+    return Math.max(0, Math.floor(parsed));
+  }, [isDraftPaused, league?.draftPickStartedAt]);
 
   const queueAutoPickRef = useRef(false);
   useEffect(() => {
@@ -351,6 +375,7 @@ export default function DraftRoom() {
         const topPlayerId = availableQueued[0];
         apiRequest("POST", `/api/leagues/${leagueId}/draft-picks`, { userId: user?.id, playerId: topPlayerId })
           .then(() => {
+            markPlayerDraftedLocally(topPlayerId);
             setDraftQueue(prev => prev.filter(id => id !== topPlayerId));
             queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "draft-picks"] });
             queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "drafted-player-ids"] });
@@ -370,7 +395,7 @@ export default function DraftRoom() {
           queueAutoPickRef.current = false;
         });
     }
-  }, [pickTimeLeft, isDraftActive, isMyTurn, draftQueue, draftedPlayerIdsSet, leagueId, user?.id]);
+  }, [pickTimeLeft, isDraftActive, isMyTurn, draftQueue, draftedPlayerIdsSet, leagueId, user?.id, markPlayerDraftedLocally]);
 
   const picksByOverall = new Map<number, DraftPick>();
   draftPicks.forEach(p => picksByOverall.set(p.overallPick, p));
@@ -426,7 +451,31 @@ export default function DraftRoom() {
       });
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_result, playerId) => {
+      markPlayerDraftedLocally(playerId);
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "draft-picks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "drafted-player-ids"] });
+    },
+    onError: (error: any) => {
+      const raw = String(error?.message || "");
+      let message = "Unable to make draft pick. Please try again.";
+      const jsonStart = raw.indexOf("{");
+      if (jsonStart >= 0) {
+        try {
+          const parsed = JSON.parse(raw.slice(jsonStart));
+          if (parsed?.message && typeof parsed.message === "string") {
+            message = parsed.message;
+          }
+        } catch {}
+      }
+      toast({
+        title: "Draft pick failed",
+        description: message,
+        variant: "destructive",
+      });
+      // Ensure client state catches up immediately after race/stale failures.
+      queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/teams/league", leagueId] });
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "draft-picks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "drafted-player-ids"] });
     },
@@ -441,7 +490,8 @@ export default function DraftRoom() {
       });
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_result, playerId) => {
+      markPlayerDraftedLocally(playerId);
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "draft-picks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/leagues", leagueId, "drafted-player-ids"] });
       setCommissionerAssignMode(false);
@@ -482,7 +532,10 @@ export default function DraftRoom() {
 
   const getAdp = (player: Player) => player.externalAdp ?? null;
 
-  const availablePlayers = allFetchedPlayers;
+  const availablePlayers = useMemo(
+    () => allFetchedPlayers.filter((p) => !draftedPlayerIdsSet.has(p.id)),
+    [allFetchedPlayers, draftedPlayerIdsSet],
+  );
   const availableTotal = playersTotal;
 
   const queueIdsKey = [...draftQueue].sort((a, b) => a - b).join(",");
@@ -921,6 +974,11 @@ export default function DraftRoom() {
               <div className="flex-1 min-w-0">
                 <p className="text-yellow-400 text-[10px] font-medium uppercase tracking-wide">Draft Paused</p>
                 <p className="text-yellow-300 text-sm font-semibold">Waiting for commissioner...</p>
+                {pausedRemainingSeconds !== null && (
+                  <p className="text-yellow-200 text-xs mt-0.5">
+                    Paused at {formatPickTime(pausedRemainingSeconds)} remaining
+                  </p>
+                )}
               </div>
               {isCommissioner && (
                 <Button
@@ -1756,7 +1814,11 @@ export default function DraftRoom() {
                                       </td>
                                       <td className="py-1.5 pr-2">
                                         <div>
-                                          <p className="text-white text-xs font-medium truncate max-w-[130px]">{p.name}</p>
+                                          <PlayerNameCardTrigger
+                                            player={p}
+                                            leagueId={leagueId || undefined}
+                                            className="text-white text-xs font-medium truncate max-w-[130px] text-left hover:text-blue-300 transition-colors"
+                                          />
                                           <p className="text-gray-500 text-[10px]">{p.position} — {p.teamAbbreviation || p.team}</p>
                                         </div>
                                       </td>
@@ -1815,7 +1877,11 @@ export default function DraftRoom() {
                                   <td className="py-1.5 pr-2">
                                     {p ? (
                                       <div>
-                                        <p className="text-white text-xs font-medium truncate max-w-[130px]">{p.name}</p>
+                                        <PlayerNameCardTrigger
+                                          player={p}
+                                          leagueId={leagueId || undefined}
+                                          className="text-white text-xs font-medium truncate max-w-[130px] text-left hover:text-blue-300 transition-colors"
+                                        />
                                         <p className="text-gray-500 text-[10px]">{p.position} — {p.teamAbbreviation || p.team}</p>
                                       </div>
                                     ) : (
@@ -1861,7 +1927,11 @@ export default function DraftRoom() {
                                   <td className="py-1.5 pr-2">
                                     {p ? (
                                       <div>
-                                        <p className="text-white text-xs font-medium truncate max-w-[130px]">{p.name}</p>
+                                        <PlayerNameCardTrigger
+                                          player={p}
+                                          leagueId={leagueId || undefined}
+                                          className="text-white text-xs font-medium truncate max-w-[130px] text-left hover:text-blue-300 transition-colors"
+                                        />
                                         <p className="text-gray-500 text-[10px]">{p.position} — {p.teamAbbreviation || p.team}</p>
                                       </div>
                                     ) : (
@@ -1892,7 +1962,11 @@ export default function DraftRoom() {
                               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-700 text-gray-300 shrink-0">{slot.pos}</span>
                               {p ? (
                                 <div className="min-w-0">
-                                  <p className="text-white text-xs font-medium truncate">{p.name}</p>
+                                  <PlayerNameCardTrigger
+                                    player={p}
+                                    leagueId={leagueId || undefined}
+                                    className="text-white text-xs font-medium truncate text-left hover:text-blue-300 transition-colors"
+                                  />
                                   <p className="text-gray-500 text-[10px]">{p.position} — {p.teamAbbreviation || p.team}</p>
                                 </div>
                               ) : (
