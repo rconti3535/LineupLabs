@@ -27,6 +27,15 @@ function isLeagueDraftLive(league: Pick<League, "draftStatus" | "draftPickStarte
   return !!league.draftPickStartedAt;
 }
 
+function SectionHeader({ label, className = "" }: { label: string; className?: string }) {
+  return (
+    <div className={`flex items-center gap-2 ${className}`}>
+      <span className="font-['Jura'] text-[8px] uppercase tracking-[0.28em] text-slate-500">{label}</span>
+      <div className="h-px flex-1 bg-[#1c2d42]" />
+    </div>
+  );
+}
+
 export default function Teams() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
@@ -210,6 +219,7 @@ export default function Teams() {
         </div>
       </div>
 
+      <SectionHeader label="My Leagues" className="mb-3 px-1" />
       <div className="space-y-3">
         {showSkeleton ? (
           Array.from({ length: 2 }).map((_, i) => (
@@ -252,6 +262,7 @@ export default function Teams() {
       </div>
 
       <div className="mt-6 pt-4 border-t border-white/10">
+        <SectionHeader label="League Actions" className="mb-3 px-1" />
         <div className="league-card rounded-xl p-3 border border-white/15 bg-white/[0.03] backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_6px_16px_rgba(0,0,0,0.25)]">
           <div className="grid grid-cols-2 gap-[10px]">
             <button
@@ -279,7 +290,7 @@ export default function Teams() {
 
       <div className="mt-6 space-y-4">
         <div className="league-card rounded-xl p-4 border border-white/15 bg-white/[0.03] backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_6px_16px_rgba(0,0,0,0.25)]">
-          <h3 className="text-white font-semibold mb-3">Rotowire News</h3>
+          <SectionHeader label="Rotowire News" className="mb-3" />
           <div className="space-y-2">
             {rotowireLoading ? (
               Array.from({ length: 3 }).map((_, i) => (
@@ -333,7 +344,7 @@ export default function Teams() {
         </div>
 
         <div className="league-card rounded-xl p-4 border border-white/15 bg-white/[0.03] backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_6px_16px_rgba(0,0,0,0.25)]">
-          <h3 className="text-white font-semibold mb-3">ESPN News</h3>
+          <SectionHeader label="ESPN News" className="mb-3" />
           <div className="space-y-2">
             {espnLoading ? (
               Array.from({ length: 3 }).map((_, i) => (
