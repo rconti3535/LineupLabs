@@ -108,11 +108,6 @@ export function PlayerNameCardTrigger({ player, className, leagueId }: PlayerNam
   const resolvedPlayer = (fullPlayer || player) as Partial<Player> & { id: number; name: string };
   const imageCandidates = useMemo(() => buildHeadshotCandidates(resolvedPlayer), [resolvedPlayer]);
   const [imageSrcIndex, setImageSrcIndex] = useState(0);
-  const teamLogoUrl = useMemo(
-    () => getTeamLogoUrl(resolvedPlayer.teamAbbreviation || null),
-    [resolvedPlayer.teamAbbreviation],
-  );
-
   useEffect(() => {
     setImageSrcIndex(0);
   }, [resolvedPlayer.id, resolvedPlayer.avatar, resolvedPlayer.mlbId]);
@@ -200,7 +195,7 @@ export function PlayerNameCardTrigger({ player, className, leagueId }: PlayerNam
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="text-white max-w-[340px] p-0 overflow-hidden bg-[#0e1623] border border-[#1c2d42] rounded-[20px] shadow-[0_24px_60px_rgba(0,0,0,0.6),0_0_0_1px_rgba(0,201,255,0.06)]">
+        <DialogContent className="text-white w-screen max-w-none p-0 overflow-hidden bg-[#0e1623] border-y border-[#1c2d42] border-x-0 rounded-none shadow-[0_24px_60px_rgba(0,0,0,0.6),0_0_0_1px_rgba(0,201,255,0.06)]">
           <div className="relative h-[190px] overflow-hidden bg-gradient-to-br from-[#0d1f38] via-[#091323] to-[#040c18]">
             <div
               className="absolute inset-0 pointer-events-none"
@@ -220,10 +215,10 @@ export function PlayerNameCardTrigger({ player, className, leagueId }: PlayerNam
             </div>
 
             <div className="absolute top-4 right-4 text-right">
-              <p className="text-[9px] tracking-[0.3em] uppercase text-cyan-300 font-semibold">
-                {resolvedPlayer.team || resolvedPlayer.teamAbbreviation || "MLB"}
+              <p className="text-[24px] leading-none tracking-[0.03em] text-white font-bold max-w-[65vw] truncate">
+                {resolvedPlayer.name}
               </p>
-              <p className="text-[28px] leading-none tracking-[0.05em] text-white/10 font-bold mt-0.5">
+              <p className="text-[12px] leading-none tracking-[0.18em] uppercase text-cyan-300 font-semibold mt-1">
                 {resolvedPlayer.position || "-"}
               </p>
             </div>
@@ -235,14 +230,14 @@ export function PlayerNameCardTrigger({ player, className, leagueId }: PlayerNam
               <p className="text-[7px] tracking-[0.28em] uppercase text-slate-500 mt-0.5">Fantasy Pts</p>
             </div>
 
-            <div className="absolute left-4 -bottom-8">
+            <div className="absolute left-4 -bottom-2">
               <div className="relative">
-                <div className="w-[78px] h-[78px] rounded-full border-[3px] border-[#0e1623] bg-[#131f30] overflow-hidden shadow-[0_6px_24px_rgba(0,0,0,0.55),0_0_0_1px_rgba(0,201,255,0.15)]">
+                <div className="w-[96px] h-[120px] rounded-md overflow-hidden">
                   {imageCandidates[imageSrcIndex] ? (
                     <img
                       src={imageCandidates[imageSrcIndex]}
                       alt={resolvedPlayer.name}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover object-top"
                       onError={() => {
                         setImageSrcIndex((prev) => {
                           if (prev < imageCandidates.length - 1) return prev + 1;
@@ -251,7 +246,7 @@ export function PlayerNameCardTrigger({ player, className, leagueId }: PlayerNam
                       }}
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-2xl font-semibold text-gray-400">
+                    <div className="w-full h-full flex items-center justify-center text-2xl font-semibold text-gray-400 bg-[#131f30]">
                       {resolvedPlayer.name.charAt(0).toUpperCase()}
                     </div>
                   )}
@@ -265,21 +260,7 @@ export function PlayerNameCardTrigger({ player, className, leagueId }: PlayerNam
             </div>
           </div>
 
-          <div className="px-[18px] pt-11 pb-5">
-            <h3 className="text-[22px] leading-[1.1] font-bold tracking-[0.035em]">{resolvedPlayer.name}</h3>
-            <div className="mt-2 flex items-center gap-2.5 text-[9px] uppercase tracking-[0.18em] text-slate-500">
-              {teamLogoUrl && (
-                <img
-                  src={teamLogoUrl}
-                  alt={`${resolvedPlayer.teamAbbreviation || resolvedPlayer.team || "Team"} logo`}
-                  className="w-4 h-4 object-contain"
-                />
-              )}
-              <span>{resolvedPlayer.position || "-"}</span>
-              <span>·</span>
-              <span>{resolvedPlayer.teamAbbreviation || resolvedPlayer.team || "-"}</span>
-            </div>
-
+          <div className="px-[18px] pt-8 pb-5">
             <div className="mt-4 text-[8px] tracking-[0.28em] uppercase text-slate-500 flex items-center gap-2">
               <span>{isPitcher ? "Pitching Snapshot" : "Hitting Snapshot"}</span>
               <span className="h-px flex-1 bg-[#1c2d42]" />
