@@ -195,7 +195,7 @@ export function PlayerNameCardTrigger({ player, className, leagueId }: PlayerNam
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="text-white w-screen max-w-none p-0 overflow-hidden bg-[#0e1623] border-y border-[#1c2d42] border-x-0 rounded-none shadow-[0_24px_60px_rgba(0,0,0,0.6),0_0_0_1px_rgba(0,201,255,0.06)]">
+        <DialogContent className="text-white w-[calc(100vw-12px)] max-w-[430px] p-0 overflow-hidden bg-[#0e1623] border border-[#1c2d42] rounded-[20px] shadow-[0_24px_60px_rgba(0,0,0,0.6),0_0_0_1px_rgba(0,201,255,0.06)]">
           <div className="relative h-[190px] overflow-hidden bg-gradient-to-br from-[#0d1f38] via-[#091323] to-[#040c18]">
             <div
               className="absolute inset-0 pointer-events-none"
@@ -230,14 +230,15 @@ export function PlayerNameCardTrigger({ player, className, leagueId }: PlayerNam
               <p className="text-[7px] tracking-[0.28em] uppercase text-slate-500 mt-0.5">Fantasy Pts</p>
             </div>
 
-            <div className="absolute left-4 -bottom-2">
+            <div className="absolute left-4 bottom-2">
               <div className="relative">
                 <div className="w-[96px] h-[120px] rounded-md overflow-hidden">
                   {imageCandidates[imageSrcIndex] ? (
                     <img
                       src={imageCandidates[imageSrcIndex]}
                       alt={resolvedPlayer.name}
-                      className="w-full h-full object-cover object-top"
+                      className="w-full h-full object-cover"
+                      style={{ objectPosition: "50% 18%" }}
                       onError={() => {
                         setImageSrcIndex((prev) => {
                           if (prev < imageCandidates.length - 1) return prev + 1;
