@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, ListFilter, Users2, Search, X, Clock, Timer, Play, Pause, UserPlus, Trophy, AlertTriangle, Bot, Settings, ClipboardList, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { PlayerNameCardTrigger } from "@/components/player/player-name-card-trigger";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { League, Team, Player, DraftPick } from "@shared/schema";
@@ -1301,7 +1302,10 @@ export default function DraftRoom() {
                     </p>
                   </div>
                   <div className="shrink-0 w-[120px]">
-                    <p className="text-white text-[13px] font-medium leading-tight truncate">{player.name}</p>
+                    <PlayerNameCardTrigger
+                      player={player}
+                      className="text-white text-[13px] font-medium leading-tight truncate w-full text-left hover:text-blue-300 transition-colors"
+                    />
                     <p className="text-[10px] truncate"><span className={`font-medium ${positionTextColor(player.position)}`}>{player.position}</span> <span className="text-gray-500">&middot; {player.teamAbbreviation || player.team}</span></p>
                   </div>
                   <div
@@ -1515,7 +1519,10 @@ export default function DraftRoom() {
                     </p>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-white text-[15px] font-medium leading-tight truncate">{player.name}</p>
+                    <PlayerNameCardTrigger
+                      player={player}
+                      className="text-white text-[15px] font-medium leading-tight truncate w-full text-left hover:text-blue-300 transition-colors"
+                    />
                     <p className="text-[11px]"><span className={`font-medium ${positionTextColor(player.position)}`}>{player.position}</span> <span className="text-gray-500">&middot; {player.teamAbbreviation || player.team}</span></p>
                   </div>
                   <div className="flex items-center gap-2.5 shrink-0">

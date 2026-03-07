@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Users, Trophy, Calendar, TrendingUp, Pencil, Trash2, AlertTriangle, ArrowUpDown, Search, Plus, X, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Menu, Clock, Settings, Shuffle, GripVertical, Share, LogOut, UserMinus } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { PlayerNameCardTrigger } from "@/components/player/player-name-card-trigger";
 import { useAuth } from "@/hooks/useAuth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -817,7 +818,10 @@ function AddDropRosterRow({ pick, rosterPositions, isPending, onSelect }: {
       <span className="w-8 text-center text-[10px] text-gray-500 font-semibold uppercase shrink-0">{slotLabel}</span>
       {player ? (
         <div className="flex-1 min-w-0">
-          <p className="text-white text-sm font-medium truncate">{player.name}</p>
+          <PlayerNameCardTrigger
+            player={player}
+            className="text-white text-sm font-medium truncate w-full text-left hover:text-blue-300 transition-colors"
+          />
           <div className="flex items-center gap-1.5">
             <span className="text-[11px] text-blue-400 font-medium">{player.position}</span>
             <span className="text-[11px] text-gray-500">{player.teamAbbreviation || player.team}</span>
@@ -1224,7 +1228,10 @@ function PlayersTab({ leagueId, league, user }: { leagueId: number; league: Leag
                     </td>
                     )}
                     <td className="py-1.5 pl-1">
-                      <p className="text-white text-xs font-medium truncate max-w-[110px]">{player.name}</p>
+                      <PlayerNameCardTrigger
+                        player={player}
+                        className="text-white text-xs font-medium truncate max-w-[110px] w-full text-left hover:text-blue-300 transition-colors"
+                      />
                       <div className="flex items-center gap-1">
                         <span className="text-[10px] text-blue-400 font-medium">{player.position}</span>
                         <span className="text-[10px] text-gray-500">{player.teamAbbreviation || player.team}</span>
@@ -2562,7 +2569,14 @@ export default function LeaguePage() {
                     {myClaimsData.map((claim: any) => (
                       <div key={claim.id} className="flex items-center gap-3 bg-yellow-950/20 rounded-lg p-2.5 border border-yellow-900/30">
                         <div className="flex-1 min-w-0">
-                          <p className="text-white text-xs font-medium truncate">{claim.player?.name || "Unknown"}</p>
+                          {claim.player?.id && claim.player?.name ? (
+                            <PlayerNameCardTrigger
+                              player={claim.player}
+                              className="text-white text-xs font-medium truncate w-full text-left hover:text-blue-300 transition-colors"
+                            />
+                          ) : (
+                            <p className="text-white text-xs font-medium truncate">Unknown</p>
+                          )}
                           <div className="flex items-center gap-1.5">
                             <span className="text-[10px] text-blue-400">{claim.player?.position}</span>
                             <span className="text-[10px] text-gray-500">{claim.player?.teamAbbreviation}</span>
@@ -2789,7 +2803,29 @@ export default function LeaguePage() {
                                         </td>
                                         <td className="py-1.5 pr-2">
                                           <div>
-                                            <p className="text-white text-xs font-medium truncate max-w-[115px]">{p.name as string}</p>
+                                            <PlayerNameCardTrigger
+                                              player={{
+                                                id: p.id as number,
+                                                name: p.name as string,
+                                                position: p.position as string,
+                                                team: p.team as string,
+                                                teamAbbreviation: (p.teamAbbreviation as string) || undefined,
+                                                avatar: (p.avatar as string) || undefined,
+                                                statR: p.statR as number,
+                                                statHR: p.statHR as number,
+                                                statRBI: p.statRBI as number,
+                                                statSB: p.statSB as number,
+                                                statAVG: p.statAVG as string,
+                                                statOPS: p.statOPS as string,
+                                                statW: p.statW as number,
+                                                statSV: p.statSV as number,
+                                                statERA: p.statERA as string,
+                                                statWHIP: p.statWHIP as string,
+                                                statSO: p.statSO as number,
+                                                statIP: p.statIP as string,
+                                              }}
+                                              className="text-white text-xs font-medium truncate max-w-[115px] w-full text-left hover:text-blue-300 transition-colors"
+                                            />
                                             <p className="text-gray-500 text-[10px]">{p.position as string} — {(p.teamAbbreviation || p.team) as string}</p>
                                           </div>
                                         </td>
@@ -2850,7 +2886,29 @@ export default function LeaguePage() {
                                   <td className="py-1.5 pr-2">
                                     {p ? (
                                       <div className="cursor-pointer" onClick={() => isDraftCompleted && p && handleSwapSelect(entry.slotIndex)}>
-                                        <p className="text-white text-xs font-medium truncate max-w-[115px]">{p.name as string}</p>
+                                        <PlayerNameCardTrigger
+                                          player={{
+                                            id: p.id as number,
+                                            name: p.name as string,
+                                            position: p.position as string,
+                                            team: p.team as string,
+                                            teamAbbreviation: (p.teamAbbreviation as string) || undefined,
+                                            avatar: (p.avatar as string) || undefined,
+                                            statR: p.statR as number,
+                                            statHR: p.statHR as number,
+                                            statRBI: p.statRBI as number,
+                                            statSB: p.statSB as number,
+                                            statAVG: p.statAVG as string,
+                                            statOPS: p.statOPS as string,
+                                            statW: p.statW as number,
+                                            statSV: p.statSV as number,
+                                            statERA: p.statERA as string,
+                                            statWHIP: p.statWHIP as string,
+                                            statSO: p.statSO as number,
+                                            statIP: p.statIP as string,
+                                          }}
+                                          className="text-white text-xs font-medium truncate max-w-[115px] w-full text-left hover:text-blue-300 transition-colors"
+                                        />
                                         <p className="text-gray-500 text-[10px]">{p.position as string} — {(p.teamAbbreviation || p.team) as string}</p>
                                       </div>
                                     ) : (
@@ -2908,7 +2966,33 @@ export default function LeaguePage() {
                                   </td>
                                   <td className="py-1.5 pr-2">
                                     <div className="cursor-pointer" onClick={() => isDraftCompleted && p && handleSwapSelect(entry.slotIndex)}>
-                                      <p className="text-white text-xs font-medium truncate max-w-[130px]">{p?.name as string}</p>
+                                      {p ? (
+                                        <PlayerNameCardTrigger
+                                          player={{
+                                            id: p.id as number,
+                                            name: p.name as string,
+                                            position: p.position as string,
+                                            team: p.team as string,
+                                            teamAbbreviation: (p.teamAbbreviation as string) || undefined,
+                                            avatar: (p.avatar as string) || undefined,
+                                            statR: p.statR as number,
+                                            statHR: p.statHR as number,
+                                            statRBI: p.statRBI as number,
+                                            statSB: p.statSB as number,
+                                            statAVG: p.statAVG as string,
+                                            statOPS: p.statOPS as string,
+                                            statW: p.statW as number,
+                                            statSV: p.statSV as number,
+                                            statERA: p.statERA as string,
+                                            statWHIP: p.statWHIP as string,
+                                            statSO: p.statSO as number,
+                                            statIP: p.statIP as string,
+                                          }}
+                                          className="text-white text-xs font-medium truncate max-w-[130px] w-full text-left hover:text-blue-300 transition-colors"
+                                        />
+                                      ) : (
+                                        <p className="text-white text-xs font-medium truncate max-w-[130px]">-</p>
+                                      )}
                                       <p className="text-gray-500 text-[10px]">{p?.position as string} — {(p?.teamAbbreviation || p?.team) as string}</p>
                                     </div>
                                   </td>
@@ -2984,7 +3068,29 @@ export default function LeaguePage() {
                                   <td className="py-1.5 pr-2">
                                     {p ? (
                                       <div className="cursor-pointer" onClick={() => isDraftCompleted && p && handleSwapSelect(entry.slotIndex)}>
-                                        <p className="text-white text-xs font-medium truncate max-w-[115px]">{p.name as string}</p>
+                                        <PlayerNameCardTrigger
+                                          player={{
+                                            id: p.id as number,
+                                            name: p.name as string,
+                                            position: p.position as string,
+                                            team: p.team as string,
+                                            teamAbbreviation: (p.teamAbbreviation as string) || undefined,
+                                            avatar: (p.avatar as string) || undefined,
+                                            statR: p.statR as number,
+                                            statHR: p.statHR as number,
+                                            statRBI: p.statRBI as number,
+                                            statSB: p.statSB as number,
+                                            statAVG: p.statAVG as string,
+                                            statOPS: p.statOPS as string,
+                                            statW: p.statW as number,
+                                            statSV: p.statSV as number,
+                                            statERA: p.statERA as string,
+                                            statWHIP: p.statWHIP as string,
+                                            statSO: p.statSO as number,
+                                            statIP: p.statIP as string,
+                                          }}
+                                          className="text-white text-xs font-medium truncate max-w-[115px] w-full text-left hover:text-blue-300 transition-colors"
+                                        />
                                         <p className="text-gray-500 text-[10px]">{p.position as string} — {(p.teamAbbreviation || p.team) as string}</p>
                                       </div>
                                     ) : (
@@ -3042,7 +3148,33 @@ export default function LeaguePage() {
                                   </td>
                                   <td className="py-1.5 pr-2">
                                     <div className="cursor-pointer" onClick={() => isDraftCompleted && p && handleSwapSelect(entry.slotIndex)}>
-                                      <p className="text-white text-xs font-medium truncate max-w-[130px]">{p?.name as string}</p>
+                                      {p ? (
+                                        <PlayerNameCardTrigger
+                                          player={{
+                                            id: p.id as number,
+                                            name: p.name as string,
+                                            position: p.position as string,
+                                            team: p.team as string,
+                                            teamAbbreviation: (p.teamAbbreviation as string) || undefined,
+                                            avatar: (p.avatar as string) || undefined,
+                                            statR: p.statR as number,
+                                            statHR: p.statHR as number,
+                                            statRBI: p.statRBI as number,
+                                            statSB: p.statSB as number,
+                                            statAVG: p.statAVG as string,
+                                            statOPS: p.statOPS as string,
+                                            statW: p.statW as number,
+                                            statSV: p.statSV as number,
+                                            statERA: p.statERA as string,
+                                            statWHIP: p.statWHIP as string,
+                                            statSO: p.statSO as number,
+                                            statIP: p.statIP as string,
+                                          }}
+                                          className="text-white text-xs font-medium truncate max-w-[130px] w-full text-left hover:text-blue-300 transition-colors"
+                                        />
+                                      ) : (
+                                        <p className="text-white text-xs font-medium truncate max-w-[130px]">-</p>
+                                      )}
                                       <p className="text-gray-500 text-[10px]">{p?.position as string} — {(p?.teamAbbreviation || p?.team) as string}</p>
                                     </div>
                                   </td>

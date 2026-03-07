@@ -32,7 +32,7 @@ export default function Signup() {
     if (isAuthenticated) {
       const params = new URLSearchParams(window.location.search);
       const redirect = params.get("redirect");
-      setLocation(redirect || "/");
+      setLocation(redirect || "/teams");
     }
   }, [isAuthenticated, setLocation]);
 
