@@ -195,10 +195,11 @@ export function applySecurityMiddleware(app: Express) {
         directives: {
           defaultSrc: ["'self'"],
           scriptSrc: ["'self'", "'unsafe-inline'"],
-          styleSrc: ["'self'", "'unsafe-inline'"],
+          // Allow Google Fonts stylesheet used by the client entry HTML.
+          styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
           imgSrc: ["'self'", "data:", "https:"],
           connectSrc: ["'self'", "https:", "wss:"],
-          fontSrc: ["'self'", "data:", "https:"],
+          fontSrc: ["'self'", "data:", "https://fonts.gstatic.com", "https:"],
           objectSrc: ["'none'"],
           baseUri: ["'self'"],
           frameAncestors: ["'none'"],
