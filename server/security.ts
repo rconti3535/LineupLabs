@@ -134,6 +134,23 @@ function createRateLimitMiddleware() {
     "1 m": 60_000,
   };
   const fallbackHits = new Map<string, { count: number; resetAt: number }>();
+  const UPSTASH_LIMIT_TIMEOUT_MS = 2000;
+
+  async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("rate-limit-timeout")), timeoutMs);
+      promise.then(
+        (value) => {
+          clearTimeout(timer);
+          resolve(value);
+        },
+        (error) => {
+          clearTimeout(timer);
+          reject(error);
+        },
+      );
+    });
+  }
 
   return async (req: Request, res: Response, next: NextFunction) => {
     if (!req.path.startsWith("/api")) return next();
@@ -145,7 +162,7 @@ function createRateLimitMiddleware() {
     try {
       if (upstashLimiters) {
         const limiter = upstashLimiters.get(rule.id) || upstashLimiters.get("default");
-        const result = await limiter!.limit(key);
+        const result = await withTimeout(limiter!.limit(key), UPSTASH_LIMIT_TIMEOUT_MS);
         if (!result.success) {
           const retryAfterSeconds = result.reset ? Math.max(1, Math.ceil((result.reset - Date.now()) / 1000)) : undefined;
           if (retryAfterSeconds) {
